@@ -15,15 +15,17 @@ module FWGL.Event (
 import FWGL.Internal
 
 import JavaScript.Event hiding (Event)
+import qualified JavaScript.Event as JE
 import JavaScript.Key
 
+import qualified Data.HashMap.Strict as H
 import FRP.Yampa
 
 keyUp :: KeyCode a => a -> SF Input (Event ())
-keyUp k = evEdge (== KeyUp) $ isKey k
+keyUp k = evEdge KeyUp $ isKey k
 
 keyDown :: KeyCode a => a -> SF Input (Event ())
-keyDown k = evEdge (== KeyDown) $ isKey k
+keyDown k = evEdge KeyDown $ isKey k
 
 key :: KeyCode a => a -> SF Input (Event ())
 key k = sscan upDown NoEvent <<< keyUp k &&& keyDown k
@@ -55,19 +57,20 @@ upDown _ (_, Event x) = Event x
 upDown (Event _) (Event _, _) = NoEvent
 upDown s _ = s
 
-evSearch :: (a -> Bool) -> (b -> Bool) -> SF [(a, b)] (Event (a, b))
-evSearch aP bP = arr $ eventHead . filter (\(a, b) -> aP a && bP b)
+evSearch :: JE.Event -> (EventData -> Bool) -> SF Input (Event EventData)
+evSearch ev bP = arr $ \ inp -> case H.lookup ev inp of
+                                        Just bs -> eventHead $ filter bP bs
+                                        Nothing -> NoEvent
 
-evEdge :: (a -> Bool) -> (b -> Bool) -> SF [(a, b)] (Event ())
-evEdge aP bP = evSearch aP bP >>> arr isEvent >>> edge
+evEdge :: JE.Event -> (EventData -> Bool) -> SF Input (Event ())
+evEdge ev bP = evSearch ev bP >>> arr isEvent >>> edge
 
-evPointer :: Eq a => a -> (EventData -> Bool)
-          -> SF [(a, EventData)] (Event (Int, Int))
-evPointer a bP = evSearch (== a) bP >>>
-                 arr (\e -> case e of
-                        Event (_, ed) -> case (clientX ed, clientY ed) of
-                                                (Just x, Just y) -> Event (x, y)
-                                                _ -> NoEvent
+evPointer :: JE.Event -> (EventData -> Bool) -> SF Input (Event (Int, Int))
+evPointer ev bP = evSearch ev bP >>>
+                 arr (\ e -> case e of
+                        Event ed -> case (clientX ed, clientY ed) of
+                                        (Just x, Just y) -> Event (x, y)
+                                        _ -> NoEvent
                         NoEvent -> NoEvent
                   )
 

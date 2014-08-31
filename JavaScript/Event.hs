@@ -17,6 +17,8 @@ module JavaScript.Event (
 
 import Control.Applicative
 import Data.Char (toLower, toUpper)
+import qualified Data.Hashable as H
+import qualified Data.HashMap.Strict as H
 import Data.IORef
 
 import GHCJS.Foreign
@@ -27,7 +29,7 @@ import JavaScript.Key
 
 data Source = Source {
         element :: JSRef (),
-        eventList :: IORef [(Event, EventData)]
+        eventMap :: IORef (H.HashMap Event [EventData])
 }
 
 data MouseButton = MouseLeft | MouseMiddle | MouseRight deriving (Show, Eq)
@@ -68,23 +70,28 @@ data EventData = EventData {
         shiftKey :: Maybe Bool
 } deriving (Show)
 
+instance H.Hashable Event where
+        hashWithSalt salt = H.hashWithSalt salt . eventName
+        hash = H.hash . eventName
+
 source :: [Event] -> JSRef a -> IO Source
 source es j = do
-        s <- Source (castRef j) <$> newIORef []
+        s <- Source (castRef j) <$> newIORef H.empty
         addEvents es s
         return s
 
-events :: Source -> IO [(Event, EventData)]
+events :: Source -> IO (H.HashMap Event [EventData])
 events (Source _ c) = readIORef c
 
-clear :: Source -> IO [(Event, EventData)]
-clear (Source _ c) = readIORef c <* writeIORef c []
+clear :: Source -> IO (H.HashMap Event [EventData])
+clear (Source _ c) = readIORef c <* writeIORef c H.empty
 
 addEvents :: [Event] -> Source -> IO ()
 addEvents es s = mapM_ (flip addEvent s) es
 
 addEvent :: Event -> Source -> IO ()
-addEvent e (Source j c) = asyncCallback1 AlwaysRetain handler >>= addHandler j (toJSString $ eventName e)
+addEvent e (Source j c) = asyncCallback1 AlwaysRetain handler >>=
+                          addHandler j (toJSString $ eventName e)
         where 
                 prop p d =  getProp p d >>= fromJSRef
                 handler d = do
@@ -98,7 +105,7 @@ addEvent e (Source j c) = asyncCallback1 AlwaysRetain handler >>= addHandler j (
                                         <*> prop "ctrlKey" d
                                         <*> prop "metaKey" d
                                         <*> prop "shiftKey" d
-                        modifyIORef c $ ((e, eventData) :)
+                        modifyIORef c $ H.insertWith (flip (++)) e [ eventData ]
 
 isKey :: KeyCode a => a -> EventData -> Bool
 isKey x e = case keyCode e of
@@ -109,15 +116,16 @@ isKeyI :: Char -> EventData -> Bool
 isKeyI c e = isKey (toLower c) e || isKey (toUpper c) e
 
 mouseEvents :: [Event]
-mouseEvents = [ Click, DoubleClick, MouseDown, MouseMove, MouseOver, MouseOut, MouseUp ]
+mouseEvents = [ Click, DoubleClick, MouseDown, MouseMove
+              , MouseOver, MouseOut, MouseUp ]
 
 keyboardEvents :: [Event]
 keyboardEvents = [ KeyDown, KeyUp, KeyPress ]
 
 allEvents :: [Event]
-allEvents = [   Click, DoubleClick, MouseDown, MouseMove, MouseOver, MouseOut, MouseUp,
-                KeyDown, KeyUp, KeyPress, Abort, Error, Load, Resize, Scroll, Unload, Blur,
-                Change, Focus, Reset, Select, Submit ]
+allEvents = [ Click, DoubleClick, MouseDown, MouseMove, MouseOver, MouseOut
+            , MouseUp, KeyDown, KeyUp, KeyPress, Abort, Error, Load, Resize
+            , Scroll, Unload, Blur, Change, Focus, Reset, Select, Submit ]
 
 eventName :: Event -> String
 eventName (Other s) = s

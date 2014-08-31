@@ -28,7 +28,7 @@ run q sigf = do element <- query $ toJSString q
                 eventSrc <- source handledEvents element
                 ctx <- getCtx element
                 drawStateRef <- drawInit ctx 640 480 >>= newIORef -- chg
-                reactimate (return [])
+                reactimate (clear eventSrc)
                            (const $ sense eventSrc)
                            (const $ actuate drawStateRef)
                            sigf
