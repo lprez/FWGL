@@ -20,6 +20,11 @@ module FWGL.Vector (
         scaleMat
 ) where
 
+import Control.Applicative
+import Data.Hashable
+import Foreign.Storable
+import Foreign.Ptr (castPtr)
+
 data V2 = V2 !Float !Float deriving (Show, Eq)
 data V3 = V3 !Float !Float !Float deriving (Show, Eq)
 data V4 = V4 !Float !Float !Float !Float deriving (Show, Eq)
@@ -27,6 +32,40 @@ data V4 = V4 !Float !Float !Float !Float deriving (Show, Eq)
 data M2 = M2 !V2 !V2 deriving (Show, Eq)
 data M3 = M3 !V3 !V3 !V3 deriving (Show, Eq)
 data M4 = M4 !V4 !V4 !V4 !V4 deriving (Show, Eq)
+
+instance Hashable V2 where
+        hashWithSalt s (V2 x y) = hashWithSalt s (x, y)
+
+instance Hashable V3 where
+        hashWithSalt s (V3 x y z) = hashWithSalt s (x, y, z)
+
+instance Hashable V4 where
+        hashWithSalt s (V4 x y z w) = hashWithSalt s (x, y, z, w)
+
+instance Storable V2 where
+        sizeOf _ = 2 * sizeOf (undefined :: Float)
+        alignment _ = alignment (undefined :: Float)
+        peek ptr = V2 <$> peek (castPtr ptr)
+                      <*> peekElemOff (castPtr ptr) 1
+        poke ptr (V2 x y) = poke (castPtr ptr) x >> pokeElemOff (castPtr ptr) 1 y
+
+instance Storable V3 where
+        sizeOf _ = 3 * sizeOf (undefined :: Float)
+        alignment _ = alignment (undefined :: Float)
+        peek ptr = V3 <$> peek (castPtr ptr)
+                      <*> peekElemOff (castPtr ptr) 1
+                      <*> peekElemOff (castPtr ptr) 2
+        poke ptr (V3 x y z) = zipWithM_ (pokeElemOff $ castPtr ptr)
+                                        [0 .. 2] [x, y, z]
+instance Storable V4 where
+        sizeOf _ = 4 * sizeOf (undefined :: Float)
+        alignment _ = alignment (undefined :: Float)
+        peek ptr = V4 <$> peek (castPtr ptr) 
+                      <*> peekElemOff (castPtr ptr) 1
+                      <*> peekElemOff (castPtr ptr) 2
+                      <*> peekElemOff (castPtr ptr) 3
+        poke ptr (V4 x y z w) = zipWithM_ (pokeElemOff $ castPtr ptr)
+                                          [0 .. 3] [x, y, z, w]
 
 vec2 :: (Float, Float) -> V2
 vec2 = uncurry V2
@@ -90,6 +129,15 @@ mul4 (M4 (V4 _1 _2 _3 _4)
                 _d * d + _e * h + _f * l + _g * p
         )
 
+transpose4 :: M4 -> M4
+transpose4 (M4 (V4 a1 a2 a3 a4)
+               (V4 b1 b2 b3 b4)
+               (V4 c1 c2 c3 c4)
+               (V4 d1 d2 d3 d4)) = M4 (V4 a1 b1 c1 d1)
+                                      (V4 a2 b2 c2 d2)
+                                      (V4 a3 b3 c3 d3)
+                                      (V4 a4 b4 c4 d4)
+
 idMat :: M4
 idMat = mat4 ( 1, 0, 0, 0
              , 0, 1, 0, 0
@@ -97,10 +145,10 @@ idMat = mat4 ( 1, 0, 0, 0
              , 0, 0, 0, 1 )
 
 transMat :: V3 -> M4
-transMat (V3 x y z) = mat4 ( 1, 0, 0, x
-                           , 0, 1, 0, y
-                           , 0, 0, 1, z
-                           , 0, 0, 0, 1 )
+transMat (V3 x y z) = mat4 ( 1, 0, 0, 0
+                           , 0, 1, 0, 0
+                           , 0, 0, 1, 0
+                           , x, y, z, 1 )
 
 rotXMat :: Float -> M4
 rotXMat a = mat4 ( 1, 0, 0, 0
@@ -125,3 +173,6 @@ scaleMat (V3 x y z) = mat4 ( x, 0, 0, 0
                            , 0, y, 0, 0
                            , 0, 0, z, 0
                            , 0, 0, 0, 1 )
+
+zipWithM_ :: Monad m => (a -> b -> m c) -> [a] -> [b] -> m ()
+zipWithM_ f xs = sequence_ . zipWith f xs

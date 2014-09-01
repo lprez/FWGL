@@ -16,6 +16,7 @@ import FWGL.Vector
 
 import JavaScript.WebGL hiding (getCtx)
 
+import qualified Data.HashMap.Strict as H
 import Data.Word (Word, Word16)
 import Control.Applicative
 import Control.Monad.IO.Class
@@ -26,8 +27,9 @@ import GHCJS.Types
 
 data DrawState = DrawState {
         context :: Ctx,
-        cubeBuffers :: GPUMesh,
-        modelUniform :: UniformLocation
+        cubeBuffers :: GPUMesh, -- TODO: subst staticGeoms
+        modelUniform :: UniformLocation,
+        staticGeoms :: H.HashMap Geometry GPUMesh
 }
 
 newtype Draw a = Draw { unDraw :: StateT DrawState IO a }
@@ -52,7 +54,8 @@ drawInit ctx w h = do program <- loadShaders ctx defVS defFS
                                                 $ toJSString "modelMatrix"
                       return DrawState { context = ctx
                                        , cubeBuffers = cube
-                                       , modelUniform = modelUniform }
+                                       , modelUniform = modelUniform
+                                       , staticGeoms = H.empty }
 
 execDraw :: Draw () -> DrawState -> IO DrawState
 execDraw (Draw a) = execStateT a
@@ -82,12 +85,28 @@ drawSolid (Solid mesh trans) =
 
 drawMesh :: Mesh -> Draw ()
 drawMesh Cube = Draw (cubeBuffers <$> get) >>= drawGPUMesh
+drawMesh (StaticGeom g) = staticGeom g >>= drawGPUMesh
+
+staticGeom :: Geometry -> Draw GPUMesh
+staticGeom g = do map <- Draw $ staticGeoms <$> get
+                  case H.lookup g map of
+                          Just gpuMesh -> return gpuMesh
+                          Nothing -> do ctx <- getCtx
+                                        gpuMesh <- liftIO $ loadGeometry ctx g
+                                        Draw . modify $ \ s -> s {
+                                                staticGeoms =
+                                                        H.insert g gpuMesh map
+                                                }
+                                        return gpuMesh
 
 drawGPUMesh :: GPUMesh -> Draw ()
-drawGPUMesh (GPUMesh vb _ _ eb ec) = getCtx >>= \ctx -> liftIO $
+drawGPUMesh (GPUMesh vb _ nb eb ec) = getCtx >>= \ctx -> liftIO $
         do bindBuffer ctx gl_ARRAY_BUFFER vb
            enableVertexAttribArray ctx posAttribLoc
            vertexAttribPointer ctx posAttribLoc 3 gl_FLOAT False 0 0
+           bindBuffer ctx gl_ARRAY_BUFFER nb
+           enableVertexAttribArray ctx normalAttribLoc
+           vertexAttribPointer ctx normalAttribLoc 3 gl_FLOAT False 0 0
            bindBuffer ctx gl_ARRAY_BUFFER noBuffer
 
            bindBuffer ctx gl_ELEMENT_ARRAY_BUFFER eb
@@ -95,12 +114,13 @@ drawGPUMesh (GPUMesh vb _ _ eb ec) = getCtx >>= \ctx -> liftIO $
            bindBuffer ctx gl_ELEMENT_ARRAY_BUFFER noBuffer
 
            disableVertexAttribArray ctx posAttribLoc
+           disableVertexAttribArray ctx normalAttribLoc
 
 getCtx :: Draw Ctx
 getCtx = Draw $ context <$> get
 
 loadGeometry :: Ctx -> Geometry -> IO GPUMesh
-loadGeometry ctx (Geometry vs fs ns es) =
+loadGeometry ctx (Geometry vs fs ns es _) =
         GPUMesh <$> (viewV3 vs >>= loadBuffer ctx gl_ARRAY_BUFFER)
                 <*> (viewV2 fs >>= loadBuffer ctx gl_ARRAY_BUFFER)
                 <*> (viewV3 ns >>= loadBuffer ctx gl_ARRAY_BUFFER)
@@ -162,12 +182,16 @@ loadShaders ctx vsSrc fsSrc =
            attachShader ctx program vs
            attachShader ctx program fs
            bindAttribLocation ctx program posAttribLoc $ toJSString "pos"
+           bindAttribLocation ctx program normalAttribLoc $ toJSString "normal"
            linkProgram ctx program
            useProgram ctx program
            return program
 
 posAttribLoc :: Num a => a
 posAttribLoc = 0
+
+normalAttribLoc :: Num a => a
+normalAttribLoc = 1
 
 loadShader :: Ctx -> Word -> String -> IO Shader
 loadShader ctx ty src =
@@ -177,9 +201,19 @@ loadShader ctx ty src =
            return shader
 
 defVS :: String
-defVS = "attribute vec3 pos; varying vec3 vpos; uniform mat4 modelMatrix; \
-        \void main() { gl_Position = modelMatrix * vec4(pos, 1.0); vpos = pos; }"
+defVS = "       attribute vec3 pos;                                     \
+        \       attribute vec3 normal;                                  \
+        \       varying vec4 vpos;                                      \
+        \       uniform mat4 modelMatrix;                               \
+        \       void main() {                                           \
+        \               vpos = vec4(pos, 1.0);                          \
+        \               gl_Position = modelMatrix * vpos;               \
+        \       }                                                       "
 
 defFS :: String
-defFS = "precision mediump float; varying vec3 vpos; \
-        \void main() { gl_FragColor = vec4(vpos.x + 1.0, vpos.y + 1.0, vpos.z + 1.0, 1.0); }"
+defFS = "       precision mediump float;                                \
+        \       varying vec4 vpos;                                      \
+        \       varying vec3 vnormal;                                   \
+        \       void main() {                                           \
+        \               gl_FragColor = vpos / 2.0 + 0.5;                \
+        \       }                                                       "

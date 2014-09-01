@@ -3,6 +3,7 @@ module FWGL.Graphics (
         V3(..),
         vec3,
         cube,
+        geom,
         translate,
         rotX,
         rotY,
@@ -15,6 +16,9 @@ import FWGL.Vector
 
 cube :: Float -> Object
 cube edge = scale edge . SolidObject $ Solid Cube idMat
+
+geom :: Geometry -> Object
+geom g = SolidObject $ Solid (StaticGeom g) idMat
 
 translate :: V3 -> Object -> Object
 translate t = transform $ transMat t

@@ -1,16 +1,16 @@
-module FWGL.Graphics.Types where
+module FWGL.Graphics.Types (
+        Geometry(..),
+        Mesh(..),
+        Light(..),
+        Solid(..),
+        Object(..),
+        Scene
+) where
 
-import Data.Word (Word16)
+import FWGL.Geometry
 import FWGL.Vector
 
-data Geometry = Geometry {
-        vertices :: [V3],
-        uvCoords :: [V2],
-        normals :: [V3],
-        elements :: [Word16]
-}
-
-data Mesh = Cube
+data Mesh = Cube | StaticGeom Geometry
 
 data Light
 
