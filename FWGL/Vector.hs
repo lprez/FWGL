@@ -26,6 +26,7 @@ import Foreign.Storable
 import Foreign.Ptr (castPtr)
 
 data V2 = V2 !Float !Float deriving (Show, Eq)
+-- | Three-dimensional vector.
 data V3 = V3 !Float !Float !Float deriving (Show, Eq)
 data V4 = V4 !Float !Float !Float !Float deriving (Show, Eq)
 
@@ -70,6 +71,7 @@ instance Storable V4 where
 vec2 :: (Float, Float) -> V2
 vec2 = uncurry V2
 
+-- | Creates a three-dimensional vector.
 vec3 :: (Float, Float, Float) -> V3
 vec3 (x, y, z) = V3 x y z
 

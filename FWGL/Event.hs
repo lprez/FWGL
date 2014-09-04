@@ -45,6 +45,7 @@ click = mouseDown MouseLeft
 doubleClick :: SF Input (Event (Int, Int))
 doubleClick = evPointer DoubleClick (const True)
 
+-- | Pointer location in pixels.
 pointer :: SF Input (Int, Int)
 pointer = evPointer MouseMove (const True) >>> hold (0, 0)
 

@@ -31,7 +31,13 @@ instance H.Hashable Geometry where
 instance Eq Geometry where
         g == g' = hash g == hash g'
 
-mkGeometry :: [V3] -> [V2] -> [V3] -> [Word16] -> Geometry
+-- | Creates a 'Geometry'. The first three lists should have the same length.
+mkGeometry :: [V3]     -- ^ List of vertices.
+           -> [V2]     -- ^ List of UV coordinates.
+           -> [V3]     -- ^ List of normals.
+           -> [Word16] -- ^ Triangles expressed as triples of indices to the
+                       --   three lists above.
+           -> Geometry
 mkGeometry v u n e = Geometry { vertices = v
                               , uvCoords = u
                               , normals = n

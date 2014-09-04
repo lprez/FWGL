@@ -1,6 +1,9 @@
 module FWGL.Graphics (
-        module FWGL.Graphics.Types,
+        Scene,
+        Object,
+        Geometry,
         V3(..),
+        mkGeometry,
         vec3,
         nothing,
         cube,
@@ -15,30 +18,41 @@ module FWGL.Graphics (
 ) where
 
 import FRP.Yampa
+import FWGL.Geometry (mkGeometry)
 import FWGL.Graphics.Types
 import FWGL.Vector
 
+
+-- | An empty object.
 nothing :: Object
 nothing = SolidObject $ Solid Empty idMat
 
-cube :: Float -> Object
+-- | A cube.
+cube :: Float  -- ^ Edge
+     -> Object
 cube edg = scale edg . SolidObject $ Solid Cube idMat
 
+-- | An object with a specified 'Geometry'.
 geom :: Geometry -> Object
 geom g = SolidObject $ Solid (StaticGeom g) idMat
 
+-- | Translate an object.
 translate :: V3 -> Object -> Object
 translate t = transform $ transMat t
 
+-- | Rotate an object around the X axis.
 rotX :: Float -> Object -> Object
 rotX a = transform $ rotXMat a
 
+-- | Rotate an object around the Y axis.
 rotY :: Float -> Object -> Object
 rotY a = transform $ rotYMat a
 
+-- | Rotate an object around the Z axis.
 rotZ :: Float -> Object -> Object
 rotZ a = transform $ rotZMat a
 
+-- | Scale an object.
 scale :: Float -> Object -> Object
 scale f = transform $ scaleMat (V3 f f f)
 
@@ -66,9 +80,13 @@ dynamicG f i = flip sscan i $ \ oldObj inp ->
                                         _ -> oldObj
                         _ -> error "dynamicG: not a Geometry."
 
-dynamicE :: Object -> SF (Event Object) Object
+-- | Like 'dynamic', but instead of comparing the two objects it checks the
+-- event with the new object.
+dynamicE :: Object -- ^ Initial 'Object'.
+         -> SF (Event Object) Object
 dynamicE = dynamicG $ flip const
 
+-- | Automatically deallocate the previous mesh from the GPU when it changes.
 dynamic :: SF Object Object
 dynamic =
         dynamicG (\ o n -> if objectGeometry o == objectGeometry n
