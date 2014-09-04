@@ -27,9 +27,9 @@ import GHCJS.Types
 
 data DrawState = DrawState {
         context :: Ctx,
-        cubeBuffers :: GPUMesh, -- TODO: subst staticGeoms
+        cubeBuffers :: GPUMesh, -- TODO: subst gpuMeshes
         modelUniform :: UniformLocation,
-        staticGeoms :: H.HashMap Geometry GPUMesh
+        gpuMeshes :: H.HashMap Geometry GPUMesh
 }
 
 newtype Draw a = Draw { unDraw :: StateT DrawState IO a }
@@ -55,7 +55,7 @@ drawInit ctx w h = do program <- loadShaders ctx defVS defFS
                       return DrawState { context = ctx
                                        , cubeBuffers = cube
                                        , modelUniform = modelUniform
-                                       , staticGeoms = H.empty }
+                                       , gpuMeshes = H.empty }
 
 execDraw :: Draw () -> DrawState -> IO DrawState
 execDraw (Draw a) = execStateT a
@@ -84,17 +84,19 @@ drawSolid (Solid mesh trans) =
            drawMesh mesh
 
 drawMesh :: Mesh -> Draw ()
+drawMesh Empty = return ()
 drawMesh Cube = Draw (cubeBuffers <$> get) >>= drawGPUMesh
-drawMesh (StaticGeom g) = staticGeom g >>= drawGPUMesh
+drawMesh (StaticGeom g) = getGPUMesh g >>= drawGPUMesh
+drawMesh (DynamicGeom d g) = disposeGeometry d >> drawMesh (StaticGeom g)
 
-staticGeom :: Geometry -> Draw GPUMesh
-staticGeom g = do map <- Draw $ staticGeoms <$> get
+getGPUMesh :: Geometry -> Draw GPUMesh
+getGPUMesh g = do map <- Draw $ gpuMeshes <$> get
                   case H.lookup g map of
                           Just gpuMesh -> return gpuMesh
                           Nothing -> do ctx <- getCtx
                                         gpuMesh <- liftIO $ loadGeometry ctx g
                                         Draw . modify $ \ s -> s {
-                                                staticGeoms =
+                                                gpuMeshes =
                                                         H.insert g gpuMesh map
                                                 }
                                         return gpuMesh
@@ -126,6 +128,20 @@ loadGeometry ctx (Geometry vs fs ns es _) =
                 <*> (viewV3 ns >>= loadBuffer ctx gl_ARRAY_BUFFER)
                 <*> (viewWord16 es >>= loadBuffer ctx gl_ELEMENT_ARRAY_BUFFER)
                 <*> (pure $ length es)
+
+disposeGeometry :: Geometry -> Draw ()
+disposeGeometry g = do gpuMesh <- getGPUMesh g
+                       ctx <- getCtx
+                       liftIO $ deleteGPUMesh ctx gpuMesh
+                       Draw . modify $ \ s -> s {
+                                gpuMeshes = H.delete g $ gpuMeshes s
+                       }
+
+deleteGPUMesh :: Ctx -> GPUMesh -> IO ()
+deleteGPUMesh ctx (GPUMesh vb ub nb eb _) = do deleteBuffer ctx vb
+                                               deleteBuffer ctx ub
+                                               deleteBuffer ctx nb
+                                               deleteBuffer ctx eb
 
 encodeM4 :: M4 -> IO Float32Array
 encodeM4 (M4 (V4 a1 a2 a3 a4)
