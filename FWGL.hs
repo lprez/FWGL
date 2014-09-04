@@ -46,4 +46,7 @@ run q sigf = do element <- query $ toJSString q
                               , MouseMove
                               , DoubleClick
                               , KeyUp
-                              , KeyDown ]
+                              , KeyDown
+                              , TouchStart
+                              , TouchMove
+                              , TouchEnd ]

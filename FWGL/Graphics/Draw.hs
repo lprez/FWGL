@@ -10,12 +10,16 @@ module FWGL.Graphics.Draw (
         resize
 ) where
 
+import FWGL.Graphics.Color
 import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
+import FWGL.Texture
 import FWGL.Vector
 
-import JavaScript.WebGL hiding (getCtx)
+import JavaScript.WebGL hiding (getCtx, Texture)
+import qualified JavaScript.WebGL as WebGL
 
+import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as H
 import Data.Word (Word, Word16)
 import Control.Applicative
@@ -29,7 +33,9 @@ data DrawState = DrawState {
         context :: Ctx,
         cubeBuffers :: GPUMesh, -- TODO: subst gpuMeshes
         modelUniform :: UniformLocation,
-        gpuMeshes :: H.HashMap Geometry GPUMesh
+        samplerUniform :: UniformLocation,
+        gpuMeshes :: H.HashMap Geometry GPUMesh,
+        textures :: H.HashMap Texture WebGL.Texture
 }
 
 newtype Draw a = Draw { unDraw :: StateT DrawState IO a }
@@ -52,10 +58,14 @@ drawInit ctx w h = do program <- loadShaders ctx defVS defFS
                       cube <- loadGeometry ctx cubeGeometry
                       modelUniform <- getUniformLocation ctx program
                                                 $ toJSString "modelMatrix"
+                      samplerUniform <- getUniformLocation ctx program
+                                                $ toJSString "sampler"
                       return DrawState { context = ctx
                                        , cubeBuffers = cube
                                        , modelUniform = modelUniform
-                                       , gpuMeshes = H.empty }
+                                       , samplerUniform = samplerUniform
+                                       , gpuMeshes = H.empty
+                                       , textures = H.empty }
 
 execDraw :: Draw () -> DrawState -> IO DrawState
 execDraw (Draw a) = execStateT a
@@ -76,11 +86,16 @@ drawObject :: Object -> Draw ()
 drawObject (SolidObject s) = drawSolid s
 
 drawSolid :: Solid -> Draw ()
-drawSolid (Solid mesh trans) =
+drawSolid (Solid mesh trans tex) =
         do ctx <- getCtx
            modelUni <- Draw $ modelUniform <$> get
+           texUni <- Draw $ samplerUniform <$> get
+           wtex <- getTexture tex
            liftIO $ do matarr <- encodeM4 trans
                        uniformMatrix4fv ctx modelUni False matarr
+                       activeTexture ctx gl_TEXTURE0
+                       bindTexture ctx gl_TEXTURE_2D wtex
+                       uniform1i ctx texUni 0
            drawMesh mesh
 
 drawMesh :: Mesh -> Draw ()
@@ -89,42 +104,50 @@ drawMesh Cube = Draw (cubeBuffers <$> get) >>= drawGPUMesh
 drawMesh (StaticGeom g) = getGPUMesh g >>= drawGPUMesh
 drawMesh (DynamicGeom d g) = disposeGeometry d >> drawMesh (StaticGeom g)
 
+getResource :: (Eq r, Hashable r)
+            => (DrawState -> H.HashMap r g)
+            -> (H.HashMap r g -> DrawState -> DrawState)
+            -> (Ctx -> r -> IO g)
+            -> r
+            -> Draw g
+getResource getMap putMap load res =
+        do map <- Draw $ getMap <$> get
+           case H.lookup res map of
+                Just gpuRes -> return gpuRes
+                Nothing -> do ctx <- getCtx
+                              gpuRes <- liftIO $ load ctx res
+                              Draw . modify $ putMap (H.insert res gpuRes map)
+                              return gpuRes
+
 getGPUMesh :: Geometry -> Draw GPUMesh
-getGPUMesh g = do map <- Draw $ gpuMeshes <$> get
-                  case H.lookup g map of
-                          Just gpuMesh -> return gpuMesh
-                          Nothing -> do ctx <- getCtx
-                                        gpuMesh <- liftIO $ loadGeometry ctx g
-                                        Draw . modify $ \ s -> s {
-                                                gpuMeshes =
-                                                        H.insert g gpuMesh map
-                                                }
-                                        return gpuMesh
+getGPUMesh = getResource gpuMeshes (\ m s -> s { gpuMeshes = m}) loadGeometry
+
+getTexture :: Texture -> Draw WebGL.Texture
+getTexture = getResource textures (\ m s -> s { textures = m }) loadTexture
 
 drawGPUMesh :: GPUMesh -> Draw ()
-drawGPUMesh (GPUMesh vb _ nb eb ec) = getCtx >>= \ctx -> liftIO $
-        do bindBuffer ctx gl_ARRAY_BUFFER vb
-           enableVertexAttribArray ctx posAttribLoc
-           vertexAttribPointer ctx posAttribLoc 3 gl_FLOAT False 0 0
-           bindBuffer ctx gl_ARRAY_BUFFER nb
-           enableVertexAttribArray ctx normalAttribLoc
-           vertexAttribPointer ctx normalAttribLoc 3 gl_FLOAT False 0 0
+drawGPUMesh (GPUMesh vb ub nb eb ec) = getCtx >>= \ctx -> liftIO $
+        do withVAA ctx posAttribLoc vb 3 $ withVAA ctx normalAttribLoc nb 3 $
+                withVAA ctx uvAttribLoc ub 2 $ do
+                        bindBuffer ctx gl_ELEMENT_ARRAY_BUFFER eb
+                        drawElements ctx gl_TRIANGLES ec gl_UNSIGNED_SHORT 0
+                        bindBuffer ctx gl_ELEMENT_ARRAY_BUFFER noBuffer
            bindBuffer ctx gl_ARRAY_BUFFER noBuffer
 
-           bindBuffer ctx gl_ELEMENT_ARRAY_BUFFER eb
-           drawElements ctx gl_TRIANGLES ec gl_UNSIGNED_SHORT 0
-           bindBuffer ctx gl_ELEMENT_ARRAY_BUFFER noBuffer
-
-           disableVertexAttribArray ctx posAttribLoc
-           disableVertexAttribArray ctx normalAttribLoc
+           where withVAA ctx loc buf n act =
+                   do bindBuffer ctx gl_ARRAY_BUFFER buf
+                      enableVertexAttribArray ctx loc
+                      vertexAttribPointer ctx loc n gl_FLOAT False 0 0
+                      act
+                      disableVertexAttribArray ctx loc
 
 getCtx :: Draw Ctx
 getCtx = Draw $ context <$> get
 
 loadGeometry :: Ctx -> Geometry -> IO GPUMesh
-loadGeometry ctx (Geometry vs fs ns es _) =
+loadGeometry ctx (Geometry vs us ns es _) =
         GPUMesh <$> (viewV3 vs >>= loadBuffer ctx gl_ARRAY_BUFFER)
-                <*> (viewV2 fs >>= loadBuffer ctx gl_ARRAY_BUFFER)
+                <*> (viewV2 us >>= loadBuffer ctx gl_ARRAY_BUFFER)
                 <*> (viewV3 ns >>= loadBuffer ctx gl_ARRAY_BUFFER)
                 <*> (viewWord16 es >>= loadBuffer ctx gl_ELEMENT_ARRAY_BUFFER)
                 <*> (pure $ length es)
@@ -143,6 +166,25 @@ deleteGPUMesh ctx (GPUMesh vb ub nb eb _) = do deleteBuffer ctx vb
                                                deleteBuffer ctx nb
                                                deleteBuffer ctx eb
 
+loadTexture :: Ctx -> Texture -> IO WebGL.Texture
+loadTexture ctx (Texture ps w h _) =
+        do t <- createTexture ctx
+           arr <- viewColor ps
+           bindTexture ctx gl_TEXTURE_2D t
+           texImage2D ctx gl_TEXTURE_2D 0
+                          gl_RGBA
+                          w h 0
+                          gl_RGBA
+                          gl_UNSIGNED_BYTE
+                          arr
+           texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER gl_LINEAR
+           texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER gl_LINEAR
+           texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_WRAP_S gl_REPEAT
+           texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_WRAP_T gl_REPEAT
+           bindTexture ctx gl_TEXTURE_2D noTexture
+           return t
+
+
 encodeM4 :: M4 -> IO Float32Array
 encodeM4 (M4 (V4 a1 a2 a3 a4)
              (V4 b1 b2 b3 b4)
@@ -152,6 +194,14 @@ encodeM4 (M4 (V4 a1 a2 a3 a4)
                                                 , c1, c2, c3, c4
                                                 , d1, d2, d3, d4 ]
                                   >>= float32Array
+
+viewColor :: [Color] -> IO ArrayBufferView
+viewColor v = toJSArray next (0, v) >>= uint8View
+        where next (0, xs@(Color x _ _ _ : _)) = Just (x, (1, xs))
+              next (1, xs@(Color _ y _ _ : _)) = Just (y, (2, xs))
+              next (2, xs@(Color _ _ z _ : _)) = Just (z, (3, xs))
+              next (3, Color _ _ _ w : xs) = Just (w, (0, xs))
+              next (_, []) = Nothing
 
 viewV3 :: [V3] -> IO ArrayBufferView
 viewV3 v = toJSArray next (0, v) >>= float32View
@@ -199,6 +249,7 @@ loadShaders ctx vsSrc fsSrc =
            attachShader ctx program fs
            bindAttribLocation ctx program posAttribLoc $ toJSString "pos"
            bindAttribLocation ctx program normalAttribLoc $ toJSString "normal"
+           bindAttribLocation ctx program uvAttribLoc $ toJSString "uv"
            linkProgram ctx program
            useProgram ctx program
            return program
@@ -208,6 +259,9 @@ posAttribLoc = 0
 
 normalAttribLoc :: Num a => a
 normalAttribLoc = 1
+
+uvAttribLoc :: Num a => a
+uvAttribLoc = 2
 
 loadShader :: Ctx -> Word -> String -> IO Shader
 loadShader ctx ty src =
@@ -219,17 +273,21 @@ loadShader ctx ty src =
 defVS :: String
 defVS = "       attribute vec3 pos;                                     \
         \       attribute vec3 normal;                                  \
+        \       attribute vec2 uv;                                      \
         \       varying vec4 vpos;                                      \
+        \       varying vec2 vuv;                                       \
         \       uniform mat4 modelMatrix;                               \
         \       void main() {                                           \
         \               vpos = vec4(pos, 1.0);                          \
+        \               vuv = uv;                                       \
         \               gl_Position = modelMatrix * vpos;               \
         \       }                                                       "
 
 defFS :: String
 defFS = "       precision mediump float;                                \
         \       varying vec4 vpos;                                      \
-        \       varying vec3 vnormal;                                   \
+        \       varying vec2 vuv;                                       \
+        \       uniform sampler2D sampler;                              \
         \       void main() {                                           \
-        \               gl_FragColor = vpos / 2.0 + 0.5;                \
+        \               gl_FragColor = texture2D(sampler, vuv);         \
         \       }                                                       "

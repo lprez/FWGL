@@ -25,9 +25,12 @@ import Data.Hashable
 import Foreign.Storable
 import Foreign.Ptr (castPtr)
 
+-- | Two-dimensional vector.
 data V2 = V2 !Float !Float deriving (Show, Eq)
+
 -- | Three-dimensional vector.
 data V3 = V3 !Float !Float !Float deriving (Show, Eq)
+
 data V4 = V4 !Float !Float !Float !Float deriving (Show, Eq)
 
 data M2 = M2 !V2 !V2 deriving (Show, Eq)
@@ -68,6 +71,7 @@ instance Storable V4 where
         poke ptr (V4 x y z w) = zipWithM_ (pokeElemOff $ castPtr ptr)
                                           [0 .. 3] [x, y, z, w]
 
+-- | Creates a two-dimensional vector.
 vec2 :: (Float, Float) -> V2
 vec2 = uncurry V2
 
