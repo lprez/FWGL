@@ -18,7 +18,7 @@ data OBJModel = OBJModel {
 } deriving (Show)
 
 loadOBJ :: FilePath -> IO OBJModel
-loadOBJ = fmap parseOBJ . readFile
+loadOBJ = fmap parseOBJ . readFile -- TODO: substitute with ajax
 
 parseOBJ :: String -> OBJModel
 parseOBJ file = runST $

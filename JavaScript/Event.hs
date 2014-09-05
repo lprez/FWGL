@@ -56,6 +56,9 @@ data Event = Click
            | Reset
            | Select
            | Submit
+           | TouchStart
+           | TouchMove
+           | TouchEnd
            | Other String
            deriving (Eq, Show)
 
