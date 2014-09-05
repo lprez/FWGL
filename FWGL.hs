@@ -20,10 +20,25 @@ import Control.Applicative
 import Control.Concurrent (threadDelay)
 import FRP.Yampa
 import GHCJS.Foreign
+import GHCJS.Marshal
 import GHCJS.Types
 
 foreign import javascript unsafe "document.querySelector($1)"
         query :: JSString -> IO (JSRef a)
+
+foreign import javascript unsafe "$2.getAttribute($1)"
+        getAttributeRaw :: JSString -> JSRef a -> IO JSString
+
+{-
+foreign import javascript unsafe "document.body.onload=$1"
+        onBodyLoadRaw :: JSFun (JSRef a -> IO ()) -> IO ()
+
+onBodyLoad :: IO () -> IO ()
+onBodyLoad act = asyncCallback1 AlwaysRetain (const act) >>= onBodyLoadRaw
+-}
+
+getAttribute :: String -> JSRef a -> IO String
+getAttribute attr e = fromJSString <$> getAttributeRaw (toJSString attr) e
 
 run :: String                   -- ^ Selector for the canvas element. See <https://developer.mozilla.org/en-US/docs/Web/API/document.querySelector querySelector>
     -> SF Input (Scene, Audio)  -- ^ Main signal
@@ -31,7 +46,9 @@ run :: String                   -- ^ Selector for the canvas element. See <https
 run q sigf = do element <- query $ toJSString q
                 eventSrc <- source handledEvents element
                 ctx <- getCtx element
-                drawStateRef <- drawInit ctx 640 480 >>= newIORef -- chg
+                w <- read <$> getAttribute "width" element
+                h <- read <$> getAttribute "height" element
+                drawStateRef <- drawInit ctx w h >>= newIORef
                 reactimate (clear eventSrc)
                            (const $ sense eventSrc)
                            (const $ actuate drawStateRef)
