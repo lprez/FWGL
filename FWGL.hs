@@ -29,6 +29,9 @@ foreign import javascript unsafe "document.querySelector($1)"
 foreign import javascript unsafe "$2.getAttribute($1)"
         getAttributeRaw :: JSString -> JSRef a -> IO JSString
 
+foreign import javascript unsafe "window.requestAnimationFrame($1)"
+        requestAnimationFrame :: JSFun (JSRef Double -> IO ()) -> IO ()
+
 {-
 foreign import javascript unsafe "document.body.onload=$1"
         onBodyLoadRaw :: JSFun (JSRef a -> IO ()) -> IO ()
@@ -49,12 +52,20 @@ run q sigf = do element <- query $ toJSString q
                 w <- read <$> getAttribute "width" element
                 h <- read <$> getAttribute "height" element
                 drawStateRef <- drawInit ctx w h >>= newIORef
-                reactimate (clear eventSrc)
-                           (const $ sense eventSrc)
-                           (const $ actuate drawStateRef)
-                           sigf
-                -- TODO requestanimframe, reactInit, ...
-        where sense src = threadDelay 60000 >> (,) 60 . Just <$> clear src
+                reactStateRef <- reactInit (clear eventSrc)
+                                           (\ _ _ -> actuate drawStateRef)
+                                           sigf
+                toJSRef 0 >>= frame reactStateRef eventSrc Nothing
+        where frame rsf src last crf = do events <- clear src
+                                          (Just cur) <- fromJSRef crf
+                                          let tm = case last of
+                                                        Just l -> cur - l
+                                                        Nothing -> 0
+                                          react rsf (tm, Just events)
+                                          cb <- asyncCallback1 AlwaysRetain $
+                                                  frame rsf src (Just cur)
+                                          requestAnimationFrame cb
+                             
               actuate ref (s, _) = readIORef ref >>=
                                    execDraw (drawBegin >> drawScene s) >>=
                                    writeIORef ref >> return False
