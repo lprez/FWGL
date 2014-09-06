@@ -87,18 +87,18 @@ events :: Source -> IO (H.HashMap Event [EventData])
 events (Source _ c) = readIORef c
 
 clear :: Source -> IO (H.HashMap Event [EventData])
-clear (Source _ c) = readIORef c <* writeIORef c H.empty
+clear (Source _ c) = atomicModifyIORef' c $ \m -> (H.empty, m)
 
 addEvents :: [Event] -> Source -> IO ()
 addEvents es s = mapM_ (flip addEvent s) es
 
 addEvent :: Event -> Source -> IO ()
-addEvent e (Source j c) = asyncCallback1 AlwaysRetain handler >>=
+addEvent e (Source j c) = asyncCallback1 AlwaysRetain handler >>= -- try NeverRetain
                           addHandler j (toJSString $ eventName e)
         where 
                 prop p d =  getProp p d >>= fromJSRef
                 handler d = do
-                        print e
+                        print e -- TODO: remove (debug)
                         eventData <- EventData
                                         <$> ((getButton <$>) <$> prop "button" d)
                                         <*> prop "keyCode" d

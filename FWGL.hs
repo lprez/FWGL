@@ -55,16 +55,17 @@ run q sigf = do element <- query $ toJSString q
                 reactStateRef <- reactInit (clear eventSrc)
                                            (\ _ _ -> actuate drawStateRef)
                                            sigf
-                toJSRef 0 >>= frame reactStateRef eventSrc Nothing
+                onFrame $ frame reactStateRef eventSrc Nothing
         where frame rsf src last crf = do events <- clear src
                                           (Just cur) <- fromJSRef crf
                                           let tm = case last of
                                                         Just l -> cur - l
                                                         Nothing -> 0
                                           react rsf (tm, Just events)
-                                          cb <- asyncCallback1 AlwaysRetain $
-                                                  frame rsf src (Just cur)
-                                          requestAnimationFrame cb
+                                          onFrame $ frame rsf src (Just cur)
+
+              onFrame handler = asyncCallback1 AlwaysRetain handler -- try NeverRetain
+                                >>= requestAnimationFrame
                              
               actuate ref (s, _) = readIORef ref >>=
                                    execDraw (drawBegin >> drawScene s) >>=
