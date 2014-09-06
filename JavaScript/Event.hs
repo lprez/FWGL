@@ -93,12 +93,11 @@ addEvents :: [Event] -> Source -> IO ()
 addEvents es s = mapM_ (flip addEvent s) es
 
 addEvent :: Event -> Source -> IO ()
-addEvent e (Source j c) = asyncCallback1 AlwaysRetain handler >>= -- try NeverRetain
+addEvent e (Source j c) = asyncCallback1 NeverRetain handler >>=
                           addHandler j (toJSString $ eventName e)
         where 
                 prop p d =  getProp p d >>= fromJSRef
                 handler d = do
-                        print e -- TODO: remove (debug)
                         eventData <- EventData
                                         <$> ((getButton <$>) <$> prop "button" d)
                                         <*> prop "keyCode" d

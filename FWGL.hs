@@ -64,7 +64,7 @@ run q sigf = do element <- query $ toJSString q
                                           react rsf (tm, Just events)
                                           onFrame $ frame rsf src (Just cur)
 
-              onFrame handler = asyncCallback1 AlwaysRetain handler -- try NeverRetain
+              onFrame handler = asyncCallback1 NeverRetain handler
                                 >>= requestAnimationFrame
                              
               actuate ref (s, _) = readIORef ref >>=
