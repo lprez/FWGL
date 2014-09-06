@@ -53,7 +53,6 @@ run q sigf = do element <- query $ toJSString q
                            (const $ sense eventSrc)
                            (const $ actuate drawStateRef)
                            sigf
-                -- TODO requestanimframe, reactInit, ...
         where sense src = threadDelay 60000 >> (,) 60 . Just <$> clear src
               actuate ref (s, _) = readIORef ref >>=
                                    execDraw (drawBegin >> drawScene s) >>=
