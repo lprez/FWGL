@@ -128,7 +128,8 @@ keyboardEvents = [ KeyDown, KeyUp, KeyPress ]
 allEvents :: [Event]
 allEvents = [ Click, DoubleClick, MouseDown, MouseMove, MouseOver, MouseOut
             , MouseUp, KeyDown, KeyUp, KeyPress, Abort, Error, Load, Resize
-            , Scroll, Unload, Blur, Change, Focus, Reset, Select, Submit ]
+            , Scroll, Unload, Blur, Change, Focus, Reset, Select, Submit
+            , TouchStart, TouchMove, TouchEnd ]
 
 eventName :: Event -> String
 eventName (Other s) = s

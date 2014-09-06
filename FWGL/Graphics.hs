@@ -9,6 +9,7 @@ module FWGL.Graphics (
         V3(..),
         mkGeometry,
         mkTexture,
+        textureURL,
         vec2,
         vec3,
         nothing,

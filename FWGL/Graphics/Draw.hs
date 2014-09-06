@@ -167,23 +167,41 @@ deleteGPUMesh ctx (GPUMesh vb ub nb eb _) = do deleteBuffer ctx vb
                                                deleteBuffer ctx eb
 
 loadTexture :: Ctx -> Texture -> IO WebGL.Texture
-loadTexture ctx (Texture ps w h _) =
+loadTexture ctx tex =
         do t <- createTexture ctx
-           arr <- viewColor ps
-           bindTexture ctx gl_TEXTURE_2D t
-           texImage2D ctx gl_TEXTURE_2D 0
-                          gl_RGBA
-                          w h 0
-                          gl_RGBA
-                          gl_UNSIGNED_BYTE
-                          arr
-           texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER gl_LINEAR
-           texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER gl_LINEAR
-           texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_WRAP_S gl_REPEAT
-           texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_WRAP_T gl_REPEAT
-           bindTexture ctx gl_TEXTURE_2D noTexture
+           case tex of
+                   (TexturePixels ps w h _) -> setup ctx t $
+                           do arr <- viewColor ps
+                              texImage2DBuffer ctx gl_TEXTURE_2D 0
+                                                   gl_RGBA
+                                                   w h 0
+                                                   gl_RGBA
+                                                   gl_UNSIGNED_BYTE
+                                                   arr
+                   (TextureURL url _) -> loadImage url $ \ img -> setup ctx t $
+                           texImage2DElement ctx gl_TEXTURE_2D 0
+                                                 gl_RGBA gl_RGBA
+                                                 gl_UNSIGNED_BYTE
+                                                 img
            return t
+        where setup ctx t act = do
+                bindTexture ctx gl_TEXTURE_2D t
+                act
+                texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER gl_LINEAR
+                texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER gl_LINEAR
+                texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_WRAP_S gl_REPEAT
+                texParameteri ctx gl_TEXTURE_2D gl_TEXTURE_WRAP_T gl_REPEAT
+                bindTexture ctx gl_TEXTURE_2D noTexture
 
+foreign import javascript unsafe
+        "var img = new Image();                 \
+        \img.src = $1;                          \
+        \img.onload = function() { $2(img); };  "
+        loadImageRaw :: JSString -> JSFun (JSRef a -> IO ()) -> IO ()
+
+loadImage :: String -> (JSRef a -> IO ()) -> IO ()
+loadImage url cb = asyncCallback1 AlwaysRetain cb
+                   >>= loadImageRaw (toJSString url)
 
 encodeM4 :: M4 -> IO Float32Array
 encodeM4 (M4 (V4 a1 a2 a3 a4)
@@ -289,5 +307,7 @@ defFS = "       precision mediump float;                                \
         \       varying vec2 vuv;                                       \
         \       uniform sampler2D sampler;                              \
         \       void main() {                                           \
-        \               gl_FragColor = texture2D(sampler, vuv);         \
+        \               gl_FragColor = texture2D(sampler,               \
+        \                       vec2(vuv.s, 1.0 - vuv.t)                \
+        \               );                                              \
         \       }                                                       "
