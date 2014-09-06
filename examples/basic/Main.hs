@@ -2,7 +2,7 @@
 
 module Main where
 
-import Monkey
+import MonkeyOBJ
 
 import Data.Fixed (mod')
 import Data.List (unfoldr)
@@ -11,6 +11,9 @@ import FWGL
 
 mouseCount :: Num a => a -> MouseButton -> SF Input a
 mouseCount i mb = mouse mb >>> accumHoldBy (\c _ -> c + 1) i
+
+monkeyTex :: String
+monkeyTex = "monkeyTex.png"
 
 gradient :: Color -> Color -> Texture
 gradient c1 c2 = mkTexture (floor w) (floor w) $ unfoldr f (0, 0)
@@ -34,11 +37,11 @@ mainSF = proc inp -> do (x, y) <- pointer -< inp
                         rightCount <- mouseCount 0 MouseRight -< inp
 
                         let scaleFact = (leftCount - rightCount) / 20
-                            transformedMonkey = color (visible 150 50 0) $
+                            transformedMonkey = texture (textureURL monkeyTex) $
                                                 rotX (fromIntegral y / 120 - 1) $
                                                 rotY (fromIntegral x / 160 + 1) $
                                                 scale scaleFact $
-                                                geom monkey
+                                                geom monkeyOBJ
                             transformedCube o = texture (gradient yellow red) $
                                                 rotX (mod' ((tm + o) / 200) $
                                                            (pi * 2)) $
