@@ -38,17 +38,17 @@ mainSF = proc inp -> do (x, y) <- pointer -< inp
 
                         let scaleFact = (leftCount - rightCount) / 20
                             transformedMonkey = texture (textureURL monkeyTex) $
-                                                rotX (fromIntegral y / 120 - 1) $
                                                 rotY (fromIntegral x / 160 + 1) $
+                                                rotX (fromIntegral y / 120 - 1) $
                                                 scale scaleFact $
                                                 geom monkeyOBJ
                             transformedCube o = texture (gradient yellow red) $
+                                                rotZ (mod' ((tm + o) / 400)
+                                                           (pi * 2)) $
+                                                translate (V3 0.8 0 0) $
                                                 rotX (mod' ((tm + o) / 200) $
                                                            (pi * 2)) $
                                                 rotY (mod' ((tm + o) / 400) $
-                                                           (pi * 2)) $
-                                                translate (V3 9 0 0) $
-                                                rotZ (mod' ((tm + o) / 400)
                                                            (pi * 2)) $
                                                 cube 0.1
                                                
