@@ -40,6 +40,8 @@ onBodyLoad :: IO () -> IO ()
 onBodyLoad act = asyncCallback1 AlwaysRetain (const act) >>= onBodyLoadRaw
 -}
 
+foreign import javascript unsafe "$1.focus()" focus :: JSRef a -> IO ()
+
 getAttribute :: String -> JSRef a -> IO String
 getAttribute attr e = fromJSString <$> getAttributeRaw (toJSString attr) e
 
@@ -51,6 +53,7 @@ run q sigf = do element <- query $ toJSString q
                 ctx <- getCtx element
                 w <- read <$> getAttribute "width" element
                 h <- read <$> getAttribute "height" element
+                focus element -- ...
                 drawStateRef <- drawInit ctx w h >>= newIORef
                 reactStateRef <- reactInit (clear eventSrc)
                                            (\ _ _ -> actuate drawStateRef)

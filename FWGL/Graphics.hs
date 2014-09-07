@@ -20,6 +20,7 @@ module FWGL.Graphics (
         rotY,
         rotZ,
         scale,
+        scaleV,
         color,
         texture,
         dynamicE,
@@ -48,23 +49,27 @@ geom g = SolidObject $ Solid (StaticGeom g) idMat whiteTexture
 
 -- | Translate an object.
 translate :: V3 -> Object -> Object
-translate t = transform $ transMat t
+translate = transform . transMat
 
 -- | Rotate an object around the X axis.
 rotX :: Float -> Object -> Object
-rotX a = transform $ rotXMat a
+rotX = transform . rotXMat
 
 -- | Rotate an object around the Y axis.
 rotY :: Float -> Object -> Object
-rotY a = transform $ rotYMat a
+rotY = transform . rotYMat
 
 -- | Rotate an object around the Z axis.
 rotZ :: Float -> Object -> Object
-rotZ a = transform $ rotZMat a
+rotZ = transform . rotZMat
 
 -- | Scale an object.
 scale :: Float -> Object -> Object
 scale f = transform $ scaleMat (V3 f f f)
+
+-- | Scale an object in three dimensions.
+scaleV :: V3 -> Object -> Object
+scaleV = transform . scaleMat
 
 -- | Set the color of an object.
 color :: Color -> Object -> Object
@@ -91,7 +96,7 @@ dynamic =
 
 transform :: M4 -> Object -> Object
 transform mat' (SolidObject (Solid mesh mat t)) =
-                SolidObject $ Solid mesh (mul4 mat' mat) t -- TODO
+                SolidObject $ Solid mesh (mul4 mat mat') t -- TODO
 transform _ o = o
 
 dynamicG :: (Object -> a -> Event Object) -> Object -> SF a Object
