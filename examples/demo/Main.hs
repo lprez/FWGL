@@ -36,28 +36,35 @@ mainSF = proc inp -> do (x, y) <- pointer -< inp
                         leftCount <- mouseCount 4 MouseLeft -< inp
                         rightCount <- mouseCount 0 MouseRight -< inp
 
-                        let scaleFact = (leftCount - rightCount) / 20
-                            transformedMonkey = texture (textureURL monkeyTex) $
-                                                rotY (fromIntegral x / 160 + 1) $
-                                                rotX (fromIntegral y / 120 - 1) $
-                                                scale scaleFact $
-                                                geom monkeyOBJ
-                            transformedCube o = texture (gradient yellow red) $
-                                                rotZ (mod' ((tm + o) / 400)
-                                                           (pi * 2)) $
-                                                translate (V3 0.8 0 0) $
-                                                rotX (mod' ((tm + o) / 200) $
-                                                           (pi * 2)) $
-                                                rotY (mod' ((tm + o) / 400) $
-                                                           (pi * 2)) $
-                                                cube 0.1
+                        let scaleFact = (leftCount - rightCount) / 100
+                            timeAng o f = mod' (tm / f + o) $ pi * 2
+                            transformedMonkey =
+                                    texture (textureURL monkeyTex) $
+                                    translate (V3 0 0 (- 1)) $
+                                    rotY (fromIntegral x / 160 - 1) $
+                                    rotX (fromIntegral y / 120 - 1) $
+                                    scale scaleFact $
+                                    geom monkeyOBJ
+                            transformedCube o tex =
+                                    texture tex $
+                                    translate (
+                                            V3 (sin (timeAng o 800) / 6)
+                                               (sin (timeAng o 800) / 6)
+                                               (cos (timeAng o 800) / 5 - 1)) $
+                                    rotX (timeAng o 200) $
+                                    rotY (timeAng o 400) $
+                                    cube 0.02
                                                
 
-                        returnA -< ([ transformedCube 0
-                                    , transformedCube 628
-                                    , transformedCube 1256
-                                    , transformedCube 1884
-                                    , transformedMonkey ], Audio)
+                        returnA -< ( perspective 10000 0.12 100 (4 / 3)
+                                        $ [ transformedCube 0 gradRedYellow
+                                          , transformedCube (pi / 2) gradGreenBlue
+                                          , transformedCube pi gradRedYellow
+                                          , transformedCube (pi * 3 / 2) gradGreenBlue
+                                          , transformedMonkey ]
+                                   , Audio)
+        where gradRedYellow = gradient red yellow
+              gradGreenBlue = gradient green blue
 
 main :: IO ()
 main = run "canvas" mainSF

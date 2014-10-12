@@ -31,7 +31,7 @@ mainSF = proc inp -> do
                                 $ cube 0.2
             wallObj = color blue $ translate (V3 wal 0 0)
                                  $ scaleV (V3 1 5 1) $ cube 0.2
-        returnA -< ([cubeObj, wallObj], Audio)
+        returnA -< (scene [cubeObj, wallObj], Audio)
 
 main :: IO ()
 main = run "canvas" mainSF
