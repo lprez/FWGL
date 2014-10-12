@@ -19,12 +19,15 @@ module FWGL.Graphics (
         rotX,
         rotY,
         rotZ,
+        rotAA,
         scale,
         scaleV,
         color,
         texture,
         dynamicE,
-        dynamic
+        dynamic,
+        scene,
+        perspective
 ) where
 
 import FRP.Yampa
@@ -63,6 +66,10 @@ rotY = transform . rotYMat
 rotZ :: Float -> Object -> Object
 rotZ = transform . rotZMat
 
+-- | Rotate an object using a rotation axis and angle.
+rotAA :: V3 -> Float -> Object -> Object
+rotAA v = transform . rotAAMat v
+
 -- | Scale an object.
 scale :: Float -> Object -> Object
 scale f = transform $ scaleMat (V3 f f f)
@@ -93,6 +100,14 @@ dynamic =
                                 then Event n
                                 else NoEvent
         ) nothing
+
+-- | Build a scene (no projection).
+scene :: [Object] -> Scene
+scene = Scene NoProjection
+
+-- | Build a scene (perspective).
+perspective :: Float -> Float -> Float -> Float -> [Object] -> Scene
+perspective far near fov ratio = Scene (Perspective far near fov ratio)
 
 transform :: M4 -> Object -> Object
 transform mat' (SolidObject (Solid mesh mat t)) =

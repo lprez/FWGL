@@ -33,6 +33,7 @@ data DrawState = DrawState {
         context :: Ctx,
         cubeBuffers :: GPUMesh, -- TODO: subst gpuMeshes
         modelUniform :: UniformLocation,
+        projUniform :: UniformLocation,
         samplerUniform :: UniformLocation,
         gpuMeshes :: H.HashMap Geometry GPUMesh,
         textures :: H.HashMap Texture WebGL.Texture
@@ -58,11 +59,14 @@ drawInit ctx w h = do program <- loadShaders ctx defVS defFS
                       cube <- loadGeometry ctx cubeGeometry
                       modelUniform <- getUniformLocation ctx program
                                                 $ toJSString "modelMatrix"
+                      projUniform <- getUniformLocation ctx program
+                                                $ toJSString "projMatrix"
                       samplerUniform <- getUniformLocation ctx program
                                                 $ toJSString "sampler"
                       return DrawState { context = ctx
                                        , cubeBuffers = cube
                                        , modelUniform = modelUniform
+                                       , projUniform = projUniform
                                        , samplerUniform = samplerUniform
                                        , gpuMeshes = H.empty
                                        , textures = H.empty }
@@ -80,7 +84,7 @@ drawBegin :: Draw ()
 drawBegin = getCtx >>= \ctx -> liftIO $ clear ctx gl_COLOR_BUFFER_BIT
 
 drawScene :: Scene -> Draw ()
-drawScene = mapM_ drawObject
+drawScene (Scene proj os) = projection proj >> mapM_ drawObject os
 
 drawObject :: Object -> Draw ()
 drawObject (SolidObject s) = drawSolid s
@@ -103,6 +107,17 @@ drawMesh Empty = return ()
 drawMesh Cube = Draw (cubeBuffers <$> get) >>= drawGPUMesh
 drawMesh (StaticGeom g) = getGPUMesh g >>= drawGPUMesh
 drawMesh (DynamicGeom d g) = disposeGeometry d >> drawMesh (StaticGeom g)
+
+projection :: Projection -> Draw ()
+projection proj = do uni <- Draw $ projUniform <$> get
+                     ctx <- getCtx
+                     liftIO $ do
+                             arr <- encodeM4 $
+                                        case proj of
+                                                Perspective f n v a ->
+                                                        perspectiveMat f n v a
+                                                NoProjection -> idMat
+                             uniformMatrix4fv ctx uni False arr
 
 getResource :: (Eq r, Hashable r)
             => (DrawState -> H.HashMap r g)
@@ -295,10 +310,11 @@ defVS = "       attribute vec3 pos;                                     \
         \       varying vec4 vpos;                                      \
         \       varying vec2 vuv;                                       \
         \       uniform mat4 modelMatrix;                               \
+        \       uniform mat4 projMatrix;                                \
         \       void main() {                                           \
         \               vpos = vec4(pos, 1.0);                          \
         \               vuv = uv;                                       \
-        \               gl_Position = modelMatrix * vpos;               \
+        \               gl_Position = projMatrix * modelMatrix * vpos;  \
         \       }                                                       "
 
 defFS :: String

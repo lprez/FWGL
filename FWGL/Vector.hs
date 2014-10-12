@@ -12,12 +12,15 @@ module FWGL.Vector (
         mat3,
         mat4,
         mul4,
+        transpose4,
         idMat,
         transMat,
         rotXMat,
         rotYMat,
         rotZMat,
-        scaleMat
+        rotAAMat,
+        scaleMat,
+        perspectiveMat
 ) where
 
 import Control.Applicative
@@ -94,6 +97,15 @@ mat3 (a1, a2, a3, b1, b2, b3, c1, c2, c3) =
            (V3 b1 b2 b3)
            (V3 c1 c2 c3)
 
+mat4from3 :: ( Float, Float, Float
+             , Float, Float, Float
+             , Float, Float, Float ) -> M4
+mat4from3 (a1, a2, a3, b1, b2, b3, c1, c2, c3) =
+        M4 (V4 a1 a2 a3 0)
+           (V4 b1 b2 b3 0)
+           (V4 c1 c2 c3 0)
+           (V4 0  0  0  1)
+
 mat4 :: ( Float, Float, Float, Float
         , Float, Float, Float, Float
         , Float, Float, Float, Float
@@ -145,10 +157,9 @@ transpose4 (M4 (V4 a1 a2 a3 a4)
                                       (V4 a4 b4 c4 d4)
 
 idMat :: M4
-idMat = mat4 ( 1, 0, 0, 0
-             , 0, 1, 0, 0
-             , 0, 0, 1, 0
-             , 0, 0, 0, 1 )
+idMat = mat4from3 ( 1, 0, 0
+                  , 0, 1, 0
+                  , 0, 0, 1 )
 
 transMat :: V3 -> M4
 transMat (V3 x y z) = mat4 ( 1, 0, 0, 0
@@ -157,28 +168,45 @@ transMat (V3 x y z) = mat4 ( 1, 0, 0, 0
                            , x, y, z, 1 )
 
 rotXMat :: Float -> M4
-rotXMat a = mat4 ( 1, 0, 0, 0
-                 , 0, cos a, - sin a, 0
-                 , 0, sin a, cos a, 0
-                 , 0, 0, 0, 1 )
+rotXMat a = mat4from3 ( 1, 0, 0
+                      , 0, cos a, - sin a
+                      , 0, sin a, cos a )
 
 rotYMat :: Float -> M4
-rotYMat a = mat4 ( cos a, 0, sin a, 0
-                 , 0, 1, 0, 0
-                 , - sin a, 0, cos a, 0
-                 , 0, 0, 0, 1 )
+rotYMat a = mat4from3 ( cos a, 0, sin a
+                      , 0, 1, 0
+                      , - sin a, 0, cos a )
 
 rotZMat :: Float -> M4
-rotZMat a = mat4 ( cos a, - sin a, 0, 0
-                 , sin a, cos a, 0, 0
-                 , 0, 0, 1, 0
-                 , 0, 0, 0, 1 )
+rotZMat a = mat4from3 ( cos a, - sin a, 0
+                      , sin a, cos a, 0
+                      , 0, 0, 1 )
+
+rotAAMat :: V3 -> Float -> M4
+rotAAMat v = quatToMat . rotAAQuat v
+
+rotAAQuat :: V3 -> Float -> V4
+rotAAQuat (V3 x y z) a = V4 (x * s) (y * s) (z * s) (cos $ a / 2)
+        where s = sin $ a / 2
 
 scaleMat :: V3 -> M4
-scaleMat (V3 x y z) = mat4 ( x, 0, 0, 0
-                           , 0, y, 0, 0
-                           , 0, 0, z, 0
-                           , 0, 0, 0, 1 )
+scaleMat (V3 x y z) = mat4from3 ( x, 0, 0
+                                , 0, y, 0
+                                , 0, 0, z )
+
+perspectiveMat :: Float -> Float -> Float -> Float -> M4
+perspectiveMat f n fov ar =
+        mat4 ( s / ar , 0 , 0                 , 0
+             , 0      , s , 0                 , 0
+             , 0      , 0 , (f + n) / (n - f) , (2 * f * n) / (n - f)
+             , 0      , 0 , - 1               , 0)
+        where s = 1 / tan (fov * pi / 360)
+
+quatToMat :: V4 -> M4
+quatToMat (V4 x y z w) = mat4from3 (
+        1 - 2 * y ^ 2 - 2 * z ^ 2, 2 * x * y - 2 * z * w, 2 * x * z + 2 * y * w,
+        2 * x * y + 2 * z * w, 1 - 2 * x ^ 2 - 2 * z ^ 2, 2 * y * z - 2 * x * w,
+        2 * x * z - 2 * y * w, 2 * y * z + 2 * x * w, 1 - 2 * x ^ 2 - 2 * y ^ 2)
 
 zipWithM_ :: Monad m => (a -> b -> m c) -> [a] -> [b] -> m ()
 zipWithM_ f xs = sequence_ . zipWith f xs

@@ -17,7 +17,7 @@ import JavaScript.WebGL hiding (clear)
 
 import Data.IORef
 import Control.Applicative
-import Control.Concurrent (threadDelay)
+import Control.Concurrent (threadDelay, forkIO) -- debug
 import FRP.Yampa
 import GHCJS.Foreign
 import GHCJS.Marshal
@@ -65,6 +65,7 @@ run q sigf = do element <- query $ toJSString q
                                                         Just l -> cur - l
                                                         Nothing -> 0
                                           react rsf (tm, Just events)
+                                          -- print tm -- debug
                                           onFrame $ frame rsf src (Just cur)
 
               onFrame handler = asyncCallback1 NeverRetain handler

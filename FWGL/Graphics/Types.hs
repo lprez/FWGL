@@ -4,7 +4,8 @@ module FWGL.Graphics.Types (
         Light(..),
         Solid(..),
         Object(..),
-        Scene,
+        Projection(..),
+        Scene(..),
         objectGeometry
 ) where
 
@@ -20,7 +21,9 @@ data Solid = Solid Mesh M4 Texture
 
 data Object = SolidObject Solid | Light Light | NoObject
 
-type Scene = [Object]
+data Projection = NoProjection | Perspective Float Float Float Float
+
+data Scene = Scene Projection [Object]
 
 objectGeometry :: Object -> Geometry
 objectGeometry (SolidObject (Solid (StaticGeom g) _ _)) = g
