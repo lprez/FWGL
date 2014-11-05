@@ -5,13 +5,15 @@ Examples
 --------
 
 [Demo](http://ziocrocifisso.github.io/FWGL/demo)
+
 [Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) (simple game)
+
 [Recursive signals](http://ziocrocifisso.github.io/FWGL/recur)
 
 Documentation
 -------------
 
-http://ziocrocifisso.githun.io/docs/FWGL.html (WIP)
+http://ziocrocifisso.github.io/FWGL/docs/FWGL.html (WIP)
 
 Work In Progress
 --------
