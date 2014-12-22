@@ -1,7 +1,8 @@
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances #-}
 
-module JavaScript.WebGL.Types (
+module FWGL.Backend.JavaScript.WebGL.Types (
         Ctx,
+        Image,
         Float32Array,
         Int32Array,
         Uint16Array,
@@ -24,17 +25,23 @@ module JavaScript.WebGL.Types (
         int32View,
         uint16View,
         uint8View,
+        toJSArray,
+        listToJSArray,
         noBuffer,
         noTexture
 ) where
 
 import Data.Int (Int32)
 import Data.Word (Word8, Word16)
+import GHCJS.Marshal
 import GHCJS.Foreign
 import GHCJS.Types
 
 data Ctx_
 type Ctx = JSRef Ctx_
+
+data Image_
+type Image = JSRef Image_
 
 data Float32Array_
 type Float32Array = JSRef Float32Array_
@@ -78,10 +85,6 @@ type ShaderPrecisionFormat = JSRef ShaderPrecisionFormat_
 data ArrayBufferView_
 type ArrayBufferView = JSRef ArrayBufferView_
 
---instance (ArrayBufferView a b) => Image a
---instance Image ImageData
---instance Image ImageElement
-
 noBuffer :: Buffer
 noBuffer = jsNull
 
@@ -99,6 +102,19 @@ uint16View = fmap castRef . uint16Array
 
 uint8View :: JSArray Word8 -> IO ArrayBufferView
 uint8View = fmap castRef . uint8Array
+
+toJSArray :: ToJSRef a => (v -> Maybe (a, v)) -> v -> IO (JSArray a)
+toJSArray next iv = newArray >>= iterPush iv
+        where iterPush v arr = case next v of
+                                        Just (x, v') -> do xRef <- toJSRef x
+                                                           pushArray xRef arr
+                                                           iterPush v' arr
+                                        Nothing -> return arr
+
+listToJSArray :: ToJSRef a => [a] -> IO (JSArray a)
+listToJSArray = toJSArray deconstr
+        where deconstr (x : xs) = Just (x, xs)
+              deconstr [] = Nothing
 
 foreign import javascript unsafe "$r = new Float32Array($1);"
         float32Array :: JSArray Float -> IO Float32Array

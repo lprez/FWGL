@@ -73,6 +73,6 @@ parseOBJ file = runST $
               parseFloat [] = 0
               parseFloat s = read s
 
-geometryOBJ :: OBJModel -> Geometry
+geometryOBJ :: OBJModel -> Geometry Geometry3
 geometryOBJ (OBJModel vs us ns fs) =
         arraysToElements $ facesToArrays vs us ns fs

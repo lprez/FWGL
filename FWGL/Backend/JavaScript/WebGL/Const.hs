@@ -1,4 +1,4 @@
-module JavaScript.WebGL.Const where
+module FWGL.Backend.JavaScript.WebGL.Const where
 
 gl_DEPTH_BUFFER_BIT :: Num a => a
 gl_DEPTH_BUFFER_BIT = 0x00000100

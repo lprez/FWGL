@@ -1,3 +1,6 @@
+{-# LANGUAGE DataKinds, FlexibleContexts, ConstraintKinds, TypeOperators,
+             TypeFamilies #-}
+
 module FWGL.Graphics (
         module FWGL.Graphics.Color,
         Scene,
@@ -7,6 +10,8 @@ module FWGL.Graphics (
         Color(..),
         V2(..),
         V3(..),
+        (~~),
+        (<>),
         mkGeometry,
         mkTexture,
         textureURL,
@@ -27,94 +32,145 @@ module FWGL.Graphics (
         dynamicE,
         dynamic,
         scene,
-        perspective
+        transform
 ) where
 
 import FRP.Yampa
-import FWGL.Geometry (mkGeometry)
+import FWGL.Geometry
 import FWGL.Graphics.Color
 import FWGL.Graphics.Types
+import FWGL.Internal.GL (GLES)
+import FWGL.Internal.TList
+import FWGL.Shader.Program
 import FWGL.Texture
 import FWGL.Vector
 
--- | An empty object.
-nothing :: Object
-nothing = SolidObject $ Solid Empty idMat whiteTexture
+-- | Transformed objects are those that support the uniforms of the standard
+-- shaders/program (i.e. Transform3 and Texture2, but not View3)
+type TransformedObject = Object '[Transform3, Texture2] DefaultAttributes
 
--- | A cube.
-cube :: Float  -- ^ Edge
-     -> Object
-cube edg = scale edg . SolidObject $ Solid Cube idMat whiteTexture
+-- | An empty transformed object.
+nothing :: TransformedObject
+nothing = ObjectEmpty
 
--- | An object with a specified 'Geometry'.
-geom :: Geometry -> Object
-geom g = SolidObject $ Solid (StaticGeom g) idMat whiteTexture
+-- | An empty custom object. You should use a custom object if your shader is
+-- not based on the two standard uniforms.
+cnothing :: Object '[] '[]
+cnothing = ObjectEmpty
+
+-- | A transformed cube.
+cube :: GLES => Texture -> Transformation -> TransformedObject
+cube tx tr = transform tr . texture tx $
+                (ObjectMesh Cube :: Object '[] Geometry3)
+
+-- | A custom cube.
+ccube :: Object is Geometry3
+ccube = ObjectMesh Cube
+
+-- | Join two objects.
+(~~) :: (Equal gs gs', Equal is is')
+     => Object gs is -> Object gs' is'
+     -> Object (Union gs gs') (Union is is')
+(~~) = ObjectAppend
+
+-- | Join two objects, even if they don't provide the same variables.
+unsafeJoin :: Object gs is -> Object gs' is'
+           -> Object (Union gs gs') (Union is is')
+unsafeJoin = ObjectAppend
+
+-- | A transformed object with a specified 'Geometry'.
+geom :: GLES => Texture -> Transformation -> Geometry i
+     -> Object '[Transform3, Texture2] i
+geom tx tr = transform tr . texture tx . ObjectMesh . StaticGeom
+
+-- | A custom object with a specified 'Geometry'
+cgeom :: Geometry i -> Object g i
+cgeom = ObjectMesh . StaticGeom
+
+-- | A transformation that does nothing.
+same :: Transformation
+same = Transformation idMat
 
 -- | Translate an object.
-translate :: V3 -> Object -> Object
-translate = transform . transMat
+translate :: V3 -> Transformation
+translate = Transformation . transMat
 
--- | Rotate an object around the X axis.
-rotX :: Float -> Object -> Object
-rotX = transform . rotXMat
+-- | Rotate around the X axis.
+rotX :: Float -> Transformation
+rotX = Transformation . rotXMat
 
--- | Rotate an object around the Y axis.
-rotY :: Float -> Object -> Object
-rotY = transform . rotYMat
+-- | Rotate around the Y axis.
+rotY :: Float -> Transformation
+rotY = Transformation . rotYMat
 
--- | Rotate an object around the Z axis.
-rotZ :: Float -> Object -> Object
-rotZ = transform . rotZMat
+-- | Rotate around the Z axis.
+rotZ :: Float -> Transformation
+rotZ = Transformation . rotZMat
 
--- | Rotate an object using a rotation axis and angle.
-rotAA :: V3 -> Float -> Object -> Object
-rotAA v = transform . rotAAMat v
+-- | Rotate using a rotation axis and angle.
+rotAA :: V3 -> Float -> Transformation
+rotAA v = Transformation . rotAAMat v
 
 -- | Scale an object.
-scale :: Float -> Object -> Object
-scale f = transform $ scaleMat (V3 f f f)
+scale :: Float -> Transformation
+scale f = Transformation $ scaleMat (V3 f f f)
 
--- | Scale an object in three dimensions.
-scaleV :: V3 -> Object -> Object
-scaleV = transform . scaleMat
+-- | Scale in three dimensions.
+scaleV :: V3 -> Transformation
+scaleV = Transformation . scaleMat
 
--- | Set the color of an object.
-color :: Color -> Object -> Object
-color c = texture $ mkTexture 1 1 [ c ]
+-- | Generate a 1x1 texture.
+color :: Color -> Texture
+color c = mkTexture 1 1 [ c ]
 
--- | Set the texture of an object.
-texture :: Texture -> Object -> Object
-texture t (SolidObject (Solid mesh mat _)) = SolidObject $ Solid mesh mat t
-texture _ o = o
+-- | Set the texture of a custom object.
+texture :: NotMember Texture2 g => Texture
+        -> Object g i -> Object (Texture2 ': g) i
+texture = ObjectTexture
+
+-- | Create a standard scene (a scene with the standard shaders).
+scene :: ( Subset gs DefaultUniforms
+         , Equal '[Transform3, Texture2] gs
+         , Equal DefaultAttributes is, GLES)
+      => Object gs is -> Scene
+scene = sceneM4 idMat
+
+-- | Create a standard scene with perspective.
+scenePersp :: ( Subset gs DefaultUniforms
+              , Equal '[Transform3, Texture2] gs
+              , Equal DefaultAttributes is, GLES)
+            => Object gs is -> Scene
+scenePersp = undefined -- TODO
+
+-- | Create a standard scene with a view matrix
+sceneM4 :: ( Subset gs DefaultUniforms
+           , Equal gs '[Transform3, Texture2]
+           , Equal DefaultAttributes is, GLES )
+        => M4 -> Object gs is -> Scene
+sceneM4 m = Scene defaultProgram . ObjectGlobal (undefined :: View3) m
+
+-- sceneProgram 
 
 -- | Like 'dynamic', but instead of comparing the two objects it checks the
 -- event with the new object.
-dynamicE :: Object -- ^ Initial 'Object'.
-         -> SF (Event Object) Object
+dynamicE :: Object g i -- ^ Initial 'Object'.
+         -> SF (Event (Object g i)) (Object g i)
 dynamicE = dynamicG $ flip const
 
 -- | Automatically deallocate the previous mesh from the GPU when it changes.
-dynamic :: SF Object Object
+dynamic :: SF (Object g i) (Object g i)
+dynamic = undefined
+{-
 dynamic =
         dynamicG (\ o n -> if objectGeometry o == objectGeometry n
                                 then Event n
                                 else NoEvent
         ) nothing
+-}
 
--- | Build a scene (no projection).
-scene :: [Object] -> Scene
-scene = Scene NoProjection
-
--- | Build a scene (perspective).
-perspective :: Float -> Float -> Float -> Float -> [Object] -> Scene
-perspective far near fov ratio = Scene (Perspective far near fov ratio)
-
-transform :: M4 -> Object -> Object
-transform mat' (SolidObject (Solid mesh mat t)) =
-                SolidObject $ Solid mesh (mul4 mat mat') t -- TODO
-transform _ o = o
-
-dynamicG :: (Object -> a -> Event Object) -> Object -> SF a Object
+dynamicG :: (Object g i -> a -> Event (Object g i)) -> (Object g i) -> SF a (Object g i)
+dynamicG = undefined
+{-
 dynamicG f i = flip sscan i $ \ oldObj inp ->
                 case f oldObj inp of
                         Event (SolidObject (Solid (StaticGeom newG) mat tex)) ->
@@ -134,6 +190,9 @@ dynamicG f i = flip sscan i $ \ oldObj inp ->
                                                         )
                                         _ -> oldObj
                         _ -> error "dynamicG: not a Geometry."
+-}
 
-whiteTexture :: Texture
-whiteTexture = mkTexture 1 1 [ white ]
+-- | Transform a custom object.
+transform :: (NotMember Transform3 g, GLES) => Transformation
+          -> Object g i -> Object (Transform3 ': g) i
+transform (Transformation m) = ObjectGlobal (undefined :: Transform3) m
