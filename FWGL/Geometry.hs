@@ -28,7 +28,7 @@ import FWGL.Internal.GL
 import FWGL.Internal.Resource
 import FWGL.Shader.CPU
 import FWGL.Shader.Default (Position3, Normal3, UV)
-import FWGL.Shader.GLSL (inputName)
+import FWGL.Shader.GLSL (attributeName)
 import FWGL.Vector
 
 data AttrList (is :: [*]) where
@@ -43,7 +43,7 @@ data Geometry (is :: [*]) = Geometry {
 }
 
 data GPUGeometry = GPUGeometry {
-        attributeBuffers :: [(String, Buffer, Word -> GL ())],
+        attributeBuffers :: [(String, Buffer, GLUInt -> GL ())],
         elementBuffer :: Buffer,
         elementCount :: Int
 }
@@ -91,20 +91,20 @@ loadGeometry (Geometry al es _) =
                             loadBuffer gl_ELEMENT_ARRAY_BUFFER)
                     <*> pure (length es)
 
-loadAttrList :: GLES => AttrList is -> GL [(String, Buffer, Word -> GL ())]
+loadAttrList :: GLES => AttrList is -> GL [(String, Buffer, GLUInt -> GL ())]
 loadAttrList AttrListNil = return []
 loadAttrList (AttrListCons g c al) = (:) <$> loadAttribute g c
                                          <*> loadAttrList al
         where loadAttribute g c = do arr <- encodeAttribute g c
                                      buf <- loadBuffer gl_ARRAY_BUFFER arr
-                                     return (inputName g, buf, setAttribute g)
+                                     return (attributeName g, buf, setAttribute g)
 
 deleteGPUGeometry :: GLES => GPUGeometry -> GL ()
 deleteGPUGeometry (GPUGeometry abs eb _) = mapM_ (\(_, buf, _) -> deleteBuffer buf) abs
                                            >> deleteBuffer eb
 
 -- TODO: move
-loadBuffer :: GLES => Word -> Array -> GL Buffer
+loadBuffer :: GLES => GLEnum -> Array -> GL Buffer
 loadBuffer ty bufData =
         do buffer <- createBuffer
            bindBuffer ty buffer

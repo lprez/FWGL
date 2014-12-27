@@ -313,10 +313,10 @@ foreign import javascript unsafe "$1.stencilOpSeparate($2, $3, $4, $5)"
         glStencilOpSeparate :: Ctx -> Word -> Word -> Word -> Word -> IO ()
 
 foreign import javascript unsafe "$1.texImage2D($2, $3, $4, $5, $6, $7, $8, $9, $10)"
-        glTexImage2DBuffer :: Ctx -> Word -> Int -> Word -> Int -> Int -> Int -> Word -> Word -> ArrayBufferView -> IO ()
+        glTexImage2DBuffer :: Ctx -> Word -> Int -> Int -> Int -> Int -> Int -> Word -> Word -> ArrayBufferView -> IO ()
 
 foreign import javascript unsafe "$1.texImage2D($2, $3, $4, $5, $6, $7)"
-        glTexImage2DElement :: Ctx -> Word -> Int -> Word -> Word -> Word -> Image -> IO ()
+        glTexImage2DElement :: Ctx -> Word -> Int -> Int -> Word -> Word -> Image -> IO ()
 
 {-
 foreign import javascript unsafe "$1.texImage2D()"

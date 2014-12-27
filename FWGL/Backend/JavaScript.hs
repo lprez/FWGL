@@ -1,10 +1,11 @@
 {-# LANGUAGE NullaryTypeClasses, TypeFamilies, UndecidableInstances #-}
 
-module FWGL.Backend.Javascript () where
+module FWGL.Backend.JavaScript () where
 
 import Control.Applicative
 import Control.Concurrent
 import Data.IORef
+import Data.Word
 import FRP.Yampa
 import FWGL.Backend
 import FWGL.Backend.JavaScript.Event
@@ -17,9 +18,9 @@ import GHCJS.Types
 import GHCJS.Marshal
 
 foreign import javascript unsafe
-        "var img = new Image();                 \
-        \img.src = $1;                          \
-        \img.onload = function() { $2(img); };  "
+        "var img = new Image();                        \
+        \img.src = $1;                                 \
+        \img.onload = function() { return $2(img); };  "
         loadImageRaw :: JSString -> JSFun (JSRef a -> IO ()) -> IO ()
 
 foreign import javascript unsafe "document.querySelector($1)"
@@ -47,13 +48,14 @@ instance BackendIO where
                    w <- read <$> getAttribute "width" element
                    h <- read <$> getAttribute "height" element
                    focus element -- ... no
-                   drawStateRef <- initState w h >>= newIORef
+                   drawStateRef <- initState w h ctx >>= newIORef
                    reactStateRef <- reactInit (Input <$> clear eventSrc)
                                               (\ _ _ -> actuate ctx drawStateRef)
                                               sigf
                    onFrame $ frame reactStateRef eventSrc Nothing
                 where frame rsf src last crf =
                         do events <- clear src
+                           putStrLn "post clear"
                            (Just cur) <- fromJSRef crf
                            let tm = case last of
                                          Just l -> cur - l
@@ -77,7 +79,14 @@ instance BackendIO where
 
 instance GLES where
         type Ctx = JS.Ctx
+        type GLEnum = Word
+        type GLUInt = Word
+        type GLInt = Int
+        type GLPtr = Word
+        type GLPtrDiff = Word
+        type GLSize = Int
         type GLString = JSString
+        type GLBool = Bool
         type Buffer = JS.Buffer
         type UniformLocation = JS.UniformLocation
         type Texture = JS.Texture
@@ -85,13 +94,16 @@ instance GLES where
         type Program = JS.Program
         type FrameBuffer = JS.FrameBuffer
         type RenderBuffer = JS.RenderBuffer
-        type ActiveInfo = JS.ActiveInfo
-        type ShaderPrecisionFormat = JS.ShaderPrecisionFormat
+        -- type ActiveInfo = JS.ActiveInfo
+        -- type ShaderPrecisionFormat = JS.ShaderPrecisionFormat
         type Array = JS.ArrayBufferView
         type Float32Array = JS.Float32Array
         type Int32Array = JS.Int32Array
         type Image = JS.Image
 
+        true = True
+        false = False
+        nullGLPtr = 0
         toGLString = toJSString
         noBuffer = JS.noBuffer
         noTexture = JS.noTexture
@@ -102,16 +114,16 @@ instance GLES where
         encodeM3 (M3 (V3 a1 a2 a3)
                      (V3 b1 b2 b3)
                      (V3 c1 c2 c3)) = JS.listToJSArray [ a1, a2, a3
-                                                    , b1, b2, b3
-                                                    , c1, c2, c3]
+                                                       , b1, b2, b3
+                                                       , c1, c2, c3]
                                       >>= JS.float32Array
         encodeM4 (M4 (V4 a1 a2 a3 a4)
                      (V4 b1 b2 b3 b4)
                      (V4 c1 c2 c3 c4)
                      (V4 d1 d2 d3 d4) ) = JS.listToJSArray [ a1, a2, a3, a4
-                                                        , b1, b2, b3, b4
-                                                        , c1, c2, c3, c4
-                                                        , d1, d2, d3, d4 ]
+                                                           , b1, b2, b3, b4
+                                                           , c1, c2, c3, c4
+                                                           , d1, d2, d3, d4 ]
                                           >>= JS.float32Array
         encodeFloats v = JS.listToJSArray v >>= JS.float32View
 
@@ -128,7 +140,7 @@ instance GLES where
                       next (_, []) = Nothing
 
         -- TODO
-        encodeV4s = undefined
+        encodeV4s = error "encodeV4s: TODO"
 
         encodeUShorts v = JS.listToJSArray v >>= JS.uint16View
 
@@ -193,24 +205,24 @@ instance GLES where
         glFramebufferTexture2D = JS.glFramebufferTexture2D
         glFrontFace = JS.glFrontFace
         glGenerateMipmap = JS.glGenerateMipmap
-        glGetActiveAttrib = JS.glGetActiveAttrib
-        glGetActiveUniform = JS.glGetActiveUniform
+        -- glGetActiveAttrib = JS.glGetActiveAttrib
+        -- glGetActiveUniform = JS.glGetActiveUniform
         glGetAttribLocation = JS.glGetAttribLocation
         -- glGetBufferParameter = JS.glGetBufferParameter
         -- glGetParameter = JS.glGetParameter
         glGetError = JS.glGetError
-        glGetFramebufferAttachmentParameter = JS.glGetFramebufferAttachmentParameter
+        -- glGetFramebufferAttachmentParameter = JS.glGetFramebufferAttachmentParameter
         glGetProgramInfoLog = JS.glGetProgramInfoLog
         -- glGetRenderbufferParameter = JS.glGetRenderbufferParameter
         -- glGetShaderParameter = JS.glGetShaderParameter
-        glGetShaderPrecisionFormat = JS.glGetShaderPrecisionFormat
+        -- glGetShaderPrecisionFormat = JS.glGetShaderPrecisionFormat
         glGetShaderInfoLog = JS.glGetShaderInfoLog
         glGetShaderSource = JS.glGetShaderSource
         -- glGetTexParameter = JS.glGetTexParameter
         -- glGetUniform = JS.glGetUniform
         glGetUniformLocation = JS.glGetUniformLocation
         -- glGetVertexAttrib = JS.glGetVertexAttrib
-        glGetVertexAttribOffset = JS.glGetVertexAttribOffset
+        -- glGetVertexAttribOffset = JS.glGetVertexAttribOffset
         glHint = JS.glHint
         glIsBuffer = JS.glIsBuffer
         glIsEnabled = JS.glIsEnabled
@@ -531,9 +543,7 @@ instance GLES where
         gl_RGB5_A1 = JS.gl_RGB5_A1
         gl_RGB565 = JS.gl_RGB565
         gl_DEPTH_COMPONENT16 = JS.gl_DEPTH_COMPONENT16
-        gl_STENCIL_INDEX = JS.gl_STENCIL_INDEX
         gl_STENCIL_INDEX8 = JS.gl_STENCIL_INDEX8
-        gl_DEPTH_STENCIL = JS.gl_DEPTH_STENCIL
         gl_RENDERBUFFER_WIDTH = JS.gl_RENDERBUFFER_WIDTH
         gl_RENDERBUFFER_HEIGHT = JS.gl_RENDERBUFFER_HEIGHT
         gl_RENDERBUFFER_INTERNAL_FORMAT = JS.gl_RENDERBUFFER_INTERNAL_FORMAT
@@ -550,7 +560,6 @@ instance GLES where
         gl_COLOR_ATTACHMENT0 = JS.gl_COLOR_ATTACHMENT0
         gl_DEPTH_ATTACHMENT = JS.gl_DEPTH_ATTACHMENT
         gl_STENCIL_ATTACHMENT = JS.gl_STENCIL_ATTACHMENT
-        gl_DEPTH_STENCIL_ATTACHMENT = JS.gl_DEPTH_STENCIL_ATTACHMENT
         gl_NONE = JS.gl_NONE
         gl_FRAMEBUFFER_COMPLETE = JS.gl_FRAMEBUFFER_COMPLETE
         gl_FRAMEBUFFER_INCOMPLETE_ATTACHMENT = JS.gl_FRAMEBUFFER_INCOMPLETE_ATTACHMENT
@@ -561,7 +570,3 @@ instance GLES where
         gl_RENDERBUFFER_BINDING = JS.gl_RENDERBUFFER_BINDING
         gl_MAX_RENDERBUFFER_SIZE = JS.gl_MAX_RENDERBUFFER_SIZE
         gl_INVALID_FRAMEBUFFER_OPERATION = JS.gl_INVALID_FRAMEBUFFER_OPERATION
-        gl_UNPACK_FLIP_Y_WEBGL = JS.gl_UNPACK_FLIP_Y_WEBGL
-        gl_UNPACK_PREMULTIPLY_ALPHA_WEBGL = JS.gl_UNPACK_PREMULTIPLY_ALPHA_WEBGL
-        gl_CONTEXT_LOST_WEBGL = JS.gl_CONTEXT_LOST_WEBGL
-        gl_UNPACK_COLORSPACE_CONVERSION_WEBGL = JS.gl_UNPACK_COLORSPACE_CONVERSION_WEBGL

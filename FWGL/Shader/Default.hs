@@ -30,6 +30,7 @@ defaultVertexShader :: VertexShader [ Transform3, View3 ]
                                     '[ UV ]
 defaultVertexShader = do v <- applyMatrices
                          get >>= \x@(UV _) -> put x
+                         (Normal3 _) <- get
                          putVertex v
                          
 -- TODO: remove tests

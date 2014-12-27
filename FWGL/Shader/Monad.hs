@@ -34,8 +34,9 @@ data Shader g i o a where
         -- Put :: (Typeable a, ShaderType a) => a -> Shader g i (a ': o) ()
         Put :: (Member a o, Typeable a, ShaderType a) => a -> Shader g i o ()
 
-type PartialShader g i o a = (Subset o o', Subset g g', Subset i i')
-                          => Shader g' i' o' a
+type PartialShader g i o a =
+        (Subset o o', Subset g g', Subset i i', Subset i' i)
+        => Shader g' i' o' a
 
 -- TODO: Shader è una monade e un funtore, non c'è bisogno di rebindare la
 -- sintassi

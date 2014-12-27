@@ -7,7 +7,7 @@ module FWGL.Shader.GLSL (
         shaderToGLSL,
         exprToGLSL,
         globalName,
-        inputName
+        attributeName
 ) where
 
 import Data.Typeable
@@ -21,24 +21,28 @@ type ShaderVars = ( [(String, String)]
 
 vertexToGLSLAttr :: VertexShader g i o -> (String, [(String, Int)])
 vertexToGLSLAttr v =
-        let r@(_, is, _) = snd $ reduce v
-        in ( shaderToGLSL r [("outVertexShaderOutput", "gl_Position")]
+        let r@(_, is, _) = snd $ reduce False v
+        in ( shaderToGLSL "" "attribute" "varying"
+                          r [("hvVertexShaderOutput", "gl_Position")]
            , map (\(t, n, s) -> (n, s)) is)
 
 vertexToGLSL :: VertexShader g i o -> String
 vertexToGLSL = fst . vertexToGLSLAttr
 
 fragmentToGLSL :: FragmentShader g i -> String
-fragmentToGLSL v = shaderToGLSL (snd $ reduce v)
-                                [("outFragmentShaderOutput", "gl_FragColor")]
+fragmentToGLSL v = shaderToGLSL "precision mediump float;"
+                                "varying" ""
+                                (snd $ reduce True v)
+                                [("hvFragmentShaderOutput", "gl_FragColor")]
 
-shaderToGLSL :: ShaderVars -> [(String, String)] -> String
-shaderToGLSL (gs, is, os) predec =
+shaderToGLSL :: String -> String -> String -> ShaderVars -> [(String, String)] -> String
+shaderToGLSL header ins outs (gs, is, os) predec =
+        header ++
         concatMap (var "uniform") gs ++
-        concatMap (\(t, n, _) -> var "in" (t, n)) is ++
+        concatMap (\(t, n, _) -> var ins (t, n)) is ++
         concatMap (\(t, n, _) -> if any ((== n) . fst) predec
                                         then []
-                                        else var "out" (t, n)
+                                        else var outs (t, n)
                   ) os ++
         "void main(){" ++
         concatMap (\(_, n, e) -> replace n predec ++ "=" ++
@@ -48,19 +52,21 @@ shaderToGLSL (gs, is, os) predec =
                                         ((_, y) : []) -> y
                                         _ -> x
 
-reduce :: Shader g i o a -> (a, ShaderVars)
-reduce (Pure x) = (x, ([], [], []))
-reduce (Bind s f) = case reduce s of
-                        (x, (gs, is, os)) -> case reduce $ f x of
+reduce :: Bool -> Shader g i o a -> (a, ShaderVars)
+reduce _ (Pure x) = (x, ([], [], []))
+reduce b (Bind s f) = case reduce b s of
+                        (x, (gs, is, os)) -> case reduce b $ f x of
                                 (y, (gs', is', os')) ->
                                         (y, (gs ++ gs', is ++ is', os ++ os'))
-reduce (Global :: Shader g i o a) = (fromExpr $ Read nm, ([(ty, nm)], [], []))
+reduce _ (Global :: Shader g i o a) = (fromExpr $ Read nm, ([(ty, nm)], [], []))
         where (ty, nm) = globalTypeAndName (undefined :: a)
-reduce (Get :: Shader g i o a) = ( fromExpr $ Read nm
-                                 , ([], [(ty, nm, size (undefined :: a))], []))
-        where (ty, nm) = inputTypeAndName (undefined :: a)
-reduce (Put x) = ((), ([], [], [(ty, nm, toExpr x)]))
-        where (ty, nm) = outputTypeAndName x
+reduce isFragment (Get :: Shader g i o a) =
+        (fromExpr $ Read nm, ([], [(ty, nm, size (undefined :: a))], []))
+        where (ty, nm) = (if isFragment
+                                then varyingTypeAndName
+                                else attributeTypeAndName) (undefined :: a)
+reduce _ (Put x) = ((), ([], [], [(ty, nm, toExpr x)]))
+        where (ty, nm) = varyingTypeAndName x
 
 exprToGLSL :: Expr -> String
 exprToGLSL Nil = ""
@@ -77,20 +83,20 @@ exprToGLSL (Literal s) = s
 globalTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
 globalTypeAndName t = (typeName t, globalName t)
 
-inputTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
-inputTypeAndName t = (typeName t, inputName t)
+varyingTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
+varyingTypeAndName t = (typeName t, varyingName t)
 
-outputTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
-outputTypeAndName t = (typeName t, outputName t)
+attributeTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
+attributeTypeAndName t = (typeName t, attributeName t)
 
 variableName :: Typeable t => t -> String
 variableName = tyConName . typeRepTyCon . typeOf
 
 globalName :: Typeable t => t -> String
-globalName = ("global" ++) . variableName
+globalName = ("hg" ++) . variableName
 
-inputName :: Typeable t => t -> String
-inputName = ("in" ++) . inputName
+varyingName :: Typeable t => t -> String
+varyingName = ("hv" ++) . variableName
 
-outputName :: Typeable t => t -> String
-outputName = ("out" ++) . inputName
+attributeName :: Typeable t => t -> String
+attributeName = ("ha" ++) . variableName

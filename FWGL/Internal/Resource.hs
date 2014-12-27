@@ -14,6 +14,7 @@ import Control.Applicative
 import Data.Functor
 import qualified Data.HashMap.Strict as H
 import Data.Hashable
+import Debug.Trace
 
 data ResMap i r = forall m. Resource i r m =>
                             ResMap { unResMap :: H.HashMap i r }

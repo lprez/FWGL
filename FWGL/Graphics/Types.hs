@@ -3,11 +3,10 @@
 
 module FWGL.Graphics.Types (
         Geometry(..),
-        Transformation(..),
         Mesh(..),
         Light(..),
         Object(..),
-        Scene(..),
+        ObjProgram(..),
         (<>)
 ) where
 
@@ -27,9 +26,6 @@ data Mesh is where
         StaticGeom :: Geometry is -> Mesh is
         DynamicGeom :: Geometry is -> Geometry is -> Mesh is
 
--- | A transformation matrix.
-newtype Transformation = Transformation M4
-
 data Light
 
 -- | An object is a set of geometries associated with some uniforms.
@@ -37,15 +33,15 @@ data Object (gs :: [*]) (is :: [*]) where
         ObjectEmpty :: Object gs is
         ObjectMesh :: Mesh is -> Object gs is
         ObjectTexture :: Texture -> Object g i -> Object (Texture2 ': g) i
-        -- invece di ObjectTexture, un ObjectGlobal che dipende dal DrawState?
+        -- TODO: invece di ObjectTexture, un ObjectGlobal che dipende dal DrawState?
         ObjectGlobal :: (Typeable g, UniformCPU c g) => g -> c -> Object gs is
                      -> Object (g ': gs) is 
         ObjectAppend :: Object gs is -> Object gs' is'
                      -> Object (Union gs gs') (Union is is')
 
 -- | An object associated with a program.
-data Scene = forall oi pi og pg. (Subset oi pi, Subset og pg)
-             => Scene (Program pg pi) (Object og oi)
+data ObjProgram = forall oi pi og pg. (Subset oi pi, Subset og pg)
+                => Scene (Program pg pi) (Object og oi)
 
 instance Monoid Transformation where
         mempty = Transformation idMat

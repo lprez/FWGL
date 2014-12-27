@@ -29,6 +29,7 @@ import qualified Data.HashMap.Strict as H
 import Data.Typeable
 import Data.Word (Word)
 import Control.Applicative
+import Control.Monad (when)
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
@@ -36,7 +37,7 @@ import Control.Monad.Trans.State
 newtype UniformLocation = UniformLocation GL.UniformLocation
 
 data DrawState = DrawState {
-        program :: Program '[] '[],
+        program :: Maybe (Program '[] '[]),
         loadedProgram :: LoadedProgram,
         programs :: ResMap (Program '[] '[]) LoadedProgram,
         uniforms :: ResMap (LoadedProgram, String) UniformLocation,
@@ -47,14 +48,13 @@ data DrawState = DrawState {
 newtype Draw a = Draw { unDraw :: StateT DrawState GL a }
         deriving (Functor, Applicative, Monad, MonadIO)
 
--- TODO: no width/height
 drawInit :: (BackendIO, GLES) => Int -> Int -> GL DrawState
 drawInit w h = do enable gl_DEPTH_TEST
-                  depthFunc gl_LESS
                   clearColor 0.0 0.0 0.0 1.0
+                  depthFunc gl_LESS
                   resize w h
-                  return DrawState { program = undefined
-                                   , loadedProgram = undefined
+                  return DrawState { program = Nothing
+                                   , loadedProgram = error "No loaded program"
                                    , programs = newGLResMap
                                    , gpuMeshes = newGLResMap
                                    , uniforms = newGLResMap
@@ -66,7 +66,7 @@ execDraw :: Draw () -> DrawState -> GL DrawState
 execDraw (Draw a) = execStateT a
 
 resize :: GLES => Int -> Int -> GL ()
-resize = viewport 0 0
+resize w h = viewport 0 0 (fromIntegral w) (fromIntegral h)
 
 drawBegin :: GLES => Draw ()
 drawBegin = gl $ clear gl_COLOR_BUFFER_BIT
@@ -107,13 +107,15 @@ setTexture tex = do (LoadedTexture wtex) <- getTexture tex
                     uniform (undefined :: Texture2) $ ActiveTexture 0
 
 setProgram :: GLES => Program g i -> Draw ()
--- TODO: controllare se il programma è uguale (sul segnale)
-setProgram p = do lp <- getProgram $ castProgram p
-                  Draw . modify $ \s -> s {
-                        program = castProgram p,
-                        loadedProgram = lp
-                  }
-                  
+setProgram p = do current <- program <$> Draw get
+                  when (current /= Just (castProgram p)) $
+                        do lp@(LoadedProgram glp _ _)
+                                <- getProgram $ castProgram p
+                           Draw . modify $ \s -> s {
+                                   program = Just $ castProgram p,
+                                   loadedProgram = lp
+                           }
+                           gl $ useProgram glp
 
 getUniform :: (Typeable a, GLES) => a -> Draw UniformLocation
 getUniform g = do prg <- loadedProgram <$> Draw get
@@ -154,7 +156,7 @@ drawGPUGeometry (GPUGeometry abs eb ec) =
                                ) abs
 
            bindBuffer gl_ELEMENT_ARRAY_BUFFER eb
-           drawElements gl_TRIANGLES ec gl_UNSIGNED_SHORT 0
+           drawElements gl_TRIANGLES (fromIntegral ec) gl_UNSIGNED_SHORT nullGLPtr
            bindBuffer gl_ELEMENT_ARRAY_BUFFER noBuffer
 
            mapM_ (disableVertexAttribArray . fromIntegral) enabledLocs

@@ -5,6 +5,7 @@ module FWGL.Texture (
         LoadedTexture(..),
         mkTexture,
         textureURL,
+        textureFile,
         textureHash
 ) where
 
@@ -18,22 +19,27 @@ import qualified FWGL.Internal.GL as GL
 import FWGL.Internal.Resource
 
 -- | A texture.
-data Texture = TexturePixels [Color] Int Int Int | TextureURL String Int
-        deriving (Show)
+data Texture = TexturePixels [Color] GLSize GLSize Int
+             | TextureURL String Int
 
 newtype LoadedTexture = LoadedTexture GL.Texture
 
 -- | Creates a 'Texture' from a list of pixels.
-mkTexture :: Int      -- ^ Width.
+mkTexture :: GLES
+          => Int      -- ^ Width.
           -> Int      -- ^ Height.
           -> [Color]  -- ^ List of pixels
           -> Texture
-mkTexture w h ps = TexturePixels ps w h $ hash ps
+mkTexture w h ps = TexturePixels ps (fromIntegral w) (fromIntegral h) $ hash ps
 
--- | Creates a 'Texture' from an URL.
+-- | Creates a 'Texture' from an URL (JavaScript only).
 textureURL :: String  -- ^ URL
            -> Texture
 textureURL url = TextureURL url $ hash url
+
+-- | Creates a 'Texture' from a file (Desktop only).
+textureFile :: String -> Texture
+textureFile = textureURL
 
 textureHash :: Texture -> Int
 textureHash (TexturePixels _ _ _ h) = h
@@ -58,7 +64,7 @@ loadTexture tex =
                    (TexturePixels ps w h _) -> setup t $
                            do arr <- liftIO $ encodeColors ps
                               texImage2DBuffer gl_TEXTURE_2D 0
-                                               gl_RGBA
+                                               (fromIntegral gl_RGBA)
                                                w h 0
                                                gl_RGBA
                                                gl_UNSIGNED_BYTE
@@ -68,16 +74,19 @@ loadTexture tex =
                               liftIO $ loadImage url $ flip evalGL ctx .
                                 \img -> setup t $
                                         texImage2DImage gl_TEXTURE_2D 0
-                                                        gl_RGBA gl_RGBA
+                                                        (fromIntegral gl_RGBA)
+                                                        gl_RGBA
                                                         gl_UNSIGNED_BYTE
                                                         img
            return $ LoadedTexture t
         where setup t act = do
                 bindTexture gl_TEXTURE_2D t
                 act :: GL ()
-                texParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER gl_LINEAR
-                texParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER gl_LINEAR
-                texParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S gl_REPEAT
-                texParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T gl_REPEAT
+                param gl_TEXTURE_MAG_FILTER gl_LINEAR
+                param gl_TEXTURE_MIN_FILTER gl_LINEAR
+                param gl_TEXTURE_WRAP_S gl_REPEAT
+                param gl_TEXTURE_WRAP_T gl_REPEAT
                 bindTexture gl_TEXTURE_2D noTexture
+              param :: GLEnum -> GLEnum -> GL ()
+              param p v = texParameteri gl_TEXTURE_2D p $ fromIntegral v
 

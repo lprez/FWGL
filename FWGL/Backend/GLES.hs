@@ -1,4 +1,4 @@
-{-# LANGUAGE NullaryTypeClasses, TypeFamilies, MultiParamTypeClasses #-}
+{-# LANGUAGE NullaryTypeClasses, TypeFamilies, MultiParamTypeClasses, FlexibleContexts #-}
 
 module FWGL.Backend.GLES where
 
@@ -6,9 +6,23 @@ import Data.Word
 import FWGL.Graphics.Color
 import FWGL.Vector
 
-class GLES where
+class ( Integral GLEnum
+      , Integral GLUInt
+      , Integral GLInt
+      , Num GLEnum
+      , Num GLUInt
+      , Num GLInt
+      , Num GLPtrDiff
+      , Num GLSize) => GLES where
         type Ctx
+        type GLEnum
+        type GLUInt
+        type GLInt
+        type GLPtr
+        type GLPtrDiff
+        type GLSize
         type GLString
+        type GLBool
         type Buffer
         type UniformLocation
         type Texture
@@ -16,13 +30,17 @@ class GLES where
         type Program
         type FrameBuffer
         type RenderBuffer
-        type ActiveInfo
-        type ShaderPrecisionFormat
+        -- type ActiveInfo
+        -- type ShaderPrecisionFormat
         type Array
         type Float32Array
         type Int32Array
         type Image
 
+        true :: GLBool
+        false :: GLBool
+        nullGLPtr :: GLPtr
+        -- arrayGLPtr :: Array -> (GLPtr -> IO a) -> IO a
         toGLString :: String -> GLString
         noBuffer :: Buffer
         noTexture :: Texture
@@ -36,429 +54,422 @@ class GLES where
         encodeUShorts :: [Word16] -> IO Array
         encodeColors :: [Color] -> IO Array
 
-        glActiveTexture :: Ctx -> Word -> IO ()
+        glActiveTexture :: Ctx -> GLEnum -> IO ()
         glAttachShader :: Ctx -> Program -> Shader -> IO ()
-        glBindAttribLocation :: Ctx -> Program -> Word -> GLString -> IO ()
-        glBindBuffer :: Ctx -> Word -> Buffer -> IO ()
-        glBindFramebuffer :: Ctx -> Word -> FrameBuffer -> IO ()
-        glBindRenderbuffer :: Ctx -> Word -> RenderBuffer -> IO ()
-        glBindTexture :: Ctx -> Word -> Texture -> IO ()
+        glBindAttribLocation :: Ctx -> Program -> GLUInt -> GLString -> IO ()
+        glBindBuffer :: Ctx -> GLEnum -> Buffer -> IO ()
+        glBindFramebuffer :: Ctx -> GLEnum -> FrameBuffer -> IO ()
+        glBindRenderbuffer :: Ctx -> GLEnum -> RenderBuffer -> IO ()
+        glBindTexture :: Ctx -> GLEnum -> Texture -> IO ()
         glBlendColor :: Ctx -> Float -> Float -> Float -> Float -> IO ()
-        glBlendEquation :: Ctx -> Word -> IO ()
-        glBlendEquationSeparate :: Ctx -> Word -> Word -> IO ()
-        glBlendFunc :: Ctx -> Word -> Word -> IO ()
-        glBlendFuncSeparate :: Ctx -> Word -> Word -> Word -> Word -> IO ()
-        glBufferData :: Ctx -> Word -> Array -> Word -> IO ()
-        glBufferSubData :: Ctx -> Word -> Word -> Array -> IO ()
-        glCheckFramebufferStatus :: Ctx -> Word -> IO Word
-        glClear :: Ctx -> Word -> IO ()
+        glBlendEquation :: Ctx -> GLEnum -> IO ()
+        glBlendEquationSeparate :: Ctx -> GLEnum -> GLEnum -> IO ()
+        glBlendFunc :: Ctx -> GLEnum -> GLEnum -> IO ()
+        glBlendFuncSeparate :: Ctx -> GLEnum -> GLEnum -> GLEnum -> GLEnum -> IO ()
+        glBufferData :: Ctx -> GLEnum -> Array -> GLEnum -> IO ()
+        glBufferSubData :: Ctx -> GLEnum -> GLPtrDiff -> Array -> IO ()
+        glCheckFramebufferStatus :: Ctx -> GLEnum -> IO GLEnum
+        glClear :: Ctx -> GLEnum -> IO ()
         glClearColor :: Ctx -> Float -> Float -> Float -> Float -> IO ()
         glClearDepth :: Ctx -> Float -> IO ()
-        glClearStencil :: Ctx -> Int -> IO ()
-        glColorMask :: Ctx -> Bool -> Bool -> Bool -> Bool -> IO ()
+        glClearStencil :: Ctx -> GLInt -> IO ()
+        glColorMask :: Ctx -> GLBool -> GLBool -> GLBool -> GLBool -> IO ()
         glCompileShader :: Ctx -> Shader -> IO ()
-        glCompressedTexImage2D :: Ctx -> Word -> Int -> Word -> Int -> Int -> Int -> Array -> IO ()
-        glCompressedTexSubImage2D :: Ctx -> Word -> Int -> Int -> Int -> Int -> Int -> Word -> Array -> IO ()
-        glCopyTexImage2D :: Ctx -> Word -> Int -> Word -> Int -> Int -> Int -> Int -> Int -> IO ()
-        glCopyTexSubImage2D :: Ctx -> Word -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> IO ()
+        glCompressedTexImage2D :: Ctx -> GLEnum -> GLInt -> GLEnum -> GLSize -> GLSize -> GLInt -> Array -> IO ()
+        glCompressedTexSubImage2D :: Ctx -> GLEnum -> GLInt -> GLInt -> GLInt -> GLSize -> GLSize -> GLEnum -> Array -> IO ()
+        glCopyTexImage2D :: Ctx -> GLEnum -> GLInt -> GLEnum -> GLInt -> GLInt -> GLSize -> GLSize -> GLInt -> IO ()
+        glCopyTexSubImage2D :: Ctx -> GLEnum -> GLInt -> GLInt -> GLInt -> GLInt -> GLInt -> GLSize -> GLSize -> IO ()
         glCreateBuffer :: Ctx -> IO Buffer
         glCreateFramebuffer :: Ctx -> IO FrameBuffer
         glCreateProgram :: Ctx -> IO Program
         glCreateRenderbuffer :: Ctx -> IO RenderBuffer
-        glCreateShader :: Ctx -> Word -> IO Shader
+        glCreateShader :: Ctx -> GLEnum -> IO Shader
         glCreateTexture :: Ctx -> IO Texture
-        glCullFace :: Ctx -> Word -> IO ()
+        glCullFace :: Ctx -> GLEnum -> IO ()
         glDeleteBuffer :: Ctx -> Buffer -> IO ()
         glDeleteFramebuffer :: Ctx -> FrameBuffer -> IO ()
         glDeleteProgram :: Ctx -> Program -> IO ()
         glDeleteRenderbuffer :: Ctx -> RenderBuffer -> IO ()
         glDeleteShader :: Ctx -> Shader -> IO ()
         glDeleteTexture :: Ctx -> Texture -> IO ()
-        glDepthFunc :: Ctx -> Word -> IO ()
-        glDepthMask :: Ctx -> Bool -> IO ()
+        glDepthFunc :: Ctx -> GLEnum -> IO ()
+        glDepthMask :: Ctx -> GLBool -> IO ()
         glDepthRange :: Ctx -> Float -> Float -> IO ()
         glDetachShader :: Ctx -> Program -> Shader -> IO ()
-        glDisable :: Ctx -> Word -> IO ()
-        glDisableVertexAttribArray :: Ctx -> Word -> IO ()
-        glDrawArrays :: Ctx -> Word -> Int -> Int -> IO ()
-        glDrawElements :: Ctx -> Word -> Int -> Word -> Word -> IO ()
-        glEnable :: Ctx -> Word -> IO ()
-        glEnableVertexAttribArray :: Ctx -> Word -> IO ()
+        glDisable :: Ctx -> GLEnum -> IO ()
+        glDisableVertexAttribArray :: Ctx -> GLUInt -> IO ()
+        glDrawArrays :: Ctx -> GLEnum -> GLInt -> GLSize -> IO ()
+        glDrawElements :: Ctx -> GLEnum -> GLSize -> GLEnum -> GLPtr-> IO ()
+        glEnable :: Ctx -> GLEnum -> IO ()
+        glEnableVertexAttribArray :: Ctx -> GLUInt -> IO ()
         glFinish :: Ctx -> IO ()
         glFlush :: Ctx -> IO ()
-        glFramebufferRenderbuffer :: Ctx -> Word -> Word -> Word -> RenderBuffer -> IO ()
-        glFramebufferTexture2D :: Ctx -> Word -> Word -> Word -> Texture -> Int -> IO ()
-        glFrontFace :: Ctx -> Word -> IO ()
-        glGenerateMipmap :: Ctx -> Word -> IO ()
-        glGetActiveAttrib :: Ctx -> Program -> Word -> IO ActiveInfo
-        glGetActiveUniform :: Ctx -> Program -> Word -> IO ActiveInfo
-        glGetAttribLocation :: Ctx -> Program -> GLString -> IO Int
+        glFramebufferRenderbuffer :: Ctx -> GLEnum -> GLEnum -> GLEnum -> RenderBuffer -> IO ()
+        glFramebufferTexture2D :: Ctx -> GLEnum -> GLEnum -> GLEnum -> Texture -> GLInt -> IO ()
+        glFrontFace :: Ctx -> GLEnum -> IO ()
+        glGenerateMipmap :: Ctx -> GLEnum -> IO ()
+        -- glGetActiveAttrib :: Ctx -> Program -> GLEnum -> IO ActiveInfo
+        -- glGetActiveUniform :: Ctx -> Program -> GLEnum -> IO ActiveInfo
+        glGetAttribLocation :: Ctx -> Program -> GLString -> IO GLInt
         -- glGetBufferParameter :: Ctx -> Word -> Word -> IO (JSRef a)
         -- glGetParameter :: Ctx -> Word -> IO (JSRef a)
-        glGetError :: Ctx -> IO Word
-        glGetFramebufferAttachmentParameter :: Ctx -> Word -> Word -> IO Word
+        glGetError :: Ctx -> IO GLEnum
+        -- glGetFramebufferAttachmentParameter :: Ctx -> GLEnum -> GLEnum -> IO Word
         glGetProgramInfoLog :: Ctx -> Program -> IO GLString
         -- glGetRenderbufferParameter :: Ctx -> Word -> Word -> IO (JSRef a)
         -- glGetShaderParameter :: Ctx -> Shader -> Word -> IO (JSRef a)
-        glGetShaderPrecisionFormat :: Ctx -> Word -> Word -> IO ShaderPrecisionFormat
+        -- glGetShaderPrecisionFormat :: Ctx -> GLEnum -> GLEnum -> IO ShaderPrecisionFormat
         glGetShaderInfoLog :: Ctx -> Shader -> IO GLString
         glGetShaderSource :: Ctx -> Shader -> IO GLString
         -- glGetTexParameter :: Ctx -> Word -> Word -> IO (JSRef a)
         -- glGetUniform :: Ctx -> Program -> UniformLocation -> IO (JSRef a)
         glGetUniformLocation :: Ctx -> Program -> GLString -> IO UniformLocation
         -- glGetVertexAttrib :: Ctx -> Word -> Word -> IO (JSRef a)
-        glGetVertexAttribOffset :: Ctx -> Word -> Word -> IO Word
-        glHint :: Ctx -> Word -> Word -> IO ()
-        glIsBuffer :: Ctx -> Buffer -> IO Bool
-        glIsEnabled :: Ctx -> Word -> IO Bool
-        glIsFramebuffer :: Ctx -> FrameBuffer -> IO Bool
-        glIsProgram :: Ctx -> Program -> IO Bool
-        glIsRenderbuffer :: Ctx -> RenderBuffer -> IO Bool
-        glIsShader :: Ctx -> Shader -> IO Bool
-        glIsTexture :: Ctx -> Texture -> IO Bool
+        -- glGetVertexAttribOffset :: Ctx -> Word -> GLEnum -> IO Word
+        glHint :: Ctx -> GLEnum -> GLEnum -> IO ()
+        glIsBuffer :: Ctx -> Buffer -> IO GLBool
+        glIsEnabled :: Ctx -> GLEnum -> IO GLBool
+        glIsFramebuffer :: Ctx -> FrameBuffer -> IO GLBool
+        glIsProgram :: Ctx -> Program -> IO GLBool
+        glIsRenderbuffer :: Ctx -> RenderBuffer -> IO GLBool
+        glIsShader :: Ctx -> Shader -> IO GLBool
+        glIsTexture :: Ctx -> Texture -> IO GLBool
         glLineWidth :: Ctx -> Float -> IO ()
         glLinkProgram :: Ctx -> Program -> IO ()
-        glPixelStorei :: Ctx -> Word -> Int -> IO ()
+        glPixelStorei :: Ctx -> GLEnum -> GLInt -> IO ()
         glPolygonOffset :: Ctx -> Float -> Float -> IO ()
-        glReadPixels :: Ctx -> Int -> Int -> Int -> Int -> Word -> Word -> Array -> IO ()
-        glRenderbufferStorage :: Ctx -> Word -> Word -> Int -> Int -> IO ()
-        glSampleCoverage :: Ctx -> Float -> Bool -> IO ()
-        glScissor :: Ctx -> Int -> Int -> Int -> Int -> IO ()
+        glReadPixels :: Ctx -> GLInt -> GLInt -> GLSize -> GLSize -> GLEnum -> GLEnum -> Array -> IO ()
+        glRenderbufferStorage :: Ctx -> GLEnum -> GLEnum -> GLSize -> GLSize -> IO ()
+        glSampleCoverage :: Ctx -> Float -> GLBool -> IO ()
+        glScissor :: Ctx -> GLInt -> GLInt -> GLSize -> GLSize -> IO ()
         glShaderSource :: Ctx -> Shader -> GLString -> IO ()
-        glStencilFunc :: Ctx -> Word -> Int -> Word -> IO ()
-        glStencilFuncSeparate :: Ctx -> Word -> Word -> Int -> Word -> IO ()
-        glStencilMask :: Ctx -> Word -> IO ()
-        glStencilMaskSeparate :: Ctx -> Word -> Word -> IO ()
-        glStencilOp :: Ctx -> Word -> Word -> Word -> IO ()
-        glStencilOpSeparate :: Ctx -> Word -> Word -> Word -> Word -> IO ()
-        glTexImage2DBuffer :: Ctx -> Word -> Int -> Word -> Int -> Int -> Int -> Word -> Word -> Array -> IO ()
-        glTexImage2DImage :: Ctx -> Word -> Int -> Word -> Word -> Word -> Image -> IO ()
-        glTexParameterf :: Ctx -> Word -> Word -> Float -> IO ()
-        glTexParameteri :: Ctx -> Word -> Word -> Int -> IO ()
-        glTexSubImage2D :: Ctx -> Word -> Int -> Int -> Int -> Int -> Int -> Word -> Word -> Array -> IO ()
+        glStencilFunc :: Ctx -> GLEnum -> GLInt -> GLUInt -> IO ()
+        glStencilFuncSeparate :: Ctx -> GLEnum -> GLEnum -> GLInt -> GLUInt -> IO ()
+        glStencilMask :: Ctx -> GLUInt -> IO ()
+        glStencilMaskSeparate :: Ctx -> GLEnum -> GLUInt -> IO ()
+        glStencilOp :: Ctx -> GLEnum -> GLEnum -> GLEnum -> IO ()
+        glStencilOpSeparate :: Ctx -> GLEnum -> GLEnum -> GLEnum -> GLEnum -> IO ()
+        glTexImage2DBuffer :: Ctx -> GLEnum -> GLInt -> GLInt -> GLSize -> GLSize -> GLInt -> GLEnum -> GLEnum -> Array -> IO ()
+        glTexImage2DImage :: Ctx -> GLEnum -> GLInt -> GLInt -> GLEnum -> GLEnum -> Image -> IO ()
+        glTexParameterf :: Ctx -> GLEnum -> GLEnum -> Float -> IO ()
+        glTexParameteri :: Ctx -> GLEnum -> GLEnum -> GLInt -> IO ()
+        glTexSubImage2D :: Ctx -> GLEnum -> GLInt -> GLInt -> GLInt -> GLSize -> GLSize -> GLEnum -> GLEnum -> Array -> IO ()
         glUniform1f :: Ctx -> UniformLocation -> Float -> IO ()
         glUniform1fv :: Ctx -> UniformLocation -> Float32Array -> IO ()
-        glUniform1i :: Ctx -> UniformLocation -> Int -> IO ()
+        glUniform1i :: Ctx -> UniformLocation -> GLInt -> IO ()
         glUniform1iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
         glUniform2f :: Ctx -> UniformLocation -> Float -> Float -> IO ()
         glUniform2fv :: Ctx -> UniformLocation -> Float32Array -> IO ()
-        glUniform2i :: Ctx -> UniformLocation -> Int -> Int -> IO ()
+        glUniform2i :: Ctx -> UniformLocation -> GLInt -> GLInt -> IO ()
         glUniform2iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
         glUniform3f :: Ctx -> UniformLocation -> Float -> Float -> Float -> IO ()
         glUniform3fv :: Ctx -> UniformLocation -> Float32Array -> IO ()
-        glUniform3i :: Ctx -> UniformLocation -> Int -> Int -> Int -> IO ()
+        glUniform3i :: Ctx -> UniformLocation -> GLInt -> GLInt -> GLInt -> IO ()
         glUniform3iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
         glUniform4f :: Ctx -> UniformLocation -> Float -> Float -> Float -> Float -> IO ()
         glUniform4fv :: Ctx -> UniformLocation -> Float32Array -> IO ()
-        glUniform4i :: Ctx -> UniformLocation -> Int -> Int -> Int -> Int -> IO ()
+        glUniform4i :: Ctx -> UniformLocation -> GLInt -> GLInt -> GLInt -> GLInt -> IO ()
         glUniform4iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
-        glUniformMatrix2fv :: Ctx -> UniformLocation -> Bool -> Float32Array -> IO ()
-        glUniformMatrix3fv :: Ctx -> UniformLocation -> Bool -> Float32Array -> IO ()
-        glUniformMatrix4fv :: Ctx -> UniformLocation -> Bool -> Float32Array -> IO ()
+        glUniformMatrix2fv :: Ctx -> UniformLocation -> GLBool -> Float32Array -> IO ()
+        glUniformMatrix3fv :: Ctx -> UniformLocation -> GLBool -> Float32Array -> IO ()
+        glUniformMatrix4fv :: Ctx -> UniformLocation -> GLBool -> Float32Array -> IO ()
         glUseProgram :: Ctx -> Program -> IO ()
         glValidateProgram :: Ctx -> Program -> IO ()
-        glVertexAttrib1f :: Ctx -> Word -> Float -> IO ()
-        glVertexAttrib1fv :: Ctx -> Word -> Float32Array -> IO ()
-        glVertexAttrib2f :: Ctx -> Word -> Float -> Float -> IO ()
-        glVertexAttrib2fv :: Ctx -> Word -> Float32Array -> IO ()
-        glVertexAttrib3f :: Ctx -> Word -> Float -> Float -> Float -> IO ()
-        glVertexAttrib3fv :: Ctx -> Word -> Float32Array -> IO ()
-        glVertexAttrib4f :: Ctx -> Word -> Float -> Float -> Float -> Float -> IO ()
-        glVertexAttrib4fv :: Ctx -> Word -> Float32Array -> IO ()
-        glVertexAttribPointer :: Ctx -> Word -> Int -> Word -> Bool -> Int -> Word -> IO ()
-        glViewport :: Ctx -> Int -> Int -> Int -> Int -> IO ()
+        glVertexAttrib1f :: Ctx -> GLUInt -> Float -> IO ()
+        glVertexAttrib1fv :: Ctx -> GLUInt -> Float32Array -> IO ()
+        glVertexAttrib2f :: Ctx -> GLUInt -> Float -> Float -> IO ()
+        glVertexAttrib2fv :: Ctx -> GLUInt -> Float32Array -> IO ()
+        glVertexAttrib3f :: Ctx -> GLUInt -> Float -> Float -> Float -> IO ()
+        glVertexAttrib3fv :: Ctx -> GLUInt -> Float32Array -> IO ()
+        glVertexAttrib4f :: Ctx -> GLUInt -> Float -> Float -> Float -> Float -> IO ()
+        glVertexAttrib4fv :: Ctx -> GLUInt -> Float32Array -> IO ()
+        glVertexAttribPointer :: Ctx -> GLUInt -> GLInt -> GLEnum -> GLBool -> GLSize -> GLPtr -> IO ()
+        glViewport :: Ctx -> GLInt -> GLInt -> GLSize -> GLSize -> IO ()
 
-        gl_DEPTH_BUFFER_BIT :: Num a => a
-        gl_STENCIL_BUFFER_BIT :: Num a => a
-        gl_COLOR_BUFFER_BIT :: Num a => a
-        gl_POINTS :: Num a => a
-        gl_LINES :: Num a => a
-        gl_LINE_LOOP :: Num a => a
-        gl_LINE_STRIP :: Num a => a
-        gl_TRIANGLES :: Num a => a
-        gl_TRIANGLE_STRIP :: Num a => a
-        gl_TRIANGLE_FAN :: Num a => a
-        gl_ZERO :: Num a => a
-        gl_ONE :: Num a => a
-        gl_SRC_COLOR :: Num a => a
-        gl_ONE_MINUS_SRC_COLOR :: Num a => a
-        gl_SRC_ALPHA :: Num a => a
-        gl_ONE_MINUS_SRC_ALPHA :: Num a => a
-        gl_DST_ALPHA :: Num a => a
-        gl_ONE_MINUS_DST_ALPHA :: Num a => a
-        gl_DST_COLOR :: Num a => a
-        gl_ONE_MINUS_DST_COLOR :: Num a => a
-        gl_SRC_ALPHA_SATURATE :: Num a => a
-        gl_FUNC_ADD :: Num a => a
-        gl_BLEND_EQUATION :: Num a => a
-        gl_BLEND_EQUATION_RGB :: Num a => a
-        gl_BLEND_EQUATION_ALPHA :: Num a => a
-        gl_FUNC_SUBTRACT :: Num a => a
-        gl_FUNC_REVERSE_SUBTRACT :: Num a => a
-        gl_BLEND_DST_RGB :: Num a => a
-        gl_BLEND_SRC_RGB :: Num a => a
-        gl_BLEND_DST_ALPHA :: Num a => a
-        gl_BLEND_SRC_ALPHA :: Num a => a
-        gl_CONSTANT_COLOR :: Num a => a
-        gl_ONE_MINUS_CONSTANT_COLOR :: Num a => a
-        gl_CONSTANT_ALPHA :: Num a => a
-        gl_ONE_MINUS_CONSTANT_ALPHA :: Num a => a
-        gl_BLEND_COLOR :: Num a => a
-        gl_ARRAY_BUFFER :: Num a => a
-        gl_ELEMENT_ARRAY_BUFFER :: Num a => a
-        gl_ARRAY_BUFFER_BINDING :: Num a => a
-        gl_ELEMENT_ARRAY_BUFFER_BINDING :: Num a => a
-        gl_STREAM_DRAW :: Num a => a
-        gl_STATIC_DRAW :: Num a => a
-        gl_DYNAMIC_DRAW :: Num a => a
-        gl_BUFFER_SIZE :: Num a => a
-        gl_BUFFER_USAGE :: Num a => a
-        gl_CURRENT_VERTEX_ATTRIB :: Num a => a
-        gl_FRONT :: Num a => a
-        gl_BACK :: Num a => a
-        gl_FRONT_AND_BACK :: Num a => a
-        gl_CULL_FACE :: Num a => a
-        gl_BLEND :: Num a => a
-        gl_DITHER :: Num a => a
-        gl_STENCIL_TEST :: Num a => a
-        gl_DEPTH_TEST :: Num a => a
-        gl_SCISSOR_TEST :: Num a => a
-        gl_POLYGON_OFFSET_FILL :: Num a => a
-        gl_SAMPLE_ALPHA_TO_COVERAGE :: Num a => a
-        gl_SAMPLE_COVERAGE :: Num a => a
-        gl_NO_ERROR :: Num a => a
-        gl_INVALID_ENUM :: Num a => a
-        gl_INVALID_VALUE :: Num a => a
-        gl_INVALID_OPERATION :: Num a => a
-        gl_OUT_OF_MEMORY :: Num a => a
-        gl_CW :: Num a => a
-        gl_CCW :: Num a => a
-        gl_LINE_WIDTH :: Num a => a
-        gl_ALIASED_POINT_SIZE_RANGE :: Num a => a
-        gl_ALIASED_LINE_WIDTH_RANGE :: Num a => a
-        gl_CULL_FACE_MODE :: Num a => a
-        gl_FRONT_FACE :: Num a => a
-        gl_DEPTH_RANGE :: Num a => a
-        gl_DEPTH_WRITEMASK :: Num a => a
-        gl_DEPTH_CLEAR_VALUE :: Num a => a
-        gl_DEPTH_FUNC :: Num a => a
-        gl_STENCIL_CLEAR_VALUE :: Num a => a
-        gl_STENCIL_FUNC :: Num a => a
-        gl_STENCIL_FAIL :: Num a => a
-        gl_STENCIL_PASS_DEPTH_FAIL :: Num a => a
-        gl_STENCIL_PASS_DEPTH_PASS :: Num a => a
-        gl_STENCIL_REF :: Num a => a
-        gl_STENCIL_VALUE_MASK :: Num a => a
-        gl_STENCIL_WRITEMASK :: Num a => a
-        gl_STENCIL_BACK_FUNC :: Num a => a
-        gl_STENCIL_BACK_FAIL :: Num a => a
-        gl_STENCIL_BACK_PASS_DEPTH_FAIL :: Num a => a
-        gl_STENCIL_BACK_PASS_DEPTH_PASS :: Num a => a
-        gl_STENCIL_BACK_REF :: Num a => a
-        gl_STENCIL_BACK_VALUE_MASK :: Num a => a
-        gl_STENCIL_BACK_WRITEMASK :: Num a => a
-        gl_VIEWPORT :: Num a => a
-        gl_SCISSOR_BOX :: Num a => a
-        gl_COLOR_CLEAR_VALUE :: Num a => a
-        gl_COLOR_WRITEMASK :: Num a => a
-        gl_UNPACK_ALIGNMENT :: Num a => a
-        gl_PACK_ALIGNMENT :: Num a => a
-        gl_MAX_TEXTURE_SIZE :: Num a => a
-        gl_MAX_VIEWPORT_DIMS :: Num a => a
-        gl_SUBPIXEL_BITS :: Num a => a
-        gl_RED_BITS :: Num a => a
-        gl_GREEN_BITS :: Num a => a
-        gl_BLUE_BITS :: Num a => a
-        gl_ALPHA_BITS :: Num a => a
-        gl_DEPTH_BITS :: Num a => a
-        gl_STENCIL_BITS :: Num a => a
-        gl_POLYGON_OFFSET_UNITS :: Num a => a
-        gl_POLYGON_OFFSET_FACTOR :: Num a => a
-        gl_TEXTURE_BINDING_2D :: Num a => a
-        gl_SAMPLE_BUFFERS :: Num a => a
-        gl_SAMPLES :: Num a => a
-        gl_SAMPLE_COVERAGE_VALUE :: Num a => a
-        gl_SAMPLE_COVERAGE_INVERT :: Num a => a
-        gl_COMPRESSED_TEXTURE_FORMATS :: Num a => a
-        gl_DONT_CARE :: Num a => a
-        gl_FASTEST :: Num a => a
-        gl_NICEST :: Num a => a
-        gl_GENERATE_MIPMAP_HINT :: Num a => a
-        gl_BYTE :: Num a => a
-        gl_UNSIGNED_BYTE :: Num a => a
-        gl_SHORT :: Num a => a
-        gl_UNSIGNED_SHORT :: Num a => a
-        gl_INT :: Num a => a
-        gl_UNSIGNED_INT :: Num a => a
-        gl_FLOAT :: Num a => a
-        gl_DEPTH_COMPONENT :: Num a => a
-        gl_ALPHA :: Num a => a
-        gl_RGB :: Num a => a
-        gl_RGBA :: Num a => a
-        gl_LUMINANCE :: Num a => a
-        gl_LUMINANCE_ALPHA :: Num a => a
-        gl_UNSIGNED_SHORT_4_4_4_4 :: Num a => a
-        gl_UNSIGNED_SHORT_5_5_5_1 :: Num a => a
-        gl_UNSIGNED_SHORT_5_6_5 :: Num a => a
-        gl_FRAGMENT_SHADER :: Num a => a
-        gl_VERTEX_SHADER :: Num a => a
-        gl_MAX_VERTEX_ATTRIBS :: Num a => a
-        gl_MAX_VERTEX_UNIFORM_VECTORS :: Num a => a
-        gl_MAX_VARYING_VECTORS :: Num a => a
-        gl_MAX_COMBINED_TEXTURE_IMAGE_UNITS :: Num a => a
-        gl_MAX_VERTEX_TEXTURE_IMAGE_UNITS :: Num a => a
-        gl_MAX_TEXTURE_IMAGE_UNITS :: Num a => a
-        gl_MAX_FRAGMENT_UNIFORM_VECTORS :: Num a => a
-        gl_SHADER_TYPE :: Num a => a
-        gl_DELETE_STATUS :: Num a => a
-        gl_LINK_STATUS :: Num a => a
-        gl_VALIDATE_STATUS :: Num a => a
-        gl_ATTACHED_SHADERS :: Num a => a
-        gl_ACTIVE_UNIFORMS :: Num a => a
-        gl_ACTIVE_ATTRIBUTES :: Num a => a
-        gl_SHADING_LANGUAGE_VERSION :: Num a => a
-        gl_CURRENT_PROGRAM :: Num a => a
-        gl_NEVER :: Num a => a
-        gl_LESS :: Num a => a
-        gl_EQUAL :: Num a => a
-        gl_LEQUAL :: Num a => a
-        gl_GREATER :: Num a => a
-        gl_NOTEQUAL :: Num a => a
-        gl_GEQUAL :: Num a => a
-        gl_ALWAYS :: Num a => a
-        gl_KEEP :: Num a => a
-        gl_REPLACE :: Num a => a
-        gl_INCR :: Num a => a
-        gl_DECR :: Num a => a
-        gl_INVERT :: Num a => a
-        gl_INCR_WRAP :: Num a => a
-        gl_DECR_WRAP :: Num a => a
-        gl_VENDOR :: Num a => a
-        gl_RENDERER :: Num a => a
-        gl_VERSION :: Num a => a
-        gl_NEAREST :: Num a => a
-        gl_LINEAR :: Num a => a
-        gl_NEAREST_MIPMAP_NEAREST :: Num a => a
-        gl_LINEAR_MIPMAP_NEAREST :: Num a => a
-        gl_NEAREST_MIPMAP_LINEAR :: Num a => a
-        gl_LINEAR_MIPMAP_LINEAR :: Num a => a
-        gl_TEXTURE_MAG_FILTER :: Num a => a
-        gl_TEXTURE_MIN_FILTER :: Num a => a
-        gl_TEXTURE_WRAP_S :: Num a => a
-        gl_TEXTURE_WRAP_T :: Num a => a
-        gl_TEXTURE_2D :: Num a => a
-        gl_TEXTURE :: Num a => a
-        gl_TEXTURE_CUBE_MAP :: Num a => a
-        gl_TEXTURE_BINDING_CUBE_MAP :: Num a => a
-        gl_TEXTURE_CUBE_MAP_POSITIVE_X :: Num a => a
-        gl_TEXTURE_CUBE_MAP_NEGATIVE_X :: Num a => a
-        gl_TEXTURE_CUBE_MAP_POSITIVE_Y :: Num a => a
-        gl_TEXTURE_CUBE_MAP_NEGATIVE_Y :: Num a => a
-        gl_TEXTURE_CUBE_MAP_POSITIVE_Z :: Num a => a
-        gl_TEXTURE_CUBE_MAP_NEGATIVE_Z :: Num a => a
-        gl_MAX_CUBE_MAP_TEXTURE_SIZE :: Num a => a
-        gl_TEXTURE0 :: Num a => a
-        gl_TEXTURE1 :: Num a => a
-        gl_TEXTURE2 :: Num a => a
-        gl_TEXTURE3 :: Num a => a
-        gl_TEXTURE4 :: Num a => a
-        gl_TEXTURE5 :: Num a => a
-        gl_TEXTURE6 :: Num a => a
-        gl_TEXTURE7 :: Num a => a
-        gl_TEXTURE8 :: Num a => a
-        gl_TEXTURE9 :: Num a => a
-        gl_TEXTURE10 :: Num a => a
-        gl_TEXTURE11 :: Num a => a
-        gl_TEXTURE12 :: Num a => a
-        gl_TEXTURE13 :: Num a => a
-        gl_TEXTURE14 :: Num a => a
-        gl_TEXTURE15 :: Num a => a
-        gl_TEXTURE16 :: Num a => a
-        gl_TEXTURE17 :: Num a => a
-        gl_TEXTURE18 :: Num a => a
-        gl_TEXTURE19 :: Num a => a
-        gl_TEXTURE20 :: Num a => a
-        gl_TEXTURE21 :: Num a => a
-        gl_TEXTURE22 :: Num a => a
-        gl_TEXTURE23 :: Num a => a
-        gl_TEXTURE24 :: Num a => a
-        gl_TEXTURE25 :: Num a => a
-        gl_TEXTURE26 :: Num a => a
-        gl_TEXTURE27 :: Num a => a
-        gl_TEXTURE28 :: Num a => a
-        gl_TEXTURE29 :: Num a => a
-        gl_TEXTURE30 :: Num a => a
-        gl_TEXTURE31 :: Num a => a
-        gl_ACTIVE_TEXTURE :: Num a => a
-        gl_REPEAT :: Num a => a
-        gl_CLAMP_TO_EDGE :: Num a => a
-        gl_MIRRORED_REPEAT :: Num a => a
-        gl_FLOAT_VEC2 :: Num a => a
-        gl_FLOAT_VEC3 :: Num a => a
-        gl_FLOAT_VEC4 :: Num a => a
-        gl_INT_VEC2 :: Num a => a
-        gl_INT_VEC3 :: Num a => a
-        gl_INT_VEC4 :: Num a => a
-        gl_BOOL :: Num a => a
-        gl_BOOL_VEC2 :: Num a => a
-        gl_BOOL_VEC3 :: Num a => a
-        gl_BOOL_VEC4 :: Num a => a
-        gl_FLOAT_MAT2 :: Num a => a
-        gl_FLOAT_MAT3 :: Num a => a
-        gl_FLOAT_MAT4 :: Num a => a
-        gl_SAMPLER_2D :: Num a => a
-        gl_SAMPLER_CUBE :: Num a => a
-        gl_VERTEX_ATTRIB_ARRAY_ENABLED :: Num a => a
-        gl_VERTEX_ATTRIB_ARRAY_SIZE :: Num a => a
-        gl_VERTEX_ATTRIB_ARRAY_STRIDE :: Num a => a
-        gl_VERTEX_ATTRIB_ARRAY_TYPE :: Num a => a
-        gl_VERTEX_ATTRIB_ARRAY_NORMALIZED :: Num a => a
-        gl_VERTEX_ATTRIB_ARRAY_POINTER :: Num a => a
-        gl_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING :: Num a => a
-        gl_COMPILE_STATUS :: Num a => a
-        gl_LOW_FLOAT :: Num a => a
-        gl_MEDIUM_FLOAT :: Num a => a
-        gl_HIGH_FLOAT :: Num a => a
-        gl_LOW_INT :: Num a => a
-        gl_MEDIUM_INT :: Num a => a
-        gl_HIGH_INT :: Num a => a
-        gl_FRAMEBUFFER :: Num a => a
-        gl_RENDERBUFFER :: Num a => a
-        gl_RGBA4 :: Num a => a
-        gl_RGB5_A1 :: Num a => a
-        gl_RGB565 :: Num a => a
-        gl_DEPTH_COMPONENT16 :: Num a => a
-        gl_STENCIL_INDEX :: Num a => a
-        gl_STENCIL_INDEX8 :: Num a => a
-        gl_DEPTH_STENCIL :: Num a => a
-        gl_RENDERBUFFER_WIDTH :: Num a => a
-        gl_RENDERBUFFER_HEIGHT :: Num a => a
-        gl_RENDERBUFFER_INTERNAL_FORMAT :: Num a => a
-        gl_RENDERBUFFER_RED_SIZE :: Num a => a
-        gl_RENDERBUFFER_GREEN_SIZE :: Num a => a
-        gl_RENDERBUFFER_BLUE_SIZE :: Num a => a
-        gl_RENDERBUFFER_ALPHA_SIZE :: Num a => a
-        gl_RENDERBUFFER_DEPTH_SIZE :: Num a => a
-        gl_RENDERBUFFER_STENCIL_SIZE :: Num a => a
-        gl_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE :: Num a => a
-        gl_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME :: Num a => a
-        gl_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL :: Num a => a
-        gl_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE :: Num a => a
-        gl_COLOR_ATTACHMENT0 :: Num a => a
-        gl_DEPTH_ATTACHMENT :: Num a => a
-        gl_STENCIL_ATTACHMENT :: Num a => a
-        gl_DEPTH_STENCIL_ATTACHMENT :: Num a => a
-        gl_NONE :: Num a => a
-        gl_FRAMEBUFFER_COMPLETE :: Num a => a
-        gl_FRAMEBUFFER_INCOMPLETE_ATTACHMENT :: Num a => a
-        gl_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT :: Num a => a
-        gl_FRAMEBUFFER_INCOMPLETE_DIMENSIONS :: Num a => a
-        gl_FRAMEBUFFER_UNSUPPORTED :: Num a => a
-        gl_FRAMEBUFFER_BINDING :: Num a => a
-        gl_RENDERBUFFER_BINDING :: Num a => a
-        gl_MAX_RENDERBUFFER_SIZE :: Num a => a
-        gl_INVALID_FRAMEBUFFER_OPERATION :: Num a => a
-        gl_UNPACK_FLIP_Y_WEBGL :: Num a => a
-        gl_UNPACK_PREMULTIPLY_ALPHA_WEBGL :: Num a => a
-        gl_CONTEXT_LOST_WEBGL :: Num a => a
-        gl_UNPACK_COLORSPACE_CONVERSION_WEBGL :: Num a => a
+        gl_DEPTH_BUFFER_BIT :: GLEnum
+        gl_STENCIL_BUFFER_BIT :: GLEnum
+        gl_COLOR_BUFFER_BIT :: GLEnum
+        gl_POINTS :: GLEnum
+        gl_LINES :: GLEnum
+        gl_LINE_LOOP :: GLEnum
+        gl_LINE_STRIP :: GLEnum
+        gl_TRIANGLES :: GLEnum
+        gl_TRIANGLE_STRIP :: GLEnum
+        gl_TRIANGLE_FAN :: GLEnum
+        gl_ZERO :: GLEnum
+        gl_ONE :: GLEnum
+        gl_SRC_COLOR :: GLEnum
+        gl_ONE_MINUS_SRC_COLOR :: GLEnum
+        gl_SRC_ALPHA :: GLEnum
+        gl_ONE_MINUS_SRC_ALPHA :: GLEnum
+        gl_DST_ALPHA :: GLEnum
+        gl_ONE_MINUS_DST_ALPHA :: GLEnum
+        gl_DST_COLOR :: GLEnum
+        gl_ONE_MINUS_DST_COLOR :: GLEnum
+        gl_SRC_ALPHA_SATURATE :: GLEnum
+        gl_FUNC_ADD :: GLEnum
+        gl_BLEND_EQUATION :: GLEnum
+        gl_BLEND_EQUATION_RGB :: GLEnum
+        gl_BLEND_EQUATION_ALPHA :: GLEnum
+        gl_FUNC_SUBTRACT :: GLEnum
+        gl_FUNC_REVERSE_SUBTRACT :: GLEnum
+        gl_BLEND_DST_RGB :: GLEnum
+        gl_BLEND_SRC_RGB :: GLEnum
+        gl_BLEND_DST_ALPHA :: GLEnum
+        gl_BLEND_SRC_ALPHA :: GLEnum
+        gl_CONSTANT_COLOR :: GLEnum
+        gl_ONE_MINUS_CONSTANT_COLOR :: GLEnum
+        gl_CONSTANT_ALPHA :: GLEnum
+        gl_ONE_MINUS_CONSTANT_ALPHA :: GLEnum
+        gl_BLEND_COLOR :: GLEnum
+        gl_ARRAY_BUFFER :: GLEnum
+        gl_ELEMENT_ARRAY_BUFFER :: GLEnum
+        gl_ARRAY_BUFFER_BINDING :: GLEnum
+        gl_ELEMENT_ARRAY_BUFFER_BINDING :: GLEnum
+        gl_STREAM_DRAW :: GLEnum
+        gl_STATIC_DRAW :: GLEnum
+        gl_DYNAMIC_DRAW :: GLEnum
+        gl_BUFFER_SIZE :: GLEnum
+        gl_BUFFER_USAGE :: GLEnum
+        gl_CURRENT_VERTEX_ATTRIB :: GLEnum
+        gl_FRONT :: GLEnum
+        gl_BACK :: GLEnum
+        gl_FRONT_AND_BACK :: GLEnum
+        gl_CULL_FACE :: GLEnum
+        gl_BLEND :: GLEnum
+        gl_DITHER :: GLEnum
+        gl_STENCIL_TEST :: GLEnum
+        gl_DEPTH_TEST :: GLEnum
+        gl_SCISSOR_TEST :: GLEnum
+        gl_POLYGON_OFFSET_FILL :: GLEnum
+        gl_SAMPLE_ALPHA_TO_COVERAGE :: GLEnum
+        gl_SAMPLE_COVERAGE :: GLEnum
+        gl_NO_ERROR :: GLEnum
+        gl_INVALID_ENUM :: GLEnum
+        gl_INVALID_VALUE :: GLEnum
+        gl_INVALID_OPERATION :: GLEnum
+        gl_OUT_OF_MEMORY :: GLEnum
+        gl_CW :: GLEnum
+        gl_CCW :: GLEnum
+        gl_LINE_WIDTH :: GLEnum
+        gl_ALIASED_POINT_SIZE_RANGE :: GLEnum
+        gl_ALIASED_LINE_WIDTH_RANGE :: GLEnum
+        gl_CULL_FACE_MODE :: GLEnum
+        gl_FRONT_FACE :: GLEnum
+        gl_DEPTH_RANGE :: GLEnum
+        gl_DEPTH_WRITEMASK :: GLEnum
+        gl_DEPTH_CLEAR_VALUE :: GLEnum
+        gl_DEPTH_FUNC :: GLEnum
+        gl_STENCIL_CLEAR_VALUE :: GLEnum
+        gl_STENCIL_FUNC :: GLEnum
+        gl_STENCIL_FAIL :: GLEnum
+        gl_STENCIL_PASS_DEPTH_FAIL :: GLEnum
+        gl_STENCIL_PASS_DEPTH_PASS :: GLEnum
+        gl_STENCIL_REF :: GLEnum
+        gl_STENCIL_VALUE_MASK :: GLEnum
+        gl_STENCIL_WRITEMASK :: GLEnum
+        gl_STENCIL_BACK_FUNC :: GLEnum
+        gl_STENCIL_BACK_FAIL :: GLEnum
+        gl_STENCIL_BACK_PASS_DEPTH_FAIL :: GLEnum
+        gl_STENCIL_BACK_PASS_DEPTH_PASS :: GLEnum
+        gl_STENCIL_BACK_REF :: GLEnum
+        gl_STENCIL_BACK_VALUE_MASK :: GLEnum
+        gl_STENCIL_BACK_WRITEMASK :: GLEnum
+        gl_VIEWPORT :: GLEnum
+        gl_SCISSOR_BOX :: GLEnum
+        gl_COLOR_CLEAR_VALUE :: GLEnum
+        gl_COLOR_WRITEMASK :: GLEnum
+        gl_UNPACK_ALIGNMENT :: GLEnum
+        gl_PACK_ALIGNMENT :: GLEnum
+        gl_MAX_TEXTURE_SIZE :: GLEnum
+        gl_MAX_VIEWPORT_DIMS :: GLEnum
+        gl_SUBPIXEL_BITS :: GLEnum
+        gl_RED_BITS :: GLEnum
+        gl_GREEN_BITS :: GLEnum
+        gl_BLUE_BITS :: GLEnum
+        gl_ALPHA_BITS :: GLEnum
+        gl_DEPTH_BITS :: GLEnum
+        gl_STENCIL_BITS :: GLEnum
+        gl_POLYGON_OFFSET_UNITS :: GLEnum
+        gl_POLYGON_OFFSET_FACTOR :: GLEnum
+        gl_TEXTURE_BINDING_2D :: GLEnum
+        gl_SAMPLE_BUFFERS :: GLEnum
+        gl_SAMPLES :: GLEnum
+        gl_SAMPLE_COVERAGE_VALUE :: GLEnum
+        gl_SAMPLE_COVERAGE_INVERT :: GLEnum
+        gl_COMPRESSED_TEXTURE_FORMATS :: GLEnum
+        gl_DONT_CARE :: GLEnum
+        gl_FASTEST :: GLEnum
+        gl_NICEST :: GLEnum
+        gl_GENERATE_MIPMAP_HINT :: GLEnum
+        gl_BYTE :: GLEnum
+        gl_UNSIGNED_BYTE :: GLEnum
+        gl_SHORT :: GLEnum
+        gl_UNSIGNED_SHORT :: GLEnum
+        gl_INT :: GLEnum
+        gl_UNSIGNED_INT :: GLEnum
+        gl_FLOAT :: GLEnum
+        gl_DEPTH_COMPONENT :: GLEnum
+        gl_ALPHA :: GLEnum
+        gl_RGB :: GLEnum
+        gl_RGBA :: GLEnum
+        gl_LUMINANCE :: GLEnum
+        gl_LUMINANCE_ALPHA :: GLEnum
+        gl_UNSIGNED_SHORT_4_4_4_4 :: GLEnum
+        gl_UNSIGNED_SHORT_5_5_5_1 :: GLEnum
+        gl_UNSIGNED_SHORT_5_6_5 :: GLEnum
+        gl_FRAGMENT_SHADER :: GLEnum
+        gl_VERTEX_SHADER :: GLEnum
+        gl_MAX_VERTEX_ATTRIBS :: GLEnum
+        gl_MAX_VERTEX_UNIFORM_VECTORS :: GLEnum
+        gl_MAX_VARYING_VECTORS :: GLEnum
+        gl_MAX_COMBINED_TEXTURE_IMAGE_UNITS :: GLEnum
+        gl_MAX_VERTEX_TEXTURE_IMAGE_UNITS :: GLEnum
+        gl_MAX_TEXTURE_IMAGE_UNITS :: GLEnum
+        gl_MAX_FRAGMENT_UNIFORM_VECTORS :: GLEnum
+        gl_SHADER_TYPE :: GLEnum
+        gl_DELETE_STATUS :: GLEnum
+        gl_LINK_STATUS :: GLEnum
+        gl_VALIDATE_STATUS :: GLEnum
+        gl_ATTACHED_SHADERS :: GLEnum
+        gl_ACTIVE_UNIFORMS :: GLEnum
+        gl_ACTIVE_ATTRIBUTES :: GLEnum
+        gl_SHADING_LANGUAGE_VERSION :: GLEnum
+        gl_CURRENT_PROGRAM :: GLEnum
+        gl_NEVER :: GLEnum
+        gl_LESS :: GLEnum
+        gl_EQUAL :: GLEnum
+        gl_LEQUAL :: GLEnum
+        gl_GREATER :: GLEnum
+        gl_NOTEQUAL :: GLEnum
+        gl_GEQUAL :: GLEnum
+        gl_ALWAYS :: GLEnum
+        gl_KEEP :: GLEnum
+        gl_REPLACE :: GLEnum
+        gl_INCR :: GLEnum
+        gl_DECR :: GLEnum
+        gl_INVERT :: GLEnum
+        gl_INCR_WRAP :: GLEnum
+        gl_DECR_WRAP :: GLEnum
+        gl_VENDOR :: GLEnum
+        gl_RENDERER :: GLEnum
+        gl_VERSION :: GLEnum
+        gl_NEAREST :: GLEnum
+        gl_LINEAR :: GLEnum
+        gl_NEAREST_MIPMAP_NEAREST :: GLEnum
+        gl_LINEAR_MIPMAP_NEAREST :: GLEnum
+        gl_NEAREST_MIPMAP_LINEAR :: GLEnum
+        gl_LINEAR_MIPMAP_LINEAR :: GLEnum
+        gl_TEXTURE_MAG_FILTER :: GLEnum
+        gl_TEXTURE_MIN_FILTER :: GLEnum
+        gl_TEXTURE_WRAP_S :: GLEnum
+        gl_TEXTURE_WRAP_T :: GLEnum
+        gl_TEXTURE_2D :: GLEnum
+        gl_TEXTURE :: GLEnum
+        gl_TEXTURE_CUBE_MAP :: GLEnum
+        gl_TEXTURE_BINDING_CUBE_MAP :: GLEnum
+        gl_TEXTURE_CUBE_MAP_POSITIVE_X :: GLEnum
+        gl_TEXTURE_CUBE_MAP_NEGATIVE_X :: GLEnum
+        gl_TEXTURE_CUBE_MAP_POSITIVE_Y :: GLEnum
+        gl_TEXTURE_CUBE_MAP_NEGATIVE_Y :: GLEnum
+        gl_TEXTURE_CUBE_MAP_POSITIVE_Z :: GLEnum
+        gl_TEXTURE_CUBE_MAP_NEGATIVE_Z :: GLEnum
+        gl_MAX_CUBE_MAP_TEXTURE_SIZE :: GLEnum
+        gl_TEXTURE0 :: GLEnum
+        gl_TEXTURE1 :: GLEnum
+        gl_TEXTURE2 :: GLEnum
+        gl_TEXTURE3 :: GLEnum
+        gl_TEXTURE4 :: GLEnum
+        gl_TEXTURE5 :: GLEnum
+        gl_TEXTURE6 :: GLEnum
+        gl_TEXTURE7 :: GLEnum
+        gl_TEXTURE8 :: GLEnum
+        gl_TEXTURE9 :: GLEnum
+        gl_TEXTURE10 :: GLEnum
+        gl_TEXTURE11 :: GLEnum
+        gl_TEXTURE12 :: GLEnum
+        gl_TEXTURE13 :: GLEnum
+        gl_TEXTURE14 :: GLEnum
+        gl_TEXTURE15 :: GLEnum
+        gl_TEXTURE16 :: GLEnum
+        gl_TEXTURE17 :: GLEnum
+        gl_TEXTURE18 :: GLEnum
+        gl_TEXTURE19 :: GLEnum
+        gl_TEXTURE20 :: GLEnum
+        gl_TEXTURE21 :: GLEnum
+        gl_TEXTURE22 :: GLEnum
+        gl_TEXTURE23 :: GLEnum
+        gl_TEXTURE24 :: GLEnum
+        gl_TEXTURE25 :: GLEnum
+        gl_TEXTURE26 :: GLEnum
+        gl_TEXTURE27 :: GLEnum
+        gl_TEXTURE28 :: GLEnum
+        gl_TEXTURE29 :: GLEnum
+        gl_TEXTURE30 :: GLEnum
+        gl_TEXTURE31 :: GLEnum
+        gl_ACTIVE_TEXTURE :: GLEnum
+        gl_REPEAT :: GLEnum
+        gl_CLAMP_TO_EDGE :: GLEnum
+        gl_MIRRORED_REPEAT :: GLEnum
+        gl_FLOAT_VEC2 :: GLEnum
+        gl_FLOAT_VEC3 :: GLEnum
+        gl_FLOAT_VEC4 :: GLEnum
+        gl_INT_VEC2 :: GLEnum
+        gl_INT_VEC3 :: GLEnum
+        gl_INT_VEC4 :: GLEnum
+        gl_BOOL :: GLEnum
+        gl_BOOL_VEC2 :: GLEnum
+        gl_BOOL_VEC3 :: GLEnum
+        gl_BOOL_VEC4 :: GLEnum
+        gl_FLOAT_MAT2 :: GLEnum
+        gl_FLOAT_MAT3 :: GLEnum
+        gl_FLOAT_MAT4 :: GLEnum
+        gl_SAMPLER_2D :: GLEnum
+        gl_SAMPLER_CUBE :: GLEnum
+        gl_VERTEX_ATTRIB_ARRAY_ENABLED :: GLEnum
+        gl_VERTEX_ATTRIB_ARRAY_SIZE :: GLEnum
+        gl_VERTEX_ATTRIB_ARRAY_STRIDE :: GLEnum
+        gl_VERTEX_ATTRIB_ARRAY_TYPE :: GLEnum
+        gl_VERTEX_ATTRIB_ARRAY_NORMALIZED :: GLEnum
+        gl_VERTEX_ATTRIB_ARRAY_POINTER :: GLEnum
+        gl_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING :: GLEnum
+        gl_COMPILE_STATUS :: GLEnum
+        gl_LOW_FLOAT :: GLEnum
+        gl_MEDIUM_FLOAT :: GLEnum
+        gl_HIGH_FLOAT :: GLEnum
+        gl_LOW_INT :: GLEnum
+        gl_MEDIUM_INT :: GLEnum
+        gl_HIGH_INT :: GLEnum
+        gl_FRAMEBUFFER :: GLEnum
+        gl_RENDERBUFFER :: GLEnum
+        gl_RGBA4 :: GLEnum
+        gl_RGB5_A1 :: GLEnum
+        gl_RGB565 :: GLEnum
+        gl_DEPTH_COMPONENT16 :: GLEnum
+        gl_STENCIL_INDEX8 :: GLEnum
+        gl_RENDERBUFFER_WIDTH :: GLEnum
+        gl_RENDERBUFFER_HEIGHT :: GLEnum
+        gl_RENDERBUFFER_INTERNAL_FORMAT :: GLEnum
+        gl_RENDERBUFFER_RED_SIZE :: GLEnum
+        gl_RENDERBUFFER_GREEN_SIZE :: GLEnum
+        gl_RENDERBUFFER_BLUE_SIZE :: GLEnum
+        gl_RENDERBUFFER_ALPHA_SIZE :: GLEnum
+        gl_RENDERBUFFER_DEPTH_SIZE :: GLEnum
+        gl_RENDERBUFFER_STENCIL_SIZE :: GLEnum
+        gl_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE :: GLEnum
+        gl_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME :: GLEnum
+        gl_FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL :: GLEnum
+        gl_FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE :: GLEnum
+        gl_COLOR_ATTACHMENT0 :: GLEnum
+        gl_DEPTH_ATTACHMENT :: GLEnum
+        gl_STENCIL_ATTACHMENT :: GLEnum
+        gl_NONE :: GLEnum
+        gl_FRAMEBUFFER_COMPLETE :: GLEnum
+        gl_FRAMEBUFFER_INCOMPLETE_ATTACHMENT :: GLEnum
+        gl_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT :: GLEnum
+        gl_FRAMEBUFFER_INCOMPLETE_DIMENSIONS :: GLEnum
+        gl_FRAMEBUFFER_UNSUPPORTED :: GLEnum
+        gl_FRAMEBUFFER_BINDING :: GLEnum
+        gl_RENDERBUFFER_BINDING :: GLEnum
+        gl_MAX_RENDERBUFFER_SIZE :: GLEnum
+        gl_INVALID_FRAMEBUFFER_OPERATION :: GLEnum

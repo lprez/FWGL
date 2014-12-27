@@ -15,7 +15,7 @@ class Typeable g => UniformCPU c g | g -> c where
 
 class Typeable g => AttributeCPU c g | g -> c where
         encodeAttribute :: g -> [c] -> GL Array
-        setAttribute :: g -> Word -> GL ()
+        setAttribute :: g -> GLUInt -> GL ()
 
 instance GLES => UniformCPU CPU.Float GPU.Float where
         setUniform l _ v = uniform1f l v
@@ -50,13 +50,13 @@ instance GLES => AttributeCPU CPU.V4 GPU.V4 where
         setAttribute _ i = attr i 4
 
 instance GLES => UniformCPU CPU.M2 GPU.M2 where
-        setUniform l _ m = liftIO (encodeM2 m) >>= uniformMatrix2fv l True
+        setUniform l _ m = liftIO (encodeM2 m) >>= uniformMatrix2fv l false
 
 instance GLES => UniformCPU CPU.M3 GPU.M3 where
-        setUniform l _ m = liftIO (encodeM3 m) >>= uniformMatrix3fv l True
+        setUniform l _ m = liftIO (encodeM3 m) >>= uniformMatrix3fv l false
 
 instance GLES => UniformCPU CPU.M4 GPU.M4 where
-        setUniform l _ m = liftIO (encodeM4 m) >>= uniformMatrix4fv l True
+        setUniform l _ m = liftIO (encodeM4 m) >>= uniformMatrix4fv l false
 
-attr :: GLES => Word -> Int -> GL ()
-attr i s = vertexAttribPointer i s gl_FLOAT False 0 0
+attr :: GLES => GLUInt -> GLInt -> GL ()
+attr i s = vertexAttribPointer i s gl_FLOAT false 0 nullGLPtr

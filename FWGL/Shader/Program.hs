@@ -7,6 +7,7 @@ module FWGL.Shader.Program (
         LoadedProgram(..),
         Program,
         program,
+        loadProgram,
         castProgram,
 
         -- TODO: move
@@ -83,8 +84,11 @@ loadProgram (Program (vss, attrs) fss h) = do
         locs <- bindAttribs glp 0 attrs []
         linkProgram glp
 
+        -- TODO: ??
+        {-
         detachShader glp vs
         detachShader glp fs
+        -}
 
         return $ LoadedProgram glp (H.fromList locs) h
 
@@ -93,7 +97,7 @@ loadProgram (Program (vss, attrs) fss h) = do
                         bindAttribLocation glp (fromIntegral i) (toGLString nm)
                         >> bindAttribs glp (i + sz) xs ((nm, i) : r)
 
-loadSource :: GLES => Word -> String -> GL Shader
+loadSource :: GLES => GLEnum -> String -> GL Shader
 loadSource ty src =
         do shader <- createShader ty
            shaderSource shader $ toGLString src
