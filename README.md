@@ -15,24 +15,28 @@ Documentation
 
 http://ziocrocifisso.github.io/FWGL/docs/FWGL.html (WIP)
 
-Work In Progress
+Project
 --------
 
 ### Experimental features
+
   * Separated backend
   * Custom shaders
 
-### Unimplemented features
+### Work in Progress
+
+  * 2D graphics
+  * GLFW Backend
+
+### To do
 
   * Lightning
-  * Better events
-  * GLFW backend
-  * Audio
-  * AJAX OBJ loading
-  * Documentation
-  * Release?
+  * Audio/side effects
+  * AJAX/Local file OBJ loading
+  * Documentation, lots of examples
   * Skeletal animations
   * Network (WebSocket)
+  * Separate packages (fwgl-core, fwgl-yampa, fwgl-javascript, ecc.)
 
 ### Maybe
 
