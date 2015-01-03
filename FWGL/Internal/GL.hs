@@ -6,6 +6,8 @@ module FWGL.Internal.GL (
         module FWGL.Backend.GLES,
         liftIO,
         evalGL,
+        forkGL,
+        asyncGL,
         getCtx,
         activeTexture,
         attachShader,
@@ -130,12 +132,13 @@ module FWGL.Internal.GL (
 ) where
 
 import Control.Applicative
+import Control.Concurrent
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State
 import Data.Word
 import FWGL.Backend.GLES
         
--- TODO: ReaderT, not StateT
+-- TODO: context loss
 newtype GL a = GL (StateT Ctx IO a)
         deriving (Functor, Applicative, Monad, MonadIO)
 
@@ -143,6 +146,12 @@ newtype ActiveTexture = ActiveTexture Word
 
 evalGL :: GL a -> Ctx -> IO a
 evalGL (GL m) = evalStateT m
+
+forkGL :: GLES => GL () -> GL ThreadId
+forkGL a = getCtx >>= \ctx -> liftIO . forkIO $ evalGL a ctx
+
+asyncGL :: GLES => GL a -> (a -> GL ()) -> GL ()
+asyncGL r f = forkGL (r >>= f) >> return ()
 
 getCtx :: GLES => GL Ctx
 getCtx = GL get

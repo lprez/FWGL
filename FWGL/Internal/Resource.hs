@@ -3,6 +3,7 @@
 
 module FWGL.Internal.Resource (
         ResMap,
+        ResStatus(..),
         Resource(..),
         newResMap,
         addResource,
@@ -11,16 +12,20 @@ module FWGL.Internal.Resource (
 ) where
 
 import Control.Applicative
+import Control.Monad.IO.Class
+import Data.IORef
 import Data.Functor
 import qualified Data.HashMap.Strict as H
 import Data.Hashable
-import Debug.Trace
 
 data ResMap i r = forall m. Resource i r m =>
-                            ResMap { unResMap :: H.HashMap i r }
+                            ResMap (H.HashMap i (IORef (ResStatus r)))
 
-class (Hashable i, Eq i, Applicative m) => Resource i r m | i -> r m where
-        loadResource :: i -> m r
+data ResStatus r = Loaded r | Unloaded | Loading | Error String
+
+class (Hashable i, Eq i, Applicative m, MonadIO m) =>
+      Resource i r m | i -> r m where
+        loadResource :: i -> (Either String r -> m ()) -> m ()
         unloadResource :: i -> r -> m ()
 
 newResMap :: Resource i r m => ResMap i r
@@ -29,13 +34,29 @@ newResMap = ResMap H.empty
 addResource :: Resource i r m => i -> ResMap i r -> m (ResMap i r)
 addResource i m = snd <$> getResource i m
 
-getResource :: Resource i r m => i -> ResMap i r -> m (r, ResMap i r)
-getResource i (ResMap map) = case H.lookup i map of
-                                Just r -> pure (r, ResMap map)
-                                Nothing -> fmap (\r ->
-                                                 (r, ResMap $ H.insert i r map))
-                                                (loadResource i)
+checkResource :: Resource i r m => i -> ResMap i r -> m (ResStatus r)
+checkResource i (ResMap map) = case H.lookup i map of
+                                        Just ref -> liftIO $ readIORef ref
+                                        Nothing -> return $ Unloaded
+
+getResource :: Resource i r m => i -> ResMap i r -> m (ResStatus r, ResMap i r)
+getResource i rmap@(ResMap map) =
+        do status <- checkResource i rmap
+           case status of
+                   Unloaded ->
+                        do ref <- liftIO $ newIORef Loading
+                           loadResource i $ \e -> case e of
+                                 Left s -> liftIO . writeIORef ref $ Error s
+                                 Right r -> liftIO . writeIORef ref $ Loaded r
+                           status' <- liftIO $ readIORef ref
+                           return (status', ResMap $ H.insert i ref map)
+                   _ -> return (status, rmap)
 
 removeResource :: Resource i r m => i -> ResMap i r -> m (ResMap i r)
-removeResource i (ResMap map) = unloadResource i (map H.! i)
-                                $> ResMap (H.delete i map)
+removeResource i rmap@(ResMap map) = 
+        do status <- checkResource i rmap
+           case status of
+                Loaded r -> unloadResource i r
+                Loading -> return () --- XXX
+                _ -> return ()
+           return . ResMap $ H.delete i map

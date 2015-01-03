@@ -7,7 +7,8 @@ import FWGL.Backend.GLES
 import FWGL.Input
 
 class GLES => BackendIO where
-        loadImage :: String -> (Image -> IO ()) -> IO ()
+        -- TODO: loadImage may fail
+        loadImage :: String -> ((Image, Int, Int) -> IO ()) -> IO ()
 
         setup :: (Int -> Int -> Ctx -> IO state)
               -> (out -> Ctx -> state -> IO state)

@@ -38,8 +38,12 @@ foreign import javascript unsafe "window.requestAnimationFrame($1)"
 foreign import javascript unsafe "$1.focus()" focus :: JSRef a -> IO ()
 
 instance BackendIO where
-        loadImage url cb = asyncCallback1 AlwaysRetain cb
-                           >>= loadImageRaw (toJSString url)
+        loadImage url f = asyncCallback1 NeverRetain callback
+                          >>= loadImageRaw (toJSString url) 
+                where callback img =
+                        do (Just w) <- getProp "width" img >>= fromJSRef
+                           (Just h) <- getProp "height" img >>= fromJSRef
+                           f (img, w, h)
 
         setup initState draw sigf =
                 do element <- query $ toJSString "canvas"

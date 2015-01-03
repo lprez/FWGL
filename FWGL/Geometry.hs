@@ -4,9 +4,11 @@
 module FWGL.Geometry (
         AttrList(..),
         Geometry(..),
+        Geometry2,
         Geometry3,
         GPUGeometry(..),
         mkGeometry,
+        mkGeometry2,
         mkGeometry3,
         castGeometry,
         facesToArrays,
@@ -27,7 +29,8 @@ import Unsafe.Coerce
 import FWGL.Internal.GL
 import FWGL.Internal.Resource
 import FWGL.Shader.CPU
-import FWGL.Shader.Default (Position3, Normal3, UV)
+import FWGL.Shader.Default2D (Position2)
+import FWGL.Shader.Default3D (Position3, Normal3, UV)
 import FWGL.Shader.GLSL (attributeName)
 import FWGL.Vector
 
@@ -36,11 +39,7 @@ data AttrList (is :: [*]) where
         AttrListCons :: (H.Hashable c, AttributeCPU c g)
                      => g -> [c] -> AttrList gs -> AttrList (g ': gs)
 
-data Geometry (is :: [*]) = Geometry {
-        attributes :: AttrList is,
-        elements :: [Word16],
-        hash :: Int
-}
+data Geometry (is :: [*]) = Geometry (AttrList is) [Word16] Int
 
 data GPUGeometry = GPUGeometry {
         attributeBuffers :: [(String, Buffer, GLUInt -> GL ())],
@@ -49,16 +48,17 @@ data GPUGeometry = GPUGeometry {
 }
 
 type Geometry3 = '[Position3, UV, Normal3]
+type Geometry2 = '[Position2]
 
 instance H.Hashable (AttrList is) where
         hashWithSalt salt AttrListNil = salt
         hashWithSalt salt (AttrListCons _ i is) = H.hashWithSalt salt (i, is)
 
 instance H.Hashable (Geometry is) where
-        hashWithSalt salt g = H.hashWithSalt salt $ hash g
+        hashWithSalt salt (Geometry _ _ h) = H.hashWithSalt salt h
 
 instance Eq (Geometry is) where
-        g == g' = hash g == hash g'
+        (Geometry _ _ h) == (Geometry _ _ h') = h == h'
 
 -- | Create a 3D 'Geometry'. The first three lists should have the same length.
 mkGeometry3 :: GLES
@@ -73,6 +73,11 @@ mkGeometry3 v u n = mkGeometry (AttrListCons (undefined :: Position3) v $
                                 AttrListCons (undefined :: Normal3) n
                                 AttrListNil)
 
+-- | Create a 2D 'Geometry'.
+mkGeometry2 :: GLES => [V2] -> [Word16] -> Geometry Geometry2
+mkGeometry2 v = mkGeometry (AttrListCons (undefined :: Position2) v
+                            AttrListNil)
+
 -- | Create a custom 'Geometry'.
 mkGeometry :: GLES => AttrList is -> [Word16] -> Geometry is
 mkGeometry al e = Geometry al e $ H.hash al
@@ -81,11 +86,12 @@ castGeometry :: Geometry is -> Geometry is'
 castGeometry = unsafeCoerce
 
 instance GLES => Resource (Geometry i) GPUGeometry GL where
-        loadResource = loadGeometry
+        -- TODO: err check
+        loadResource i f = loadGeometry i $ f . Right
         unloadResource _ = deleteGPUGeometry
 
-loadGeometry :: GLES => Geometry i -> GL GPUGeometry
-loadGeometry (Geometry al es _) =
+loadGeometry :: GLES => Geometry i -> (GPUGeometry -> GL ()) -> GL ()
+loadGeometry (Geometry al es _) = asyncGL $
         GPUGeometry <$> loadAttrList al
                     <*> (liftIO (encodeUShorts es) >>=
                             loadBuffer gl_ELEMENT_ARRAY_BUFFER)

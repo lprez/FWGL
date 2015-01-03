@@ -10,17 +10,21 @@ module FWGL.Vector (
         vec4,
         mat2,
         mat3,
+        mul3,
         mat4,
         mul4,
         transpose4,
-        idMat,
-        transMat,
-        rotXMat,
-        rotYMat,
-        rotZMat,
-        rotAAMat,
-        scaleMat,
-        perspectiveMat
+        idMat4,
+        transMat4,
+        rotXMat4,
+        rotYMat4,
+        rotZMat4,
+        rotAAMat4,
+        scaleMat4,
+        idMat3,
+        transMat3,
+        rotMat3,
+        scaleMat3
 ) where
 
 import Control.Applicative
@@ -106,6 +110,11 @@ mat4from3 (a1, a2, a3, b1, b2, b3, c1, c2, c3) =
            (V4 c1 c2 c3 0)
            (V4 0  0  0  1)
 
+mat3from2 :: (Float, Float, Float, Float) -> M3
+mat3from2 (a1, a2, b1, b2) = M3 (V3 a1 a2 0)
+                                (V3 b1 b2 0)
+                                (V3 0  0  1)
+
 mat4 :: ( Float, Float, Float, Float
         , Float, Float, Float, Float
         , Float, Float, Float, Float
@@ -115,6 +124,28 @@ mat4 (a1, a2, a3, a4, b1, b2, b3, b4, c1, c2, c3, c4, d1, d2, d3, d4) =
            (V4 b1 b2 b3 b4)
            (V4 c1 c2 c3 c4)
            (V4 d1 d2 d3 d4)
+
+mul3 :: M3 -> M3 -> M3
+mul3 (M3 (V3 a11 a12 a13)
+         (V3 a21 a22 a23)
+         (V3 a31 a32 a33))
+     (M3 (V3 b11 b12 b13)
+         (V3 b21 b22 b23)
+         (V3 b31 b32 b33)) =
+        mat3 (
+                a11 * b11 + a12 * b21 + a13 * b31,
+                a11 * b12 + a12 * b22 + a13 * b32,
+                a11 * b13 + a12 * b23 + a13 * b33,
+
+                a21 * b11 + a22 * b21 + a23 * b31,
+                a21 * b12 + a22 * b22 + a23 * b32,
+                a21 * b13 + a22 * b23 + a23 * b33,
+
+                a31 * b11 + a32 * b21 + a33 * b31,
+                a31 * b12 + a32 * b22 + a33 * b32,
+                a31 * b13 + a32 * b23 + a33 * b33
+             )
+
 
 mul4 :: M4 -> M4 -> M4
 mul4 (M4 (V4 _1 _2 _3 _4)
@@ -156,57 +187,71 @@ transpose4 (M4 (V4 a1 a2 a3 a4)
                                       (V4 a3 b3 c3 d3)
                                       (V4 a4 b4 c4 d4)
 
-idMat :: M4
-idMat = mat4from3 ( 1, 0, 0
-                  , 0, 1, 0
-                  , 0, 0, 1 )
+idMat4 :: M4
+idMat4 = mat4from3 ( 1, 0, 0
+                   , 0, 1, 0
+                   , 0, 0, 1 )
 
-transMat :: V3 -> M4
-transMat (V3 x y z) = mat4 ( 1, 0, 0, 0
-                           , 0, 1, 0, 0
-                           , 0, 0, 1, 0
-                           , x, y, z, 1 )
+transMat4 :: V3 -> M4
+transMat4 (V3 x y z) = mat4 ( 1, 0, 0, 0
+                            , 0, 1, 0, 0
+                            , 0, 0, 1, 0
+                            , x, y, z, 1 )
 
-rotXMat :: Float -> M4
-rotXMat a = mat4from3 ( 1, 0, 0
-                      , 0, cos a, - sin a
-                      , 0, sin a, cos a )
+rotXMat4 :: Float -> M4
+rotXMat4 a = mat4from3 ( 1, 0, 0
+                       , 0, cos a, - sin a
+                       , 0, sin a, cos a )
 
-rotYMat :: Float -> M4
-rotYMat a = mat4from3 ( cos a, 0, sin a
-                      , 0, 1, 0
-                      , - sin a, 0, cos a )
+rotYMat4 :: Float -> M4
+rotYMat4 a = mat4from3 ( cos a, 0, sin a
+                       , 0, 1, 0
+                       , - sin a, 0, cos a )
 
-rotZMat :: Float -> M4
-rotZMat a = mat4from3 ( cos a, - sin a, 0
-                      , sin a, cos a, 0
-                      , 0, 0, 1 )
+rotZMat4 :: Float -> M4
+rotZMat4 a = mat4from3 ( cos a, - sin a, 0
+                       , sin a, cos a, 0
+                       , 0, 0, 1 )
 
-rotAAMat :: V3 -> Float -> M4
-rotAAMat v = quatToMat . rotAAQuat v
+rotAAMat4 :: V3 -> Float -> M4
+rotAAMat4 v = quatToMat4 . rotAAQuat v
 
 rotAAQuat :: V3 -> Float -> V4
 rotAAQuat (V3 x y z) a = V4 (x * s) (y * s) (z * s) (cos $ a / 2)
         where s = sin $ a / 2
 
-scaleMat :: V3 -> M4
-scaleMat (V3 x y z) = mat4from3 ( x, 0, 0
-                                , 0, y, 0
-                                , 0, 0, z )
+scaleMat4 :: V3 -> M4
+scaleMat4 (V3 x y z) = mat4from3 ( x, 0, 0
+                                 , 0, y, 0
+                                 , 0, 0, z )
 
-perspectiveMat :: Float -> Float -> Float -> Float -> M4
-perspectiveMat f n fov ar =
+perspectiveMat4 :: Float -> Float -> Float -> Float -> M4
+perspectiveMat4 f n fov ar =
         mat4 ( s / ar , 0 , 0                 , 0
              , 0      , s , 0                 , 0
              , 0      , 0 , (f + n) / (n - f) , (2 * f * n) / (n - f)
              , 0      , 0 , - 1               , 0)
         where s = 1 / tan (fov * pi / 360)
 
-quatToMat :: V4 -> M4
-quatToMat (V4 x y z w) = mat4from3 (
+quatToMat4 :: V4 -> M4
+quatToMat4 (V4 x y z w) = mat4from3 (
         1 - 2 * y ^ 2 - 2 * z ^ 2, 2 * x * y - 2 * z * w, 2 * x * z + 2 * y * w,
         2 * x * y + 2 * z * w, 1 - 2 * x ^ 2 - 2 * z ^ 2, 2 * y * z - 2 * x * w,
         2 * x * z - 2 * y * w, 2 * y * z + 2 * x * w, 1 - 2 * x ^ 2 - 2 * y ^ 2)
+
+idMat3 :: M3
+idMat3 = mat3from2 (1, 0, 0, 1)
+
+transMat3 :: V2 -> M3
+transMat3 (V2 x y) = mat3 ( 1, 0, 0
+                          , 0, 1, 0
+                          , x, y, 1 )
+
+rotMat3 :: Float -> M3
+rotMat3 a = mat3from2 (cos a, sin a, - sin a, cos a)
+
+scaleMat3 :: V2 -> M3
+scaleMat3 (V2 x y) = mat3from2 (x, 0, 0, y)
 
 zipWithM_ :: Monad m => (a -> b -> m c) -> [a] -> [b] -> m ()
 zipWithM_ f xs = sequence_ . zipWith f xs

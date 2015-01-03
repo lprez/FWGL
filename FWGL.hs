@@ -1,7 +1,6 @@
 module FWGL (
         module FWGL.Audio,
         module FWGL.Input,
-        module FWGL.Graphics,
         Output(..),
         run
 ) where
@@ -11,11 +10,11 @@ import FWGL.Audio
 import FWGL.Backend
 import FWGL.Input
 import FWGL.Internal.GL (evalGL)
-import FWGL.Graphics
 import FWGL.Graphics.Draw
+import FWGL.Graphics.Types
 import FRP.Yampa
 
-data Output = Output [Scene] Audio
+data Output = Output [Layer] Audio -- StateT ... IO
 
 run :: BackendIO        -- ^ Just import FWGL.Backend.JavaScript
     => SF Input Output  -- ^ Main signal
@@ -26,4 +25,4 @@ run sigf = putStrLn "setup" >> setup initState loop sigf
               loop (Output scenes _) ctx drawState =
                       trace "loop" . flip evalGL ctx . flip execDraw drawState $
                               do drawBegin
-                                 mapM_ drawScene scenes
+                                 mapM_ drawLayer scenes

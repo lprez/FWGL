@@ -1,11 +1,14 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, DataKinds,
              FlexibleContexts, RebindableSyntax, TypeFamilies #-}
 
-module FWGL.Shader.Default where
+module FWGL.Shader.Default3D where
 
 import FWGL.Shader.CPU
 import FWGL.Shader
 import qualified FWGL.Vector
+
+type Uniforms = '[Transform3, View3, Texture2]
+type Attributes = '[Position3, UV, Normal3]
 
 newtype Texture2 = Texture2 Sampler2D
         deriving (Typeable, ShaderType, UniformCPU CSampler2D)
@@ -25,20 +28,13 @@ newtype Normal3 = Normal3 V3
 newtype UV = UV V2
         deriving (Typeable, ShaderType, AttributeCPU CV2)
 
-defaultVertexShader :: VertexShader [ Transform3, View3 ]
-                                    [ Position3, UV, Normal3 ]
-                                    '[ UV ]
-defaultVertexShader = do v <- applyMatrices
-                         get >>= \x@(UV _) -> put x
-                         (Normal3 _) <- get
-                         putVertex v
-                         
--- TODO: remove tests
-test :: Shader '[ Transform3 ] '[] '[] Transform3
-test = global
-
-test' :: Shader '[ Transform3 ] '[] '[] ()
-test' = global >>= \(Transform3 _) -> return () >> return ()
+vertexShader :: VertexShader '[ Transform3, View3 ]
+                             '[ Position3, UV, Normal3 ]
+                             '[ UV ]
+vertexShader = do v <- applyMatrices
+                  get >>= \x@(UV _) -> put x
+                  (Normal3 _) <- get
+                  putVertex v
 
 applyMatrices :: Shader '[ Transform3, View3 ]
                         '[ Position3 ]
@@ -50,8 +46,8 @@ applyMatrices = do View3 viewMatrix <- global
                    return $
                         viewMatrix * modelMatrix * V4 x y z 1.0
 
-defaultFragmentShader :: FragmentShader '[ Texture2 ] [ UV, Normal3 ]
-defaultFragmentShader = do Texture2 sampler <- global
-                           UV (V2 s t) <- get
-                           putFragment .
-                                   texture2D sampler $ V2 s (1 - t)
+fragmentShader :: FragmentShader '[ Texture2 ] [ UV, Normal3 ]
+fragmentShader = do Texture2 sampler <- global
+                    UV (V2 s t) <- get
+                    putFragment .
+                            texture2D sampler $ V2 s (1 - t)

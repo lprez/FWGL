@@ -1,23 +1,44 @@
 {-# LANGUAGE GADTs, DataKinds, KindSignatures, TypeOperators,
-             ExistentialQuantification #-}
+             ExistentialQuantification, GeneralizedNewtypeDeriving #-}
 
 module FWGL.Graphics.Types (
+        Draw(..),
+        DrawState(..),
+        UniformLocation(..),
         Geometry(..),
         Mesh(..),
         Light(..),
         Object(..),
-        ObjProgram(..),
-        (<>)
+        Layer(..)
 ) where
 
-import Data.Monoid
+import Control.Applicative
+import Control.Monad.IO.Class
+import Control.Monad.Trans.State
 import Data.Typeable
 import FWGL.Geometry
+import FWGL.Internal.GL hiding (Program, Texture, UniformLocation)
+import qualified FWGL.Internal.GL as GL
 import FWGL.Internal.TList
+import FWGL.Internal.Resource
 import FWGL.Shader.CPU
 import FWGL.Shader.Program
 import FWGL.Texture
 import FWGL.Vector
+
+newtype UniformLocation = UniformLocation GL.UniformLocation
+
+data DrawState = DrawState {
+        program :: Maybe (Program '[] '[]),
+        loadedProgram :: Maybe LoadedProgram,
+        programs :: ResMap (Program '[] '[]) LoadedProgram,
+        uniforms :: ResMap (LoadedProgram, String) UniformLocation,
+        gpuMeshes :: ResMap (Geometry '[]) GPUGeometry,
+        textures :: ResMap Texture LoadedTexture
+}
+
+newtype Draw a = Draw { unDraw :: StateT DrawState GL a }
+        deriving (Functor, Applicative, Monad, MonadIO)
 
 -- | A static or dinamic geometry.
 data Mesh is where
@@ -32,18 +53,19 @@ data Light
 data Object (gs :: [*]) (is :: [*]) where
         ObjectEmpty :: Object gs is
         ObjectMesh :: Mesh is -> Object gs is
-        ObjectTexture :: Texture -> Object g i -> Object (Texture2 ': g) i
-        -- TODO: invece di ObjectTexture, un ObjectGlobal che dipende dal DrawState?
-        ObjectGlobal :: (Typeable g, UniformCPU c g) => g -> c -> Object gs is
-                     -> Object (g ': gs) is 
-        ObjectAppend :: Object gs is -> Object gs' is'
-                     -> Object (Union gs gs') (Union is is')
+        ObjectGlobal :: (Typeable g, UniformCPU c g) => g -> Draw c
+                     -> Object gs is -> Object gs' is 
+        ObjectAppend :: Object gs is -> Object gs' is' -> Object gs'' is''
+
+{-
+-- | An 'Element' is anything that can be converted to an 'Object'.
+class Element o gs is | o -> gs is where
+        object :: o -> Object gs is
+
+instance Element (Object gs is) gs is where
+        object = id
+-}
 
 -- | An object associated with a program.
-data ObjProgram = forall oi pi og pg. (Subset oi pi, Subset og pg)
-                => Scene (Program pg pi) (Object og oi)
-
-instance Monoid Transformation where
-        mempty = Transformation idMat
-        mappend (Transformation t') (Transformation t) = Transformation $
-                                                                mul4 t t'
+data Layer = forall oi pi og pg. (Subset oi pi, Subset og pg)
+                              => Layer (Program pg pi) (Object og oi)

@@ -9,6 +9,7 @@ import FWGL.Vector
 class ( Integral GLEnum
       , Integral GLUInt
       , Integral GLInt
+      , Integral GLSize
       , Num GLEnum
       , Num GLUInt
       , Num GLInt
