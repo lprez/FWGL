@@ -9,23 +9,19 @@ module FWGL.Shader.Program (
         program,
         loadProgram,
         castProgram,
-
-        -- TODO: move
-        module FWGL.Shader.Default,
-        Subset,
-        Union,
-        Insert,
-        DefaultUniforms,
-        DefaultAttributes,
-        defaultProgram,
+        DefaultUniforms2D,
+        DefaultAttributes2D,
+        DefaultUniforms3D,
+        DefaultAttributes3D,
+        defaultProgram3D,
+        defaultProgram2D
 ) where
 
 import Data.Hashable
 import qualified Data.HashMap.Strict as H
 import Data.Word (Word)
-import FWGL.Shader.Default (Transform3, View3, Texture2,
-                            Position3, Normal3, UV,
-                            defaultVertexShader, defaultFragmentShader)
+import qualified FWGL.Shader.Default2D as Default2D
+import qualified FWGL.Shader.Default3D as Default3D
 import FWGL.Shader.GLSL
 import FWGL.Shader.Monad (Subset, Union, Insert)
 import FWGL.Shader.Stages
@@ -39,8 +35,11 @@ data Program (gs :: [*]) (is :: [*]) =
 
 data LoadedProgram = LoadedProgram !GL.Program (H.HashMap String Int) Int
 
-type DefaultUniforms = '[Transform3, View3, Texture2]
-type DefaultAttributes = '[Position3, UV, Normal3]
+type DefaultUniforms3D = Default3D.Uniforms
+type DefaultAttributes3D = Default3D.Attributes
+
+type DefaultUniforms2D = Default2D.Uniforms
+type DefaultAttributes2D = Default2D.Attributes
 
 instance Hashable (Program gs is) where
         hashWithSalt salt (Program _ _ h) = hashWithSalt salt h
@@ -55,7 +54,8 @@ instance Eq LoadedProgram where
         (LoadedProgram _ _ h) == (LoadedProgram _ _ h') = h == h'
 
 instance GLES => Resource (Program g i) LoadedProgram GL where
-        loadResource = loadProgram
+        -- TODO: err check
+        loadResource i f = loadProgram i $ f . Right
         unloadResource _ (LoadedProgram p _ _) = deleteProgram p
 
 castProgram :: Program gs is -> Program gs' is'
@@ -69,11 +69,14 @@ program vs fs = let (vss, attrs) = vertexToGLSLAttr vs
                     fss = fragmentToGLSL fs
                 in Program (vss, attrs) fss (hash (vss, fss))
 
-defaultProgram :: Program DefaultUniforms DefaultAttributes
-defaultProgram = program defaultVertexShader defaultFragmentShader
+defaultProgram3D :: Program DefaultUniforms3D DefaultAttributes3D
+defaultProgram3D = program Default3D.vertexShader Default3D.fragmentShader
 
-loadProgram :: GLES => Program g i -> GL LoadedProgram
-loadProgram (Program (vss, attrs) fss h) = do
+defaultProgram2D :: Program DefaultUniforms2D DefaultAttributes2D
+defaultProgram2D = program Default2D.vertexShader Default2D.fragmentShader
+
+loadProgram :: GLES => Program g i -> (LoadedProgram -> GL ()) -> GL ()
+loadProgram (Program (vss, attrs) fss h) = asyncGL $ do
         glp <- createProgram
 
         vs <- loadSource gl_VERTEX_SHADER vss
