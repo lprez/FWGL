@@ -97,4 +97,5 @@ data Key =
 	| KeyPad7
 	| KeyPad8
 	| KeyPad9
+        | KeyUnknown
         deriving (Eq, Show)
