@@ -1,7 +1,7 @@
 FWGL
 ====
 
-Examples
+Examples (with [master](https://github.com/ZioCrocifisso/FWGL/tree/master) version)
 --------
 
 [Demo](http://ziocrocifisso.github.io/FWGL/demo)
@@ -22,23 +22,27 @@ Project
 
   * Separated backend
   * Custom shaders
+  * Shader EDSL
+  * 2D graphics system
+  * Custom graphics system
 
 ### Work in Progress
 
-  * 2D graphics
-  * GLFW Backend
+  * 3D graphics system
 
 ### To do
 
+  * GLFW Backend
   * Lightning
   * Audio/side effects
   * AJAX/Local file OBJ loading
-  * Documentation, lots of examples
+  * Lots of examples
+  * Decent documentation
   * Skeletal animations
-  * Network (WebSocket)
-  * Separate packages (fwgl-core, fwgl-yampa, fwgl-javascript, ecc.)
 
 ### Maybe
 
+  * Network (WebSocket) (May be replaced by a general support for Input signal with side effects)
+  * Separate packages (fwgl-core, fwgl-yampa, fwgl-javascript, ecc.)
   * Android backend
   * Physics
