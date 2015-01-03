@@ -59,7 +59,6 @@ instance BackendIO where
                    onFrame $ frame reactStateRef eventSrc Nothing
                 where frame rsf src last crf =
                         do events <- clear src
-                           putStrLn "post clear"
                            (Just cur) <- fromJSRef crf
                            let tm = case last of
                                          Just l -> cur - l
