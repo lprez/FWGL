@@ -18,7 +18,7 @@ data Output = Output [Layer] Audio -- StateT ... IO
 run :: BackendIO        -- ^ Just import FWGL.Backend.JavaScript
     => SF Input Output  -- ^ Main signal
     -> IO ()
-run sigf = putStrLn "setup" >> setup initState loop sigf
+run sigf = setup initState loop sigf
         where initState w h = evalGL $ drawInit w h
               loop (Output scenes _) ctx drawState =
                       flip evalGL ctx . flip execDraw drawState $
