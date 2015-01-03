@@ -1,14 +1,14 @@
 FWGL
 ====
 
-Examples (with [master](https://github.com/ZioCrocifisso/FWGL/tree/master) version)
+Examples (with  version)
 --------
 
-[Demo](http://ziocrocifisso.github.io/FWGL/demo)
+[Demo](http://ziocrocifisso.github.io/FWGL/demo) ([master](https://github.com/ZioCrocifisso/FWGL/tree/master) only)
 
-[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) (simple game)
+[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) ([master](https://github.com/ZioCrocifisso/FWGL/tree/master) only)
 
-[Recursive signals](http://ziocrocifisso.github.io/FWGL/recur)
+[Recursive signals](http://ziocrocifisso.github.io/FWGL/recur) (master + experimental)
 
 Documentation
 -------------
@@ -23,16 +23,16 @@ Project
   * Separated backend
   * Custom shaders
   * Shader EDSL
-  * 2D graphics system
+  * 2D simplified graphics system
   * Custom graphics system
 
 ### Work in Progress
 
-  * 3D graphics system
+  * 3D simplified graphics system
+  * GLFW Backend
 
 ### To do
 
-  * GLFW Backend
   * Lightning
   * Audio/side effects
   * AJAX/Local file OBJ loading
