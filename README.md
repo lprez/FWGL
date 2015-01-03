@@ -1,7 +1,7 @@
 FWGL
 ====
 
-Examples (with  version)
+Examples
 --------
 
 [Demo](http://ziocrocifisso.github.io/FWGL/demo) ([master](https://github.com/ZioCrocifisso/FWGL/tree/master) only)
