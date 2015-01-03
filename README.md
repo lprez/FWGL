@@ -18,7 +18,11 @@ http://ziocrocifisso.github.io/FWGL/docs/FWGL.html (WIP)
 Work In Progress
 --------
 
-### To do
+### Experimental features
+  * Separated backend
+  * Custom shaders
+
+### Unimplemented features
 
   * Lightning
   * Better events
@@ -29,10 +33,8 @@ Work In Progress
   * Release?
   * Skeletal animations
   * Network (WebSocket)
-  * Custom shaders
 
 ### Maybe
 
-  * EDSL for shaders
   * Android backend
   * Physics
