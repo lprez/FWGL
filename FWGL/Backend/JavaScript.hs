@@ -4,6 +4,7 @@ module FWGL.Backend.JavaScript () where
 
 import Control.Applicative
 import Control.Concurrent
+import qualified Data.HashMap.Strict as H
 import Data.IORef
 import Data.Word
 import FRP.Yampa
@@ -49,11 +50,11 @@ instance BackendIO where
                 do element <- query $ toJSString "canvas"
                    eventSrc <- source handledEvents element
                    ctx <- JS.getCtx element
-                   w <- read <$> getAttribute "width" element
-                   h <- read <$> getAttribute "height" element
+                   (Just w) <- getProp "clientWidth" element >>= fromJSRef
+                   (Just h) <- getProp "clientHeight" element >>= fromJSRef
                    focus element -- ... no
                    drawStateRef <- initState w h ctx >>= newIORef
-                   reactStateRef <- reactInit (Input <$> clear eventSrc)
+                   reactStateRef <- reactInit (return $ initInput w h)
                                               (\ _ _ -> actuate ctx drawStateRef)
                                               sigf
                    onFrame $ frame reactStateRef eventSrc Nothing
@@ -69,6 +70,14 @@ instance BackendIO where
         
                       onFrame handler = asyncCallback1 NeverRetain handler
                                         >>= requestAnimationFrame
+
+                      initInput w h = Input $ H.singleton Resize [
+                                EventData {
+                                        dataFramebufferSize = Just (w, h),
+                                        dataPointer = Nothing,
+                                        dataButton = Nothing,
+                                        dataKey = Nothing
+                                }]
                                      
                       actuate ctx ref out = readIORef ref >>=
                                             draw out ctx >>=
@@ -78,7 +87,8 @@ instance BackendIO where
                                       , MouseDown
                                       , MouseMove
                                       , KeyUp
-                                      , KeyDown ]
+                                      , KeyDown
+                                      , Resize ]
 
 instance GLES where
         type Ctx = JS.Ctx

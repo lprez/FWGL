@@ -6,7 +6,7 @@ module FWGL.Shader.Default2D where
 import FWGL.Shader
 
 type Uniforms = '[View2, Image, Depth, Transform2]
-type Attributes = '[Position2]
+type Attributes = '[Position2, UV]
 
 newtype Image = Image Sampler2D
         deriving (Typeable, ShaderType, UniformCPU CSampler2D)
@@ -23,17 +23,22 @@ newtype View2 = View2 M3
 newtype Position2 = Position2 V2
         deriving (Typeable, ShaderType, AttributeCPU CV2)
 
+newtype UV = UV V2
+        deriving (Typeable, ShaderType, AttributeCPU CV2)
+
 vertexShader :: VertexShader '[Transform2, View2, Depth]
-                             '[Position2] '[Position2]
-vertexShader = do p2@(Position2 (V2 x y)) <- get
+                             '[Position2, UV] '[UV]
+vertexShader = do (Position2 (V2 x y)) <- get
+                  uv@(UV _) <- get
                   Transform2 trans <- global
                   View2 view <- global
                   Depth z <- global
                   let V3 x' y' _ = view * trans * (V3 x y 1)
                   putVertex $ V4 x' y' z 1
-                  put p2
+                  put uv
+                  -- BUG
 
-fragmentShader :: FragmentShader '[Image] '[Position2]
+fragmentShader :: FragmentShader '[Image] '[UV]
 fragmentShader = do Image sampler <- global
-                    Position2 uv <- get
-                    putFragment $ texture2D sampler uv
+                    UV (V2 s t) <- get
+                    putFragment $ texture2D sampler (V2 s $ 1 - t)

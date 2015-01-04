@@ -6,10 +6,14 @@ import FWGL.Internal.GL (GLES)
 import FWGL.Vector
 
 rectGeometry :: GLES => V2 -> Geometry Geometry2
-rectGeometry (V2 w h) = mkGeometry2 [ V2 (-hw) (-hh),
-                                      V2 hw    (-hh),
-                                      V2 hw    hh,
-                                      V2 (-hw) hh ]
+rectGeometry (V2 w h) = mkGeometry2 [ V2 (-hw) (-hh)
+                                    , V2 hw    (-hh)
+                                    , V2 hw    hh
+                                    , V2 (-hw) hh ]
+                                    [ V2 0 0
+                                    , V2 1 0
+                                    , V2 1 1
+                                    , V2 0 1 ]
                                     [ 0, 1, 2, 0, 3, 2 ]
         where (hw, hh) = (w / 2, h / 2)
 

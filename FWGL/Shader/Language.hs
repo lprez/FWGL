@@ -27,6 +27,7 @@ module FWGL.Shader.Language (
 import Data.Typeable
 import Prelude (String, (.), (&&), ($))
 import qualified Prelude
+import Text.Printf
 
 data Expr = Nil | Read String | Op1 String Expr | Op2 String Expr Expr
           | Apply String [Expr] | X Expr | Y Expr | Z Expr | W Expr
@@ -268,11 +269,11 @@ negate :: Float -> Float
 negate (Float e) = Float $ Op1 "-" e
 
 fromInteger :: Prelude.Integer -> Float -- Integer
-fromInteger = Float . Literal . Prelude.show
+fromInteger = fromRational . Prelude.fromIntegral
 
 fromRational :: Prelude.Rational -> Float
 fromRational = Float . Literal
-                        . (Prelude.show :: Prelude.Float -> String)
+                        . (printf "%f" :: Prelude.Float -> String)
                         . Prelude.fromRational
 
 abs :: Float -> Float

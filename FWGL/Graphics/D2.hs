@@ -65,7 +65,7 @@ depth :: Float -> Element -> Element
 depth d (Element _ t m g) = Element d t m g
 
 -- | A rectangle with the size and aspect ratio adapted to the screen. You
--- have to use the 'FWGL.Utils.screenCoords' view matrix.
+-- have to use the 'FWGL.Utils.screenScale' view matrix.
 sprite :: BackendIO => Texture -> Element
 sprite t = Element 0 t ((\(w, h) -> scaleMat3 $ V2 w h) <$> textureSize t)
                        (rectGeometry $ V2 1 1)

@@ -30,7 +30,9 @@ import FWGL.Internal.GL
 import FWGL.Internal.Resource
 import FWGL.Shader.CPU
 import FWGL.Shader.Default2D (Position2)
-import FWGL.Shader.Default3D (Position3, Normal3, UV)
+import FWGL.Shader.Default3D (Position3, Normal3)
+import qualified FWGL.Shader.Default2D as D2
+import qualified FWGL.Shader.Default3D as D3
 import FWGL.Shader.GLSL (attributeName)
 import FWGL.Vector
 
@@ -47,8 +49,8 @@ data GPUGeometry = GPUGeometry {
         elementCount :: Int
 }
 
-type Geometry3 = '[Position3, UV, Normal3]
-type Geometry2 = '[Position2]
+type Geometry3 = '[Position3, D3.UV, Normal3]
+type Geometry2 = '[Position2, D2.UV]
 
 instance H.Hashable (AttrList is) where
         hashWithSalt salt AttrListNil = salt
@@ -66,17 +68,22 @@ mkGeometry3 :: GLES
             -> [V2]     -- ^ List of UV coordinates.
             -> [V3]     -- ^ List of normals.
             -> [Word16] -- ^ Triangles expressed as triples of indices to the
-                       --   three lists above.
+                        --   three lists above.
             -> Geometry Geometry3
 mkGeometry3 v u n = mkGeometry (AttrListCons (undefined :: Position3) v $
-                                AttrListCons (undefined :: UV) u $
+                                AttrListCons (undefined :: D3.UV) u $
                                 AttrListCons (undefined :: Normal3) n
                                 AttrListNil)
 
--- | Create a 2D 'Geometry'.
-mkGeometry2 :: GLES => [V2] -> [Word16] -> Geometry Geometry2
-mkGeometry2 v = mkGeometry (AttrListCons (undefined :: Position2) v
-                            AttrListNil)
+-- | Create a 2D 'Geometry'. The first two lists should have the same length.
+mkGeometry2 :: GLES
+            => [V2]                     -- ^ List of vertices.
+            -> [V2]                     -- ^ List of UV coordinates.
+            -> [Word16]                 -- ^ Triangles.
+            -> Geometry Geometry2
+mkGeometry2 v u = mkGeometry (AttrListCons (undefined :: Position2) v $
+                              AttrListCons (undefined :: D2.UV) u
+                              AttrListNil)
 
 -- | Create a custom 'Geometry'.
 mkGeometry :: GLES => AttrList is -> [Word16] -> Geometry is

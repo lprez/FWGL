@@ -51,7 +51,10 @@ addEvent e (Source j c) = asyncCallback1 NeverRetain handler >>=
                 prop p d =  getProp p d >>= fromJSRef
                 handler d = do
                         eventData <- EventData
-                                        <$> (do x <- prop "clientX" d
+                                        <$> (do w <- prop "clientWidth" j
+                                                h <- prop "clientHeight" j
+                                                return $ (,) <$> w <*> h)
+                                        <*> (do x <- prop "clientX" d
                                                 y <- prop "clientY" d
                                                 return $ (,) <$> x <*> y)
                                         <*> ((getButton <$>) <$> prop "button" d)
