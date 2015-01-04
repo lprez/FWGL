@@ -10,18 +10,22 @@ module FWGL.Input (
         mouseUp,
         mouse,
         click,
-        pointer
+        pointer,
+        resize,
+        size
 ) where
 
+import Data.Maybe
 import Data.Hashable
 import qualified Data.HashMap.Strict as H
 import FWGL.Key
 import FRP.Yampa
 
-data InputEvent = KeyUp | KeyDown | MouseUp | MouseDown | MouseMove
+data InputEvent = KeyUp | KeyDown | MouseUp | MouseDown | MouseMove | Resize
                   deriving (Show, Eq, Enum)
 
 data EventData = EventData {
+        dataFramebufferSize :: Maybe (Int, Int),
         dataPointer :: Maybe (Int, Int),
         dataButton :: Maybe MouseButton,
         dataKey :: Maybe Key
@@ -58,6 +62,13 @@ click = mouseDown MouseLeft
 -- | Pointer location in pixels.
 pointer :: SF Input (Int, Int)
 pointer = evPointer MouseMove (const True) >>> hold (0, 0)
+
+resize :: SF Input (Event (Int, Int))
+resize = evSearch Resize (isJust . dataFramebufferSize) >>^
+         fmap (fromJust . dataFramebufferSize)
+
+size :: SF Input (Int, Int)
+size = resize >>> hold (0, 0)
 
 {- keyDownLimited :: KeyCode a => Double -> a -> SF Input (Event ())
 
