@@ -1,5 +1,7 @@
 {-# LANGUAGE NullaryTypeClasses, TypeFamilies, UndecidableInstances #-}
 
+{-| The GHCJS/WebGL backend. This just exports the instances for 'BackendIO'
+    and 'GLES'. -}
 module FWGL.Backend.JavaScript () where
 
 import Control.Applicative

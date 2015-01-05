@@ -8,15 +8,20 @@ import FWGL.Shader
 type Uniforms = '[View2, Image, Depth, Transform2]
 type Attributes = '[Position2, UV]
 
+-- | An uniform that represents the texture used in the default 2D shader.
 newtype Image = Image Sampler2D
         deriving (Typeable, ShaderType, UniformCPU CSampler2D)
 
+-- | An uniform that represents the depth used in the default 2D shader.
 newtype Depth = Depth Float
         deriving (Typeable, ShaderType, UniformCPU CFloat)
 
+-- | An uniform that represents the transformation matrix used in the default
+-- 2D shader.
 newtype Transform2 = Transform2 M3
         deriving (Typeable, ShaderType, UniformCPU CM3)
 
+-- | An uniform that represents the view matrix used in the default 2D shader.
 newtype View2 = View2 M3
         deriving (Typeable, ShaderType, UniformCPU CM3)
 

@@ -30,15 +30,23 @@ import qualified FWGL.Internal.GL as GL
 import FWGL.Internal.Resource
 import Unsafe.Coerce
 
+-- | A vertex shader associated with a compatible fragment shader.
 data Program (gs :: [*]) (is :: [*]) =
         Program (String, [(String, Int)]) String Int
 
 data LoadedProgram = LoadedProgram !GL.Program (H.HashMap String Int) Int
 
+
+-- | The uniforms used in the default 3D program.
 type DefaultUniforms3D = Default3D.Uniforms
+
+-- | The attributes used in the default 3D program.
 type DefaultAttributes3D = Default3D.Attributes
 
+-- | The uniforms used in the default 2D program.
 type DefaultUniforms2D = Default2D.Uniforms
+
+-- | The attributes used in the default 2D program.
 type DefaultAttributes2D = Default2D.Attributes
 
 instance Hashable (Program gs is) where
@@ -62,6 +70,7 @@ castProgram :: Program gs is -> Program gs' is'
 -- castProgram (Program v f h) = Program v f h
 castProgram = unsafeCoerce
 
+-- | Create a 'Program' from the shaders.
 program :: (Subset gs' gs, Subset gs'' gs, Subset os' os)
         => VertexShader gs' is os -> FragmentShader gs'' os'
         -> Program gs is

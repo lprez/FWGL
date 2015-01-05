@@ -1,7 +1,9 @@
 module FWGL.Key where
 
+-- | A mouse button.
 data MouseButton = MouseLeft | MouseMiddle | MouseRight deriving (Eq, Show)
 
+-- | A keyboard key.
 data Key =
           KeyA
         | KeyB
