@@ -77,9 +77,10 @@ mkGeometry3 v u n = mkGeometry (AttrListCons (undefined :: Position3) v $
 
 -- | Create a 2D 'Geometry'. The first two lists should have the same length.
 mkGeometry2 :: GLES
-            => [V2]                     -- ^ List of vertices.
-            -> [V2]                     -- ^ List of UV coordinates.
-            -> [Word16]                 -- ^ Triangles.
+            => [V2]     -- ^ List of vertices.
+            -> [V2]     -- ^ List of UV coordinates.
+            -> [Word16] -- ^ Triangles expressed as triples of indices to the
+                        --   two lists above.
             -> Geometry Geometry2
 mkGeometry2 v u = mkGeometry (AttrListCons (undefined :: Position2) v $
                               AttrListCons (undefined :: D2.UV) u

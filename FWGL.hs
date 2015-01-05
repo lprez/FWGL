@@ -15,7 +15,7 @@ import FRP.Yampa
 
 data Output = Output [Layer] Audio -- StateT ... IO
 
-run :: BackendIO        -- ^ Just import FWGL.Backend.JavaScript
+run :: BackendIO
     => SF Input Output  -- ^ Main signal
     -> IO ()
 run sigf = setup initState loop sigf

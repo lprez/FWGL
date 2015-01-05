@@ -1,41 +1,74 @@
 {-# LANGUAGE DataKinds, FlexibleContexts, ConstraintKinds, TypeOperators,
              TypeFamilies #-}
 
+{-| Simplified 2D graphics system. -}
 module FWGL.Graphics.D2 (
-        module FWGL.Graphics.Color,
-        Element(..),
-        Object,
-        Layer,
-        V2(..),
-        (C.~~),
+        -- * Elements
+        Element,
         rect,
-        geom,
         image,
         depth,
         sprite,
-        object,
-        elements,
-        view,
-        viewObject,
+        -- ** Geometry
+        Geometry,
+        geom,
+        mkGeometry2,
+        -- * Textures
+        module FWGL.Graphics.Color,
+        C.textureURL,
+        C.textureFile,
+        C.colorTex,
+        mkTexture,
+        -- * Transformations
+        V2(..),
         pos,
         rot,
         scale,
         scaleV,
+        -- * Layers
+        Layer,
+        -- ** Element layers
+        elements,
+        view,
+        -- ** Object layers
+        layer,
+        layerPrg,
+        -- * Custom 2D objects
+        Object,
+        object,
+        object1,
+        (C.~~),
+        -- ** Globals
         C.global,
-        mkGeometry2,
-        mkTexture,
-        C.textureURL,
-        C.colorTex
+        C.globalTexture,
+        C.globalTexSize,
+        viewObject,
+        DefaultUniforms2D,
+        Image,
+        Depth,
+        Transform2,
+        View2,
+        -- * 3D matrices
+        V3(..),
+        M3(..),
+        mat3,
+        mul3,
+        -- ** Transformation matrices
+        idMat3,
+        transMat3,
+        rotMat3,
+        scaleMat3
 ) where
 
 import Control.Applicative
-import FWGL.Backend hiding (Texture, Image)
+import FWGL.Backend hiding (Texture, Image, Program)
 import FWGL.Geometry
 import qualified FWGL.Graphics.Custom as C
 import FWGL.Graphics.Color
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
+import FWGL.Internal.TList
 import FWGL.Shader.Default2D (Image, Depth, Transform2, View2)
 import FWGL.Shader.Program
 import FWGL.Texture
@@ -53,8 +86,7 @@ geom :: Texture -> Geometry Geometry2 -> Element
 geom t = Element 0 t $ return idMat3
 
 -- | A rectangle with the aspect ratio adapted to its texture.
-image :: BackendIO      -- ^ This is required because it needs to know how to
-                        -- get the size of the 'Texture'.
+image :: BackendIO
       => Float          -- ^ Width.
       -> Texture -> Element
 image s t = Element 0 t ((\(w, h) -> scaleMat3 (V2 1 $ h /w)) <$> textureSize t)
@@ -72,25 +104,39 @@ sprite t = Element 0 t ((\(w, h) -> scaleMat3 $ V2 w h) <$> textureSize t)
 
 -- | Create a graphical 'Object' from a list of 'Element's and a view matrix.
 object :: BackendIO => M3 -> [Element] -> Object DefaultUniforms2D Geometry2
-object m = C.global (undefined :: View2) m . foldl acc ObjectEmpty
-        where acc o e = o C.~~ obj1 e
-              obj1 (Element d t m g) =
-                      C.globalTexture (undefined :: Image) t $
-                      C.global (undefined :: Depth) d $
-                      C.globalDraw (undefined :: Transform2) m $
-                      C.static g
+object m = viewObject m . foldl acc ObjectEmpty
+        where acc o e = o C.~~ object1 e
+
+-- | Create a graphical 'Object' from a single 'Element'. This lets you set your
+-- own globals individually. If the shader uses the view matrix 'View2' (e.g.
+-- the default 2D shader), you have to set it with 'viewObject'.
+object1 :: BackendIO => Element -> Object '[Image, Depth, Transform2] Geometry2
+object1 (Element d t m g) = C.globalTexture (undefined :: Image) t $
+                            C.global (undefined :: Depth) d $
+                            C.globalDraw (undefined :: Transform2) m $
+                            C.static g
 
 -- | Create a standard 'Layer' from a list of 'Element's.
 elements :: BackendIO => [Element] -> Layer
-elements = viewObject . object idMat3
+elements = layer . object idMat3
 
 -- | Create a 'Layer' from a view matrix and a list of 'Element's.
 view :: BackendIO => M3 -> [Element] -> Layer
-view m = viewObject . object m
+view m = layer . object m
 
--- | Create a 'Layer' from a 2D 'Object'.
-viewObject :: BackendIO => Object DefaultUniforms2D Geometry2 -> Layer
-viewObject = C.layer defaultProgram2D
+-- | Set the value of the view matrix of a 2D 'Object'.
+viewObject :: BackendIO => M3 -> Object gs Geometry2
+           -> Object (View2 ': gs) Geometry2
+viewObject = C.global (undefined :: View2)
+
+-- | Create a 'Layer' from a 2D 'Object', using the default shader.
+layer :: BackendIO => Object DefaultUniforms2D Geometry2 -> Layer
+layer = layerPrg defaultProgram2D
+
+-- | Create a 'Layer' from a 2D 'Object', using a custom shader.
+layerPrg :: (BackendIO, Subset og pg) => Program pg Geometry2
+         -> Object og Geometry2 -> Layer
+layerPrg = C.layer
 
 -- | Translate an 'Element'.
 pos :: V2 -> Element -> Element

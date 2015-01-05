@@ -16,14 +16,17 @@ module FWGL.Graphics.Custom (
         global,
         globalDraw,
         globalTexture,
+        globalTexSize,
         layer,
         unsafeJoin,
         mkGeometry,
         mkTexture,
         textureURL,
+        textureFile,
         colorTex
 ) where
 
+import Control.Applicative
 import Data.Typeable
 import FRP.Yampa
 import FWGL.Backend (BackendIO, GLES)
@@ -42,24 +45,29 @@ import FWGL.Vector
 nothing :: Object '[] '[]
 nothing = ObjectEmpty
 
--- | A custom object with a specified 'Geometry'
+-- | A custom object with a specified 'Geometry'.
 static :: Geometry i -> Object '[] i
 static = ObjectMesh . StaticGeom
 
--- | Sets a global (uniform) of an object
+-- | Sets a global (uniform) of an object.
 global :: (Typeable g, UniformCPU c g) => g -> c
        -> Object gs is -> Object (g ': gs) is
 global g c = globalDraw g $ return c
 
--- | Sets a global (uniform) of an object
-globalDraw :: (Typeable g, UniformCPU c g) => g -> Draw c
-           -> Object gs is -> Object (g ': gs) is
-globalDraw = ObjectGlobal
-
--- | Sets a global (uniform) of an object using a Texture
+-- | Sets a global (uniform) of an object using a 'Texture'.
 globalTexture :: (BackendIO, Typeable g, UniformCPU ActiveTexture g)
               => g -> Texture -> Object gs is -> Object (g ': gs) is
 globalTexture g c = globalDraw g $ textureUniform c
+
+-- | Sets a global (uniform) of an object using the dimensions of a 'Texture'.
+globalTexSize :: (BackendIO, Typeable g, UniformCPU c g) => g -> Texture
+              -> ((Int, Int) -> c) -> Object gs is -> Object (g ': gs) is
+globalTexSize g t fc = globalDraw g $ fc <$> textureSize t
+
+-- | Sets a global (uniform) of an object using the 'Draw' monad.
+globalDraw :: (Typeable g, UniformCPU c g) => g -> Draw c
+           -> Object gs is -> Object (g ': gs) is
+globalDraw = ObjectGlobal
 
 -- | Join two objects.
 (~~) :: (Equal gs gs', Equal is is')
