@@ -15,6 +15,7 @@
 module FWGL (
         module FWGL.Audio,
         module FWGL.Input,
+        module FWGL.Utils,
         module FRP.Yampa,
         Output(..),
         run
@@ -26,6 +27,7 @@ import FWGL.Input
 import FWGL.Internal.GL (evalGL)
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Types
+import FWGL.Utils
 import FRP.Yampa
 
 -- | The general output.
