@@ -19,13 +19,22 @@ module FWGL.Shader.Language (
         (/),
         (+),
         (-),
+        (^),
+        (&&),
+        (||),
+        (==),
+        (>=),
+        (<=),
+        (<),
+        (>),
         abs,
         sign,
-        texture2D
+        texture2D,
+        sqrt,
 ) where
 
 import Data.Typeable
-import Prelude (String, (.), (&&), ($))
+import Prelude (String, (.), ($))
 import qualified Prelude
 import Text.Printf
 
@@ -43,8 +52,13 @@ data M2 = M2 V2 V2 deriving (Typeable)
 data M3 = M3 V3 V3 V3 deriving (Typeable)
 data M4 = M4 V4 V4 V4 V4 deriving (Typeable)
 
-(=!) :: Expr -> Expr -> Prelude.Bool
+infix 4 =!
+(=!) :: Prelude.Eq a => a -> a -> Prelude.Bool
 (=!) = (Prelude.==)
+
+infixr 3 &&!
+(&&!) :: Prelude.Bool -> Prelude.Bool -> Prelude.Bool
+(&&!) = (Prelude.&&)
 
 class ShaderType t where
         toExpr :: t -> Expr
@@ -265,6 +279,43 @@ infixl 6 -
 (-) :: (Sum a, ShaderType a) => a -> a -> a
 x - y = fromExpr $ Op2 "-" (toExpr x) (toExpr y)
 
+infixr 8 ^
+-- TODO: type-unsafe?
+(^) :: (ShaderType a, ShaderType b) => a -> b -> a
+x ^ y = fromExpr $ Apply "pow" [toValue x, toValue y]
+
+infixr 3 &&
+(&&) :: Bool -> Bool -> Bool
+x && y = fromExpr $ Op2 "&&" (toValue x) (toValue y)
+
+infixr 2 ||
+(||) :: Bool -> Bool -> Bool
+x || y = fromExpr $ Op2 "||" (toValue x) (toValue y)
+
+infix 4 ==
+(==) :: ShaderType a => a -> a -> Bool
+x == y = fromExpr $ Op2 "==" (toValue x) (toValue y)
+
+infix 4 /=
+(/=) :: ShaderType a => a -> a -> Bool
+x /= y = fromExpr $ Op2 "!=" (toValue x) (toValue y)
+
+infix 4 >=
+(>=) :: ShaderType a => a -> a -> Bool
+x >= y = fromExpr $ Op2 ">=" (toValue x) (toValue y)
+
+infix 4 <=
+(<=) :: ShaderType a => a -> a -> Bool
+x <= y = fromExpr $ Op2 "<=" (toValue x) (toValue y)
+
+infix 4 <
+(<) :: ShaderType a => a -> a -> Bool
+x < y = fromExpr $ Op2 "<" (toValue x) (toValue y)
+
+infix 4 >
+(>) :: ShaderType a => a -> a -> Bool
+x > y = fromExpr $ Op2 ">" (toValue x) (toValue y)
+
 negate :: Float -> Float
 negate (Float e) = Float $ Op1 "-" e
 
@@ -281,6 +332,11 @@ abs (Float e) = Float $ Apply "abs" [e]
 
 sign :: Float -> Float
 sign (Float e) = Float $ Apply "sign" [e]
+
+-- TODO: add functions, ifThenElse, etc.
+
+sqrt :: Float -> Float
+sqrt (Float e) = Float $ Apply "sqrt" [e]
 
 texture2D :: Sampler2D -> V2 -> V4
 texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]

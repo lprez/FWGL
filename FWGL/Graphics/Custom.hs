@@ -5,10 +5,12 @@ module FWGL.Graphics.Custom (
         module FWGL.Vector,
         Layer,
         Object,
+        AttrList(..),
         Geometry,
         Texture,
         Color(..),
         (~~),
+        program,
         nothing,
         static,
         global,
@@ -28,7 +30,7 @@ import FWGL.Backend (BackendIO, GLES)
 import FWGL.Geometry
 import FWGL.Graphics.Color
 import FWGL.Graphics.Draw
-import FWGL.Graphics.Types
+import FWGL.Graphics.Types hiding (program)
 import FWGL.Internal.GL (GLES, ActiveTexture)
 import FWGL.Internal.TList
 import FWGL.Shader.CPU
