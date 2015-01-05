@@ -11,6 +11,8 @@
         * "FWGL.Graphics.D2": 2D graphics
         * FWGL.Graphics.D3: 3D graphics (WIP)
         * "FWGL.Graphics.Custom": advanced custom graphics
+
+    "FWGL.Shader" contains the EDSL to make custom shaders.
 -}
 module FWGL (
         module FWGL.Audio,

@@ -10,6 +10,11 @@ Examples
 
 [Recursive signals](http://ziocrocifisso.github.io/FWGL/recur) (master + experimental)
 
+Installation
+------------
+
+        cabal install --ghcjs fwgl
+
 Documentation
 -------------
 
