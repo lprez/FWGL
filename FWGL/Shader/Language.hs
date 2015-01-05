@@ -42,6 +42,7 @@ data Expr = Nil | Read String | Op1 String Expr | Op2 String Expr Expr
           | Apply String [Expr] | X Expr | Y Expr | Z Expr | W Expr
           | Literal String deriving (Prelude.Eq)
 
+newtype Bool = Bool Expr deriving Typeable
 newtype Float = Float Expr deriving Typeable
 newtype Sampler2D = Sampler2D Expr deriving Typeable
 -- | NB: These are different types from 'FWGL.Vector.V2', 'FWGL.Vector.V3', etc.
@@ -68,6 +69,15 @@ class ShaderType t where
         typeName :: t -> String
 
         size :: t -> Prelude.Int
+
+instance ShaderType Bool where
+        toExpr (Bool e) = e
+
+        fromExpr = Bool
+
+        typeName _ = "bool"
+
+        size _ = 1
 
 instance ShaderType Float where
         toExpr (Float e) = e
@@ -99,7 +109,7 @@ instance ShaderType V2 where
 
 instance ShaderType V3 where
         toExpr (V3 (Float (X v)) (Float (Y v')) (Float (Z v'')))
-               | v =! v' && v' =! v'' = v
+               | v =! v' &&! v' =! v'' = v
         toExpr (V3 (Float x) (Float y) (Float z)) = Apply "vec3" [x, y, z]
 
         fromExpr v = V3 (Float (X v)) (Float (Y v)) (Float (Z v))
@@ -110,7 +120,7 @@ instance ShaderType V3 where
 
 instance ShaderType V4 where
         toExpr (V4 (Float (X v)) (Float (Y v1)) (Float (Z v2)) (Float (W v3)))
-               | v =! v1 && v1 =! v2 && v2 =! v3 = v
+               | v =! v1 &&! v1 =! v2 &&! v2 =! v3 = v
         toExpr (V4 (Float x) (Float y) (Float z) (Float w)) =
                 Apply "vec4" [x, y, z, w]
 
@@ -123,7 +133,7 @@ instance ShaderType V4 where
 instance ShaderType M2 where
         toExpr (M2 (V2 (Float (X (X m))) (Float (X (Y m1))))
                    (V2 (Float (Y (X m2))) (Float (Y (Y m3)))))
-               | m =! m1 && m1 =! m2 && m2 =! m3 = m
+               | m =! m1 &&! m1 =! m2 &&! m2 =! m3 = m
         toExpr (M2 (V2 (Float xx) (Float xy))
                    (V2 (Float yx) (Float yy)))
                = Apply "mat2" [xx, yx, xy, yy]
@@ -145,8 +155,8 @@ instance ShaderType M3 where
                    (V3 (Float (Z (X m6)))
                        (Float (Z (Y m7)))
                        (Float (Z (Z m8)))))
-               | m =! m1 && m1 =! m2 && m2 =! m3 && m3 =! m4 &&
-                 m4 =! m5 && m5 =! m6 && m6 =! m7 && m7 =! m8 = m
+               | m =! m1 &&! m1 =! m2 &&! m2 =! m3 &&! m3 =! m4 &&!
+                 m4 =! m5 &&! m5 =! m6 &&! m6 =! m7 &&! m7 =! m8 = m
         toExpr (M3 (V3 (Float xx) (Float xy) (Float xz))
                    (V3 (Float yx) (Float yy) (Float yz))
                    (V3 (Float zx) (Float zy) (Float zz)))
@@ -183,10 +193,10 @@ instance ShaderType M4 where
                        (Float (W (Y m13)))
                        (Float (W (Z m14)))
                        (Float (W (W m15)))))
-               | m =! m1 && m1 =! m2 && m2 =! m3 && m3 =! m4 &&
-                 m4 =! m5 && m5 =! m6 && m6 =! m7 && m7 =! m8 &&
-                 m8 =! m9 && m9 =! m10 && m10 =! m11 && m11 =! m12 &&
-                 m12 =! m13 && m13 =! m14 && m14 =! m15 = m
+               | m =! m1 &&! m1 =! m2 &&! m2 =! m3 &&! m3 =! m4 &&!
+                 m4 =! m5 &&! m5 =! m6 &&! m6 =! m7 &&! m7 =! m8 &&!
+                 m8 =! m9 &&! m9 =! m10 &&! m10 =! m11 &&! m11 =! m12 &&!
+                 m12 =! m13 &&! m13 =! m14 &&! m14 =! m15 = m
         toExpr (M4 (V4 (Float xx) (Float xy) (Float xz) (Float xw))
                    (V4 (Float yx) (Float yy) (Float yz) (Float yw))
                    (V4 (Float zx) (Float zy) (Float zz) (Float zw))
@@ -282,39 +292,39 @@ x - y = fromExpr $ Op2 "-" (toExpr x) (toExpr y)
 infixr 8 ^
 -- TODO: type-unsafe?
 (^) :: (ShaderType a, ShaderType b) => a -> b -> a
-x ^ y = fromExpr $ Apply "pow" [toValue x, toValue y]
+x ^ y = fromExpr $ Apply "pow" [toExpr x, toExpr y]
 
 infixr 3 &&
 (&&) :: Bool -> Bool -> Bool
-x && y = fromExpr $ Op2 "&&" (toValue x) (toValue y)
+x && y = fromExpr $ Op2 "&&" (toExpr x) (toExpr y)
 
 infixr 2 ||
 (||) :: Bool -> Bool -> Bool
-x || y = fromExpr $ Op2 "||" (toValue x) (toValue y)
+x || y = fromExpr $ Op2 "||" (toExpr x) (toExpr y)
 
 infix 4 ==
 (==) :: ShaderType a => a -> a -> Bool
-x == y = fromExpr $ Op2 "==" (toValue x) (toValue y)
+x == y = fromExpr $ Op2 "==" (toExpr x) (toExpr y)
 
 infix 4 /=
 (/=) :: ShaderType a => a -> a -> Bool
-x /= y = fromExpr $ Op2 "!=" (toValue x) (toValue y)
+x /= y = fromExpr $ Op2 "!=" (toExpr x) (toExpr y)
 
 infix 4 >=
 (>=) :: ShaderType a => a -> a -> Bool
-x >= y = fromExpr $ Op2 ">=" (toValue x) (toValue y)
+x >= y = fromExpr $ Op2 ">=" (toExpr x) (toExpr y)
 
 infix 4 <=
 (<=) :: ShaderType a => a -> a -> Bool
-x <= y = fromExpr $ Op2 "<=" (toValue x) (toValue y)
+x <= y = fromExpr $ Op2 "<=" (toExpr x) (toExpr y)
 
 infix 4 <
 (<) :: ShaderType a => a -> a -> Bool
-x < y = fromExpr $ Op2 "<" (toValue x) (toValue y)
+x < y = fromExpr $ Op2 "<" (toExpr x) (toExpr y)
 
 infix 4 >
 (>) :: ShaderType a => a -> a -> Bool
-x > y = fromExpr $ Op2 ">" (toValue x) (toValue y)
+x > y = fromExpr $ Op2 ">" (toExpr x) (toExpr y)
 
 negate :: Float -> Float
 negate (Float e) = Float $ Op1 "-" e
