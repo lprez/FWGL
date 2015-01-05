@@ -6,14 +6,15 @@ Examples
 
 [Demo](http://ziocrocifisso.github.io/FWGL/demo) ([master](https://github.com/ZioCrocifisso/FWGL/tree/master) only)
 
-[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) ([master](https://github.com/ZioCrocifisso/FWGL/tree/master) only)
+[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) (master only)
 
 [Recursive signals](http://ziocrocifisso.github.io/FWGL/recur) (master + experimental)
 
 Documentation
 -------------
 
-http://ziocrocifisso.github.io/FWGL/docs/FWGL.html (WIP)
+http://ziocrocifisso.github.io/FWGL/docs/experimental/FWGL.html (experimental version)
+http://ziocrocifisso.github.io/FWGL/docs/FWGL.html (master version)
 
 Project
 --------
