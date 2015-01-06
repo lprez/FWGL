@@ -21,6 +21,7 @@ module FWGL.Vector (
         rotZMat4,
         rotAAMat4,
         scaleMat4,
+        perspectiveMat4,
         idMat3,
         transMat3,
         rotMat3,
@@ -249,7 +250,11 @@ scaleMat4 (V3 x y z) = mat4from3 ( x, 0, 0
                                  , 0, 0, z )
 
 -- | 4x4 perspective matrix.
-perspectiveMat4 :: Float -> Float -> Float -> Float -> M4
+perspectiveMat4 :: Float        -- ^ Far
+                -> Float        -- ^ Near
+                -> Float        -- ^ FOV
+                -> Float        -- ^ Aspect ratio
+                -> M4
 perspectiveMat4 f n fov ar =
         mat4 ( s / ar , 0 , 0                 , 0
              , 0      , s , 0                 , 0

@@ -7,7 +7,7 @@ import FWGL.Shader.CPU
 import FWGL.Shader
 import qualified FWGL.Vector
 
-type Uniforms = '[Transform3, View3, Texture2]
+type Uniforms = '[View3, Transform3, Texture2]
 type Attributes = '[Position3, UV, Normal3]
 
 newtype Texture2 = Texture2 Sampler2D

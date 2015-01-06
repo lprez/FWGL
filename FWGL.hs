@@ -45,3 +45,4 @@ run sigf = setup initState loop sigf
                       flip evalGL ctx . flip execDraw drawState $
                               do drawBegin
                                  mapM_ drawLayer scenes
+                                 drawEnd

@@ -1,140 +1,159 @@
 {-# LANGUAGE DataKinds, FlexibleContexts, ConstraintKinds, TypeOperators,
              TypeFamilies #-}
 
+{-| Simplified 3D graphics system. -}
 module FWGL.Graphics.D3 (
-        module FWGL.Graphics.Color,
-        Transformation(..),
-        Layer,
-        TransformedObject,
-        Object3D,
-        Geometry,
-        Texture,
-        Color(..),
-        V2(..),
-        V3(..),
-        M4(..),
-        (~~),
-        (<>),
-        mkGeometry3,
-        mkTexture,
-        textureURL,
-        vec2,
-        vec3,
-        mat4,
-        nothing,
+        -- * Elements
+        Element,
         cube,
+        -- ** Geometry
+        Geometry,
         geom,
-        global,
-        translate,
+        mkGeometry3,
+        -- * Textures
+        module FWGL.Graphics.Color,
+        Texture,
+        textureURL,
+        textureFile,
+        textureLayer,
+        C.colorTex,
+        mkTexture,
+        -- * Transformations
+        V3(..),
+        pos,
         rotX,
         rotY,
         rotZ,
         rotAA,
         scale,
         scaleV,
-        colorTex,
-        scene,
-        sceneM4,
-        assoc,
-        transform
+        -- * Layers
+        Layer,
+        -- ** Element layers
+        elements,
+        view,
+        -- ** Object layers
+        layer,
+        layerPrg,
+        -- * Custom 3D objects
+        Object,
+        object,
+        object1,
+        (C.~~),
+        -- ** Globals
+        C.global,
+        C.globalTexture,
+        C.globalTexSize,
+        viewObject,
+        DefaultUniforms3D,
+        Texture2(..),
+        Transform3(..),
+        View3(..),
+        -- * 3D matrices
+        V4(..),
+        M4(..),
+        mat4,
+        mul4,
+        -- ** View matrices
+        perspectiveMat4,
+        -- ** Transformation matrices
+        idMat4,
+        transMat4,
+        rotXMat4,
+        rotYMat4,
+        rotZMat4,
+        rotAAMat4,
+        scaleMat4
 ) where
 
-import Data.Monoid
-import FWGL.Backend (GLES, BackendIO)
+import Control.Applicative
+import FWGL.Backend hiding (Texture, Program)
 import FWGL.Geometry
+import qualified FWGL.Graphics.Custom as C
 import FWGL.Graphics.Color
-import FWGL.Graphics.Custom hiding (nothing, geom, scene)
+import FWGL.Graphics.Draw
+import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
 import FWGL.Internal.TList
 import FWGL.Shader.Default3D (Texture2, Transform3, View3)
 import FWGL.Shader.Program
-import FWGL.Texture
+import FWGL.Graphics.Texture
 import FWGL.Vector
 
--- | A transformation matrix.
-newtype Transformation = Transformation M4
+-- | A 3D object with a 'Texture' and a transformation.
+data Element = Element Texture (Draw M4) (Geometry Geometry3)
 
-instance Monoid Transformation where
-        mempty = Transformation idMat
-        mappend (Transformation t') (Transformation t) = Transformation $
-                                                                mul4 t t'
--- | Transformed 3D objects are those that support the uniforms of the standard
--- shaders/program (i.e. Transform3 and Texture2, but not View3)
-type TransformedObject = Object3D '[Transform3, Texture2]
+-- | A cube with a specified 'Texture'.
+cube :: GLES => Texture -> Element
+cube t = Element t (return idMat4) cubeGeometry
 
--- | 3D objects are those that support the attributes of the standard 3d
--- shaders/program.
-type Object3D gs = Object gs Geometry3
+-- | An element with a specified 'Geometry' and 'Texture'.
+geom :: Texture -> Geometry Geometry3 -> Element
+geom t = Element t $ return idMat4
 
--- | An empty transformed object.
-nothing :: TransformedObject
-nothing = ObjectEmpty
+-- | Create a graphical 'Object' from a list of 'Element's and a view matrix.
+object :: BackendIO => M4 -> [Element] -> Object DefaultUniforms3D Geometry3
+object m = viewObject m . foldl acc ObjectEmpty
+        where acc o e = o C.~~ object1 e
 
--- | A transformed cube.
-cube :: BackendIO => Texture -> Transformation -> TransformedObject
-cube tx tr = transform tr . texture tx $
-                (ObjectMesh Cube :: Object '[] Geometry3)
+-- | Create a graphical 'Object' from a single 'Element'. This lets you set your
+-- own globals individually. If the shader uses the view matrix 'View3' (e.g.
+-- the default 3D shader), you have to set it with 'viewObject'.
+object1 :: BackendIO => Element -> Object '[Transform3, Texture2] Geometry3
+object1 (Element t m g) = C.globalDraw (undefined :: Transform3) m $
+                          C.globalTexture (undefined :: Texture2) t $
+                          C.static g
 
--- | A transformed object with a specified 'Geometry'.
-geom :: BackendIO => Texture -> Transformation -> Geometry Geometry3
-     -> TransformedObject
-geom tx tr = transform tr . texture tx . ObjectMesh . StaticGeom
+-- | Create a standard 'Layer' from a list of 'Element's.
+elements :: BackendIO => [Element] -> Layer
+elements = layer . object idMat4
 
--- | Set the texture of an object.
-texture :: (NotMember Texture2 g, BackendIO) => Texture
-        -> Object g i -> Object (Texture2 ': g) i
-texture = globalTexture (undefined :: Texture2)
+-- | Create a 'Layer' from a view matrix and a list of 'Element's.
+view :: BackendIO => M4 -> [Element] -> Layer
+view m = layer . object m
 
--- | A transformation that does nothing.
-same :: Transformation
-same = Transformation idMat
+-- | Set the value of the view matrix of a 3D 'Object'.
+viewObject :: BackendIO => M4 -> Object gs Geometry3
+           -> Object (View3 ': gs) Geometry3
+viewObject = C.global (undefined :: View3)
 
--- | Translate.
-translate :: V3 -> Transformation
-translate = Transformation . transMat
+-- | Create a 'Layer' from a 3D 'Object', using the default shader.
+layer :: BackendIO => Object DefaultUniforms3D Geometry3 -> Layer
+layer = layerPrg defaultProgram3D
 
--- | Rotate around the X axis.
-rotX :: Float -> Transformation
-rotX = Transformation . rotXMat
+-- | Create a 'Layer' from a 3D 'Object', using a custom shader.
+layerPrg :: (BackendIO, Subset og pg) => Program pg Geometry3
+         -> Object og Geometry3 -> Layer
+layerPrg = C.layer
 
--- | Rotate around the Y axis.
-rotY :: Float -> Transformation
-rotY = Transformation . rotYMat
+-- | Translate an 'Element'.
+pos :: V3 -> Element -> Element
+pos v = transform $ transMat4 v
 
--- | Rotate around the Z axis.
-rotZ :: Float -> Transformation
-rotZ = Transformation . rotZMat
+-- | Rotate an 'Element' around the X axis.
+rotX :: Float -> Element -> Element
+rotX a = transform $ rotXMat4 a
 
--- | Rotate using a rotation axis and angle.
-rotAA :: V3 -> Float -> Transformation
-rotAA v = Transformation . rotAAMat v
+-- | Rotate an 'Element' around the X axis.
+rotY :: Float -> Element -> Element
+rotY a = transform $ rotYMat4 a
 
--- | Scale an object.
-scale :: Float -> Transformation
-scale f = Transformation $ scaleMat (V3 f f f)
+-- | Rotate an 'Element' around the X axis.
+rotZ :: Float -> Element -> Element
+rotZ a = transform $ rotZMat4 a
 
--- | Scale in three dimensions.
-scaleV :: V3 -> Transformation
-scaleV = Transformation . scaleMat
+-- | Rotate an 'Element' around an axis and an angle.
+rotAA :: V3 -> Float -> Element -> Element
+rotAA ax ag = transform $ rotAAMat4 ax ag
 
--- | Create a standard scene (a 'Layer' with the standard shaders).
-scene :: (Subset gs DefaultUniforms3D, Equal '[Transform3, Texture2] gs, GLES)
-      => Object3D gs -> Layer
-scene = sceneM4 idMat
+-- | Scale an 'Element'.
+scale :: Float -> Element -> Element
+scale f = transform $ scaleMat4 (V3 f f f)
 
--- sceneView :: View -> ...
--- view :: View -> Object ... -> Object ...
--- assocView :: View ->
--- perspective ::  ... -> View
--- lookAt :: ... -> View
--- layer ...
+-- | Scale an 'Element' in three dimensions.
+scaleV :: V3 -> Element -> Element
+scaleV v = transform $ scaleMat4 v
 
--- | Create a standard scene with a view matrix
-sceneM4 :: (Subset gs DefaultUniforms3D, Equal gs '[Transform3, Texture2], GLES)
-        => M4 -> Object3D gs -> Layer
-sceneM4 m = assoc defaultProgram3D . global (undefined :: View3) m
-
--- | Transform an object.
-transform :: (NotMember Transform3 g, GLES) => Transformation
-          -> Object g i -> Object (Transform3 ': g) i
-transform (Transformation m) = global (undefined :: Transform3) m
+-- | Transform an 'Element'.
+transform :: M4 -> Element -> Element
+transform m' (Element t m g) = Element t (mul4 <$> m <*> pure m') g

@@ -122,6 +122,7 @@ instance GLES where
         toGLString = toJSString
         noBuffer = JS.noBuffer
         noTexture = JS.noTexture
+        noArray = JS.noArray
 
         encodeM2 (M2 (V2 a1 a2) (V2 b1 b2)) = JS.listToJSArray [ a1, a2, b1, b2]
                                               >>= JS.float32Array
