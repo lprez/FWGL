@@ -8,6 +8,8 @@ import Data.Fixed (mod')
 import Data.List (unfoldr)
 import FRP.Yampa
 import FWGL
+import FWGL.Backend.JavaScript
+import FWGL.Graphics.D3
 
 mouseCount :: Num a => a -> MouseButton -> SF Input a
 mouseCount i mb = mouse mb >>> accumHoldBy (\c _ -> c + 1) i
@@ -29,7 +31,7 @@ gradient c1 c2 = mkTexture (floor w) (floor w) $ unfoldr f (0, 0)
                                             , (x + 1, y) )
               w = 256 :: Num a => a
 
-mainSF :: SF Input (Scene, Audio)
+mainSF :: SF Input Output
 mainSF = proc inp -> do (x, y) <- pointer -< inp
 
                         tm <- time >>> arr realToFrac -< inp
@@ -39,32 +41,31 @@ mainSF = proc inp -> do (x, y) <- pointer -< inp
                         let scaleFact = (leftCount - rightCount) / 100
                             timeAng o f = mod' (tm / f + o) $ pi * 2
                             transformedMonkey =
-                                    texture (textureURL monkeyTex) $
-                                    translate (V3 0 0 (- 1)) $
+                                    pos (V3 0 0 (- 1)) $
                                     rotY (fromIntegral x / 160 - 1) $
                                     rotX (fromIntegral y / 120 - 1) $
                                     scale scaleFact $
-                                    geom monkeyOBJ
+                                    geom (textureURL monkeyTex) monkeyOBJ
                             transformedCube o tex =
-                                    texture tex $
-                                    translate (
+                                    pos (
                                             V3 (sin (timeAng o 800) / 6)
                                                (sin (timeAng o 800) / 6)
                                                (cos (timeAng o 800) / 5 - 1)) $
                                     rotX (timeAng o 200) $
                                     rotY (timeAng o 400) $
-                                    cube 0.02
+                                    scale 0.02 $
+                                    cube tex
                                                
 
-                        returnA -< ( perspective 10000 0.12 100 (4 / 3)
+                        viewMatrix <- perspective4 10000 0.12 100 -< inp
+                        returnA -< flip Output Audio . return . view viewMatrix
                                         $ [ transformedCube 0 gradRedYellow
                                           , transformedCube (pi / 2) gradGreenBlue
                                           , transformedCube pi gradRedYellow
                                           , transformedCube (pi * 3 / 2) gradGreenBlue
                                           , transformedMonkey ]
-                                   , Audio)
         where gradRedYellow = gradient red yellow
               gradGreenBlue = gradient green blue
 
 main :: IO ()
-main = run "canvas" mainSF
+main = run mainSF

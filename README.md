@@ -4,11 +4,11 @@ FWGL
 Examples
 --------
 
-[Demo](http://ziocrocifisso.github.io/FWGL/demo) ([master](https://github.com/ZioCrocifisso/FWGL/tree/master) only)
-
-[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) (master only)
+[Demo](http://ziocrocifisso.github.io/FWGL/demo) (master + experimental)
 
 [Recursive signals](http://ziocrocifisso.github.io/FWGL/recur) (master + experimental)
+
+[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) ([master](https://github.com/ZioCrocifisso/FWGL/tree/master) only)
 
 Installation
 ------------
