@@ -129,7 +129,7 @@ loadBuffer ty bufData =
 
 
 -- TODO: use dlist
-arraysToElements :: (Foldable f, GLES) => f (V3, V2, V3) -> Geometry Geometry3
+arraysToElements :: Foldable f => f (V3, V2, V3) -> ([V3], [V2], [V3], [Word16])
 arraysToElements arrays = runST $
         do vs <- newSTRef []
            us <- newSTRef []
@@ -149,10 +149,10 @@ arraysToElements arrays = runST $
                                          modifySTRef ns (n :)
                                          modifySTRef es (idx :)
 
-           mkGeometry3 <$> (reverse <$> readSTRef vs)
-                       <*> (reverse <$> readSTRef us)
-                       <*> (reverse <$> readSTRef ns)
-                       <*> (reverse <$> readSTRef es)
+           (,,,) <$> (reverse <$> readSTRef vs)
+                 <*> (reverse <$> readSTRef us)
+                 <*> (reverse <$> readSTRef ns)
+                 <*> (reverse <$> readSTRef es)
 
 facesToArrays :: V.Vector V3 -> V.Vector V2 -> V.Vector V3
               -> [[(Int, Int, Int)]] -> [(V3, V2, V3)]

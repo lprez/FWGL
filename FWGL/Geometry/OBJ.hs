@@ -5,6 +5,7 @@ import Control.Monad (when)
 import Control.Monad.ST
 import qualified Data.Vector.Storable as V
 import Data.STRef
+import Data.Word (Word16)
 
 import FWGL.Backend (GLES)
 import FWGL.Internal.STVectorLen
@@ -18,10 +19,10 @@ data OBJModel = OBJModel {
         objFaces :: [[(Int, Int, Int)]]
 } deriving (Show)
 
-loadOBJ :: GLES => FilePath -> IO OBJModel
+loadOBJ :: FilePath -> IO OBJModel
 loadOBJ = fmap parseOBJ . readFile -- TODO: substitute with ajax
 
-parseOBJ :: GLES => String -> OBJModel
+parseOBJ :: String -> OBJModel
 parseOBJ file = runST $
         do vs <- new
            us <- new
@@ -74,6 +75,8 @@ parseOBJ file = runST $
               parseFloat [] = 0
               parseFloat s = read s
 
+attributesOBJ :: OBJModel -> ([V3], [V2], [V3], [Word16])
+attributesOBJ (OBJModel v u n fs) = arraysToElements $ facesToArrays v u n fs
+
 geometryOBJ :: GLES => OBJModel -> Geometry Geometry3
-geometryOBJ (OBJModel vs us ns fs) =
-        arraysToElements $ facesToArrays vs us ns fs
+geometryOBJ o = let (v, u, n, e) = attributesOBJ o in mkGeometry3 v u n e
