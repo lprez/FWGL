@@ -5,6 +5,9 @@ module FWGL.Graphics.Types (
         Draw(..),
         DrawState(..),
         UniformLocation(..),
+        Texture(..),
+        TextureImage(..),
+        LoadedTexture(..),
         Geometry(..),
         Mesh(..),
         Light(..),
@@ -17,13 +20,13 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.State
 import Data.Typeable
 import FWGL.Geometry
+import FWGL.Graphics.Color
 import FWGL.Internal.GL hiding (Program, Texture, UniformLocation)
 import qualified FWGL.Internal.GL as GL
 import FWGL.Internal.TList
 import FWGL.Internal.Resource
 import FWGL.Shader.CPU
 import FWGL.Shader.Program
-import FWGL.Texture
 import FWGL.Vector
 
 newtype UniformLocation = UniformLocation GL.UniformLocation
@@ -34,11 +37,21 @@ data DrawState = DrawState {
         programs :: ResMap (Program '[] '[]) LoadedProgram,
         uniforms :: ResMap (LoadedProgram, String) UniformLocation,
         gpuMeshes :: ResMap (Geometry '[]) GPUGeometry,
-        textures :: ResMap Texture LoadedTexture
+        textureImages :: ResMap TextureImage LoadedTexture,
+        textureLayers :: [GL.Texture]
 }
 
 newtype Draw a = Draw { unDraw :: StateT DrawState GL a }
         deriving (Functor, Applicative, Monad, MonadIO)
+
+-- | A texture.
+data Texture = TextureImage TextureImage
+             | TextureLayer Layer GLSize GLSize
+             
+data TextureImage = TexturePixels [Color] GLSize GLSize Int
+                  | TextureURL String Int
+
+data LoadedTexture = LoadedTexture GLSize GLSize GL.Texture
 
 -- | A static or dinamic geometry.
 data Mesh is where

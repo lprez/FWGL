@@ -28,7 +28,8 @@ module FWGL.Backend.JavaScript.WebGL.Types (
         toJSArray,
         listToJSArray,
         noBuffer,
-        noTexture
+        noTexture,
+        noArray
 ) where
 
 import Data.Int (Int32)
@@ -90,6 +91,9 @@ noBuffer = jsNull
 
 noTexture :: Texture
 noTexture = jsNull
+
+noArray :: IO ArrayBufferView
+noArray = return jsNull
 
 float32View :: JSArray Float -> IO ArrayBufferView
 float32View = fmap castRef . float32Array

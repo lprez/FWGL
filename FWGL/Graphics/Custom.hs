@@ -38,7 +38,7 @@ import FWGL.Internal.GL (GLES, ActiveTexture)
 import FWGL.Internal.TList
 import FWGL.Shader.CPU
 import FWGL.Shader.Program
-import FWGL.Texture
+import FWGL.Graphics.Texture
 import FWGL.Vector
 
 -- | An empty custom object.

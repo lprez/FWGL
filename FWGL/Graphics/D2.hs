@@ -15,6 +15,7 @@ module FWGL.Graphics.D2 (
         mkGeometry2,
         -- * Textures
         module FWGL.Graphics.Color,
+        Texture,
         C.textureURL,
         C.textureFile,
         C.colorTex,
@@ -68,10 +69,10 @@ import FWGL.Graphics.Color
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
+import FWGL.Graphics.Texture
 import FWGL.Internal.TList
 import FWGL.Shader.Default2D (Image, Depth, Transform2, View2)
 import FWGL.Shader.Program
-import FWGL.Texture
 import FWGL.Vector
 
 -- | A 2D object with a 'Texture', a depth and a transformation.

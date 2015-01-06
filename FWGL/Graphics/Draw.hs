@@ -8,6 +8,7 @@ module FWGL.Graphics.Draw (
         drawInit,
         drawBegin,
         drawLayer,
+        drawEnd,
         textureUniform,
         textureSize,
         setProgram,
@@ -17,15 +18,17 @@ module FWGL.Graphics.Draw (
 import FWGL.Geometry
 import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
+import FWGL.Graphics.Texture
 import FWGL.Backend.IO
 import FWGL.Internal.GL hiding (Texture, Program, UniformLocation)
+import qualified FWGL.Internal.GL as GL
 import FWGL.Internal.Resource
 import FWGL.Shader.CPU
 import FWGL.Shader.GLSL
 import FWGL.Shader.Program hiding (program)
-import FWGL.Texture
 import FWGL.Vector
 
+import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as H
 import Data.Typeable
 import Data.Word (Word)
@@ -45,8 +48,9 @@ drawInit w h = do enable gl_DEPTH_TEST
                                    , programs = newGLResMap
                                    , gpuMeshes = newGLResMap
                                    , uniforms = newGLResMap
-                                   , textures = newGLResMap }
-        where newGLResMap :: Resource i r GL => ResMap i r
+                                   , textureImages = newGLResMap
+                                   , textureLayers = [] }
+        where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
 
 execDraw :: Draw () -> DrawState -> GL DrawState
@@ -57,6 +61,9 @@ resize w h = viewport 0 0 (fromIntegral w) (fromIntegral h)
 
 drawBegin :: GLES => Draw ()
 drawBegin = gl $ clear gl_COLOR_BUFFER_BIT
+
+drawEnd :: GLES => Draw ()
+drawEnd = Draw get >>= mapM_ (gl . deleteTexture) . textureLayers
 
 drawLayer :: (GLES, BackendIO) => Layer -> Draw ()
 drawLayer (Layer prg obj) = setProgram prg >> drawObject obj
@@ -123,12 +130,40 @@ getGPUGeometry :: GLES => Geometry '[] -> Draw (ResStatus GPUGeometry)
 getGPUGeometry = getDrawResource gl gpuMeshes (\ m s -> s { gpuMeshes = m })
 
 getTexture :: (GLES, BackendIO) => Texture -> Draw (ResStatus LoadedTexture)
-getTexture = getDrawResource gl textures (\ m s -> s { textures = m })
+getTexture (TextureLayer l w h) = do t <- renderTexture w h l
+                                     return . Loaded $ LoadedTexture w h t
+getTexture (TextureImage t) = getTextureImage t
+
+getTextureImage :: (GLES, BackendIO) => TextureImage
+                -> Draw (ResStatus LoadedTexture)
+getTextureImage = getDrawResource gl textureImages
+                                     (\ m s -> s { textureImages = m })
 
 getProgram :: GLES => Program '[] '[] -> Draw (ResStatus LoadedProgram)
 getProgram = getDrawResource gl programs (\ m s -> s { programs = m })
 
-getDrawResource :: Resource i r m
+renderTexture :: GLES => GLSize -> GLSize -> Layer -> Draw GL.Texture
+renderTexture w h layer = do
+        t <- gl $ do fb <- createFramebuffer
+
+                     t <- emptyTexture
+                     arr <- liftIO $ noArray
+                     bindTexture gl_TEXTURE_2D t
+                     texImage2DBuffer gl_TEXTURE_2D 0 (fromIntegral gl_RGBA) w 
+                                      h 0 gl_RGBA
+                                      gl_UNSIGNED_BYTE arr
+
+                     bindFramebuffer gl_FRAMEBUFFER fb
+                     framebufferTexture2D gl_FRAMEBUFFER
+                                          gl_COLOR_ATTACHMENT0
+                                          gl_TEXTURE_2D t 0
+                     deleteFramebuffer fb
+
+                     return t
+        Draw . modify $ \s -> s { textureLayers = t : textureLayers s }
+        return t
+
+getDrawResource :: (Resource i r m, Hashable i)
                 => (m (ResStatus r, ResMap i r)
                     -> Draw (ResStatus r, ResMap i r))
                 -> (DrawState -> ResMap i r)

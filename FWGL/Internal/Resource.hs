@@ -18,28 +18,30 @@ import Data.Functor
 import qualified Data.HashMap.Strict as H
 import Data.Hashable
 
-data ResMap i r = forall m. Resource i r m =>
+data ResMap i r = forall m. (Resource i r m, Hashable i) =>
                             ResMap (H.HashMap i (IORef (ResStatus r)))
 
 data ResStatus r = Loaded r | Unloaded | Loading | Error String
 
-class (Hashable i, Eq i, Applicative m, MonadIO m) =>
+class (Eq i, Applicative m, MonadIO m) =>
       Resource i r m | i -> r m where
         loadResource :: i -> (Either String r -> m ()) -> m ()
         unloadResource :: i -> r -> m ()
 
-newResMap :: Resource i r m => ResMap i r
+newResMap :: Hashable i => Resource i r m => ResMap i r
 newResMap = ResMap H.empty
 
-addResource :: Resource i r m => i -> ResMap i r -> m (ResMap i r)
+addResource :: (Resource i r m, Hashable i) => i -> ResMap i r -> m (ResMap i r)
 addResource i m = snd <$> getResource i m
 
-checkResource :: Resource i r m => i -> ResMap i r -> m (ResStatus r)
+checkResource :: (Resource i r m, Hashable i)
+              => i -> ResMap i r -> m (ResStatus r)
 checkResource i (ResMap map) = case H.lookup i map of
                                         Just ref -> liftIO $ readIORef ref
                                         Nothing -> return $ Unloaded
 
-getResource :: Resource i r m => i -> ResMap i r -> m (ResStatus r, ResMap i r)
+getResource :: (Resource i r m, Hashable i)
+            => i -> ResMap i r -> m (ResStatus r, ResMap i r)
 getResource i rmap@(ResMap map) =
         do status <- checkResource i rmap
            case status of
@@ -52,7 +54,8 @@ getResource i rmap@(ResMap map) =
                            return (status', ResMap $ H.insert i ref map)
                    _ -> return (status, rmap)
 
-removeResource :: Resource i r m => i -> ResMap i r -> m (ResMap i r)
+removeResource :: (Resource i r m, Hashable i)
+               => i -> ResMap i r -> m (ResMap i r)
 removeResource i rmap@(ResMap map) = 
         do status <- checkResource i rmap
            case status of
