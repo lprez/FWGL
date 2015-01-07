@@ -4,11 +4,11 @@ FWGL
 Examples
 --------
 
-[Demo](http://ziocrocifisso.github.io/FWGL/demo) (master + experimental)
+[Demo](http://ziocrocifisso.github.io/FWGL/demo)
 
-[Recursive signals](http://ziocrocifisso.github.io/FWGL/recur) (master + experimental)
+[Recursive signals](http://ziocrocifisso.github.io/FWGL/recur)
 
-[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) ([master](https://github.com/ZioCrocifisso/FWGL/tree/master) only)
+[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) (old version, must be updated)
 
 Installation
 ------------
@@ -18,8 +18,7 @@ Installation
 Documentation
 -------------
 
-http://ziocrocifisso.github.io/FWGL/docs/experimental/FWGL.html (experimental version)
-http://ziocrocifisso.github.io/FWGL/docs/FWGL.html (master version)
+http://ziocrocifisso.github.io/FWGL/docs/FWGL.html
 
 Project
 --------
@@ -29,12 +28,11 @@ Project
   * Separated backend
   * Custom shaders
   * Shader EDSL
-  * 2D simplified graphics system
+  * 2D/3D simplified graphics systems
   * Custom graphics system
 
 ### Work in Progress
 
-  * 3D simplified graphics system
   * GLFW Backend
 
 ### To do

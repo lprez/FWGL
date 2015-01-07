@@ -9,7 +9,7 @@
     And a graphics system:
 
         * "FWGL.Graphics.D2": 2D graphics
-        * FWGL.Graphics.D3: 3D graphics (WIP)
+        * "FWGL.Graphics.D3": 3D graphics
         * "FWGL.Graphics.Custom": advanced custom graphics
 
     "FWGL.Shader" contains the EDSL to make custom shaders.
