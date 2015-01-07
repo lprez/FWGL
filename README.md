@@ -18,7 +18,7 @@ Installation
 Documentation
 -------------
 
-http://ziocrocifisso.github.io/FWGL/docs/FWGL.html
+https://hackage.haskell.org/package/fwgl-0.1.0.1/docs/FWGL.html
 
 Project
 --------
