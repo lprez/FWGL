@@ -8,7 +8,7 @@ Examples
 
 [Recursive signals](http://ziocrocifisso.github.io/FWGL/recur)
 
-[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid) (old version, must be updated)
+[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid)
 
 Installation
 ------------
@@ -18,7 +18,7 @@ Installation
 Documentation
 -------------
 
-https://hackage.haskell.org/package/fwgl-0.1.0.1/docs/FWGL.html
+https://hackage.haskell.org/package/fwgl/docs/FWGL.html
 
 Project
 --------
@@ -28,7 +28,6 @@ Project
   * Separated backend
   * Custom shaders
   * Shader EDSL
-  * 2D/3D simplified graphics systems
   * Custom graphics system
 
 ### Work in Progress
@@ -37,7 +36,9 @@ Project
 
 ### To do
 
+  * Camera
   * Lightning
+  * 3D picking
   * Audio/side effects
   * AJAX/Local file OBJ loading
   * Lots of examples
@@ -46,6 +47,8 @@ Project
 
 ### Maybe
 
+  * Shadow mapping
+  * Bump mapping
   * Network (WebSocket) (May be replaced by a general support for Input signal with side effects)
   * Separate packages (fwgl-core, fwgl-yampa, fwgl-javascript, ecc.)
   * Android backend
