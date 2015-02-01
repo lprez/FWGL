@@ -22,7 +22,7 @@ type ShaderVars = ( [(String, String)]
 vertexToGLSLAttr :: VertexShader g i o -> (String, [(String, Int)])
 vertexToGLSLAttr v =
         let r@(_, is, _) = snd $ reduce False v
-        in ( shaderToGLSL "" "attribute" "varying"
+        in ( shaderToGLSL "#version 100\n" "attribute" "varying"
                           r [("hvVertexShaderOutput", "gl_Position")]
            , map (\(t, n, s) -> (n, s)) is)
 
@@ -30,7 +30,7 @@ vertexToGLSL :: VertexShader g i o -> String
 vertexToGLSL = fst . vertexToGLSLAttr
 
 fragmentToGLSL :: FragmentShader g i -> String
-fragmentToGLSL v = shaderToGLSL "precision mediump float;"
+fragmentToGLSL v = shaderToGLSL "#version 100\nprecision mediump float;"
                                 "varying" ""
                                 (snd $ reduce True v)
                                 [("hvFragmentShaderOutput", "gl_FragColor")]

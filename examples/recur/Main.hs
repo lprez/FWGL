@@ -1,11 +1,16 @@
-{-# LANGUAGE Arrows #-}
+{-# LANGUAGE Arrows, CPP #-}
 
 module Main where
 
 import FWGL
 import FWGL.Graphics.D2
-import FWGL.Backend.JavaScript
 import FRP.Yampa
+
+#ifdef __GHCJS__
+import FWGL.Backend.JavaScript
+#else
+import FWGL.Backend.GLFW.GL20
+#endif
 
 width :: Num a => a
 width = 640

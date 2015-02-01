@@ -2,8 +2,8 @@
     The main module. You should also import a backend:
 
         * "FWGL.Backend.JavaScript": GHCJS/WebGL backend
+        * "FWGL.Backend.GLFW.GL20": GLFW/OpenGL 2.0 backend
         * FWGL.Backend.GLFW.GLES20: GLFW/OpenGL ES 2.0 backend (WIP)
-        * FWGL.Backend.GLFW.GL32: GLFW/OpenGL 3.2 backend (WIP)
 
 
     And a graphics system:

@@ -1,11 +1,18 @@
+{-# LANGUAGE CPP #-}
+
 module Main where
 
 import Data.Fixed (mod')
 import FWGL
-import FWGL.Backend.JavaScript
 import FWGL.Graphics.D3
 import FRP.Yampa
 import System.Random
+
+#ifdef __GHCJS__
+import FWGL.Backend.JavaScript
+#else
+import FWGL.Backend.GLFW.GL20
+#endif
 
 data Box = Box V3 V3
 

@@ -28,6 +28,7 @@ import FWGL.Shader.GLSL
 import FWGL.Shader.Program hiding (program)
 import FWGL.Vector
 
+import Data.Bits ((.|.))
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as H
 import Data.Typeable
@@ -60,7 +61,7 @@ resize :: GLES => Int -> Int -> GL ()
 resize w h = viewport 0 0 (fromIntegral w) (fromIntegral h)
 
 drawBegin :: GLES => Draw ()
-drawBegin = gl $ clear gl_COLOR_BUFFER_BIT
+drawBegin = gl . clear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
 
 drawEnd :: GLES => Draw ()
 drawEnd = Draw get >>= mapM_ (gl . deleteTexture) . textureLayers
@@ -181,6 +182,7 @@ drawGPUGeometry (GPUGeometry abs eb ec) =
         loadedProgram <$> Draw get >>= \mlp -> case mlp of
                 Nothing -> return ()
                 Just (LoadedProgram _ locs _) -> gl $ do
+                        bindBuffer gl_ARRAY_BUFFER noBuffer
                         enabledLocs <- mapM (\(nm, buf, setAttr) ->
                                              let loc = locs H.! nm in
                                                   do bindBuffer gl_ARRAY_BUFFER

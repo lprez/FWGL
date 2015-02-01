@@ -29,7 +29,8 @@ uniform f _ a (len, fp) = withForeignPtr fp $ f a (quot len 4)
 
 uniformMatrix :: (a -> GLsizei -> GLboolean -> Ptr b -> IO ()) -> GLsizei
               -> ctx -> a -> GLboolean -> (GLsizei, ForeignPtr b) -> IO ()
-uniformMatrix f dv _ a b (len, fp) = withForeignPtr fp $ f a (quot len dv) b
+uniformMatrix f dv _ a b (len, fp) =
+        withForeignPtr fp $ f a 1 {- (quot len dv) -} b
 
 vertexAttrib :: (a -> Ptr b -> IO ())
              -> ctx -> a -> (GLsizei, ForeignPtr b) -> IO ()

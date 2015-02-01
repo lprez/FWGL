@@ -38,7 +38,7 @@ vertexShader = do (Position2 (V2 x y)) <- get
                   Transform2 trans <- global
                   View2 view <- global
                   Depth z <- global
-                  let V3 x' y' _ = view * trans * (V3 x y 1)
+                  let V3 x' y' _ = view * trans * V3 x y 1
                   putVertex $ V4 x' y' z 1
                   put uv
                   -- BUG

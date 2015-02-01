@@ -1,6 +1,6 @@
 {-# LANGUAGE NullaryTypeClasses, TypeFamilies, MultiParamTypeClasses #-}
 
-module FWGL.Backend.OpenGL.GL32 () where
+module FWGL.Backend.OpenGL.GL20 () where
         
 import Data.Word
 import Foreign
@@ -8,7 +8,9 @@ import Foreign.C.String
 import FWGL.Backend.OpenGL.Common
 import FWGL.Backend.GLES
 import FWGL.Vector
-import qualified Graphics.GL.Core32 as GL
+import qualified Graphics.GL.Standard20 as GL
+import qualified Graphics.GL.Ext.ARB.FramebufferObject as GL
+import qualified Graphics.GL.Ext.EXT.BlendColor as GL
 import Graphics.GL.Types as GL
 
 instance GLES where
@@ -40,9 +42,10 @@ instance GLES where
         toGLString = id
         noBuffer = 0
         noTexture = 0
+        noArray = fmap ((,) 0) $ newForeignPtr_ nullPtr
 
         -- TODO: move to FWGL.Backend.OpenGL.Common
-        encodeM2 (M2 (V2 a1 a2) (V2 b1 b2)) = mkArray [ a1, a2, b1, b2]
+        encodeM2 (M2 (V2 a1 a2) (V2 b1 b2)) = mkArray [ a1, a2, b1, b2 ]
 
         encodeM3 (M3 (V3 a1 a2 a3)
                      (V3 b1 b2 b3)
@@ -231,7 +234,7 @@ instance GLES where
         gl_ONE_MINUS_CONSTANT_COLOR = GL.GL_ONE_MINUS_CONSTANT_COLOR
         gl_CONSTANT_ALPHA = GL.GL_CONSTANT_ALPHA
         gl_ONE_MINUS_CONSTANT_ALPHA = GL.GL_ONE_MINUS_CONSTANT_ALPHA
-        gl_BLEND_COLOR = GL.GL_BLEND_COLOR
+        gl_BLEND_COLOR = GL.GL_BLEND_COLOR_EXT
         gl_ARRAY_BUFFER = GL.GL_ARRAY_BUFFER
         gl_ELEMENT_ARRAY_BUFFER = GL.GL_ELEMENT_ARRAY_BUFFER
         gl_ARRAY_BUFFER_BINDING = GL.GL_ARRAY_BUFFER_BINDING

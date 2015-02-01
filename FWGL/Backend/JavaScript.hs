@@ -67,7 +67,6 @@ instance BackendIO where
                                          Just l -> cur - l
                                          Nothing -> 0
                            react rsf (tm, Just $ Input events)
-                           -- print tm -- debug
                            onFrame $ frame rsf src (Just cur)
         
                       onFrame handler = asyncCallback1 NeverRetain handler

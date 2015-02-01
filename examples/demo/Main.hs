@@ -1,4 +1,4 @@
-{-# LANGUAGE Arrows #-}
+{-# LANGUAGE Arrows, CPP #-}
 
 module Main where
 
@@ -8,8 +8,13 @@ import Data.Fixed (mod')
 import Data.List (unfoldr)
 import FRP.Yampa
 import FWGL
-import FWGL.Backend.JavaScript
 import FWGL.Graphics.D3
+
+#ifdef __GHCJS__
+import FWGL.Backend.JavaScript
+#else
+import FWGL.Backend.GLFW.GL20
+#endif
 
 mouseCount :: Num a => a -> MouseButton -> SF Input a
 mouseCount i mb = mouse mb >>> accumHoldBy (\c _ -> c + 1) i

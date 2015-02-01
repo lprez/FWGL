@@ -40,7 +40,7 @@ instance GLES where
         toGLString = id
         noBuffer = 0
         noTexture = 0
-        noArray = (,) GLsizei <$> newForeignPtr_ nullPtr
+        noArray = fmap ((,) 0) $ newForeignPtr_ nullPtr
 
         -- TODO: move to FWGL.Backend.OpenGL.Common
         encodeM2 (M2 (V2 a1 a2) (V2 b1 b2)) = mkArray [ a1, a2, b1, b2]
