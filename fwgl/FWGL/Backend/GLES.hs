@@ -2,6 +2,7 @@
 
 module FWGL.Backend.GLES where
 
+import Data.Bits (Bits)
 import Data.Word
 import FWGL.Graphics.Color
 import FWGL.Vector
@@ -10,6 +11,7 @@ class ( Integral GLEnum
       , Integral GLUInt
       , Integral GLInt
       , Integral GLSize
+      , Bits GLEnum
       , Num GLEnum
       , Num GLUInt
       , Num GLInt

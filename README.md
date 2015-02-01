@@ -13,7 +13,13 @@ Examples
 Installation
 ------------
 
+        # GLFW:
+        cabal install fwgl
+        cabal install fwgl-glfw
+
+        # JavaScript:
         cabal install --ghcjs fwgl
+        cabal install --ghcjs fwgl-javascript
 
 Documentation
 -------------
@@ -29,9 +35,6 @@ Project
   * Custom shaders
   * Shader EDSL
   * Custom graphics system
-
-### Work in Progress
-
   * GLFW Backend
 
 ### To do
