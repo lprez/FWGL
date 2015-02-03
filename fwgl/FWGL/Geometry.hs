@@ -50,7 +50,10 @@ data GPUGeometry = GPUGeometry {
         elementCount :: Int
 }
 
+-- ^ A 3D geometry.
 type Geometry3 = '[Position3, D3.UV, Normal3]
+
+-- ^ A 2D geometry.
 type Geometry2 = '[Position2, D2.UV]
 
 instance H.Hashable (AttrList is) where

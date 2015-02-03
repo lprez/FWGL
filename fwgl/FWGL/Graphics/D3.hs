@@ -8,6 +8,7 @@ module FWGL.Graphics.D3 (
         cube,
         -- ** Geometry
         Geometry,
+        Geometry3,
         geom,
         mkGeometry3,
         -- * Textures
@@ -27,6 +28,7 @@ module FWGL.Graphics.D3 (
         rotAA,
         scale,
         scaleV,
+        transform,
         -- * Layers
         Layer,
         -- ** Element layers
@@ -56,6 +58,7 @@ module FWGL.Graphics.D3 (
         mul4,
         -- ** View matrices
         perspectiveMat4,
+        cameraMat4,
         -- ** Transformation matrices
         idMat4,
         transMat4,
@@ -76,7 +79,7 @@ import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
 import FWGL.Internal.TList
 import FWGL.Shader.Default3D (Texture2, Transform3, View3)
-import FWGL.Shader.Program
+import FWGL.Shader.Program hiding (program)
 import FWGL.Graphics.Texture
 import FWGL.Vector
 

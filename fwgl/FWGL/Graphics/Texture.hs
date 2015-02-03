@@ -28,12 +28,12 @@ mkTexture :: GLES
 mkTexture w h ps = TextureImage . TexturePixels ps (fromIntegral w)
                                                    (fromIntegral h) $ hash ps
 
--- | Creates a 'Texture' from an URL (JavaScript only).
+-- | Creates a 'Texture' from an URL or a local file.
 textureURL :: String  -- ^ URL
            -> Texture
 textureURL url = TextureImage . TextureURL url $ hash url
 
--- | Creates a 'Texture' from a file (Desktop only).
+-- | The same as 'textureURL'.
 textureFile :: String -> Texture
 textureFile = textureURL
 

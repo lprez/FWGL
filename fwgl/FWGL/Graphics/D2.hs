@@ -11,6 +11,7 @@ module FWGL.Graphics.D2 (
         sprite,
         -- ** Geometry
         Geometry,
+        Geometry2,
         geom,
         mkGeometry2,
         -- * Textures
@@ -26,6 +27,7 @@ module FWGL.Graphics.D2 (
         rot,
         scale,
         scaleV,
+        transform,
         -- * Layers
         Layer,
         -- ** Element layers
@@ -34,6 +36,7 @@ module FWGL.Graphics.D2 (
         -- ** Object layers
         layer,
         layerPrg,
+        program,
         -- * Custom 2D objects
         Object,
         object,
@@ -68,7 +71,7 @@ import qualified FWGL.Graphics.Custom as C
 import FWGL.Graphics.Color
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Shapes
-import FWGL.Graphics.Types
+import FWGL.Graphics.Types hiding (program)
 import FWGL.Graphics.Texture
 import FWGL.Internal.TList
 import FWGL.Shader.Default2D (Image, Depth, Transform2, View2)

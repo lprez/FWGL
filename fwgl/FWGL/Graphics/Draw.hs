@@ -41,6 +41,8 @@ import Control.Monad.Trans.State
 
 drawInit :: (BackendIO, GLES) => Int -> Int -> GL DrawState
 drawInit w h = do enable gl_DEPTH_TEST
+                  enable gl_BLEND
+                  blendFunc gl_SRC_ALPHA gl_ONE_MINUS_SRC_ALPHA
                   clearColor 0.0 0.0 0.0 1.0
                   depthFunc gl_LESS
                   resize w h
