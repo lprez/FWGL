@@ -24,6 +24,17 @@ perspective4 f n fov =
         size >>^ \(w, h) -> perspectiveMat4 f n fov
                                             (fromIntegral w / fromIntegral h)
 
+-- | Combination of 'perspective4' and 'cameraMat4'.
+cameraPersp :: V3       -- ^ Eye
+            -> Float    -- ^ Pitch
+            -> Float    -- ^ Yaw
+            -> Float    -- ^ Far
+            -> Float    -- ^ Near
+            -> Float    -- ^ FOV
+            -> SF Input M4
+cameraPersp eye pitch yaw far near fov =
+        perspective4 far near fov >>^ \m -> mul4 m $ cameraMat4 eye pitch yaw
+
 -- | Like 'dynamic', but instead of comparing the two objects it checks the
 -- event with the new object.
 dynamicE :: Object g i -- ^ Initial 'Object'.
