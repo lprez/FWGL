@@ -37,6 +37,8 @@ module FWGL.Graphics.D2 (
         layer,
         layerPrg,
         program,
+        -- * Sublayers
+        C.subLayer,
         -- * Custom 2D objects
         Object,
         object,

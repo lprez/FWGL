@@ -4,7 +4,6 @@ module FWGL.Graphics.Texture (
         mkTexture,
         textureURL,
         textureFile,
-        textureLayer,
         textureHash,
         emptyTexture
 ) where
@@ -36,10 +35,6 @@ textureURL url = TextureImage . TextureURL url $ hash url
 -- | The same as 'textureURL'.
 textureFile :: String -> Texture
 textureFile = textureURL
-
--- | Creates a 'Texture' from a 'Layer'.
-textureLayer :: GLES => Int -> Int -> Layer -> Texture
-textureLayer w h l = TextureLayer l (fromIntegral w) (fromIntegral h)
 
 textureHash :: TextureImage -> Int
 textureHash (TexturePixels _ _ _ h) = h

@@ -18,6 +18,7 @@ module FWGL.Graphics.Custom (
         globalTexture,
         globalTexSize,
         layer,
+        subLayer,
         unsafeJoin,
         mkGeometry,
         mkTexture,
@@ -88,3 +89,11 @@ layer = Layer
 -- | Generate a 1x1 texture.
 colorTex :: GLES => Color -> Texture
 colorTex c = mkTexture 1 1 [ c ]
+
+-- | Use a 'Layer' as a 'Texture' on another.
+subLayer :: Int                         -- ^ Texture width.
+         -> Int                         -- ^ Texture height.
+         -> Layer                       -- ^ Layer to draw on a 'Texture'.
+         -> (Texture -> [Layer])        -- ^ Layer to draw on the screen.
+         -> Layer
+subLayer = SubLayer

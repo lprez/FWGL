@@ -37,8 +37,7 @@ data DrawState = DrawState {
         programs :: ResMap (Program '[] '[]) LoadedProgram,
         uniforms :: ResMap (LoadedProgram, String) UniformLocation,
         gpuMeshes :: ResMap (Geometry '[]) GPUGeometry,
-        textureImages :: ResMap TextureImage LoadedTexture,
-        textureLayers :: [GL.Texture]
+        textureImages :: ResMap TextureImage LoadedTexture
 }
 
 newtype Draw a = Draw { unDraw :: StateT DrawState GL a }
@@ -46,7 +45,7 @@ newtype Draw a = Draw { unDraw :: StateT DrawState GL a }
 
 -- | A texture.
 data Texture = TextureImage TextureImage
-             | TextureLayer Layer GLSize GLSize
+             | TextureLoaded LoadedTexture
              
 data TextureImage = TexturePixels [Color] GLSize GLSize Int
                   | TextureURL String Int
@@ -82,3 +81,4 @@ instance Element (Object gs is) gs is where
 -- | An object associated with a program.
 data Layer = forall oi pi og pg. (Subset oi pi, Subset og pg)
                               => Layer (Program pg pi) (Object og oi)
+           | SubLayer Int Int Layer (Texture -> [Layer])

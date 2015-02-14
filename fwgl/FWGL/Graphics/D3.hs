@@ -16,7 +16,6 @@ module FWGL.Graphics.D3 (
         Texture,
         textureURL,
         textureFile,
-        textureLayer,
         C.colorTex,
         mkTexture,
         -- * Transformations
@@ -37,6 +36,9 @@ module FWGL.Graphics.D3 (
         -- ** Object layers
         layer,
         layerPrg,
+        program,
+        -- ** Sublayers
+        C.subLayer,
         -- * Custom 3D objects
         Object,
         object,

@@ -42,7 +42,7 @@ Project
 ### To do
 
   * Camera
-  * Lightning
+  * Lighting
   * 3D picking
   * Audio/side effects
   * AJAX/Local file OBJ loading
