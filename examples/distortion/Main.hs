@@ -1,4 +1,4 @@
-{-# LANGUAGE Arrows, CPP #-}
+{-# LANGUAGE CPP #-}
 
 module Main where
 

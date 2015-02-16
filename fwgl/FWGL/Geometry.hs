@@ -41,7 +41,7 @@ data AttrList (is :: [*]) where
         AttrListCons :: (H.Hashable c, AttributeCPU c g)
                      => g -> [c] -> AttrList gs -> AttrList (g ': gs)
 
--- ^ A set of attributes and indices.
+-- | A set of attributes and indices.
 data Geometry (is :: [*]) = Geometry (AttrList is) [Word16] Int
 
 data GPUGeometry = GPUGeometry {
@@ -50,10 +50,10 @@ data GPUGeometry = GPUGeometry {
         elementCount :: Int
 }
 
--- ^ A 3D geometry.
+-- | A 3D geometry.
 type Geometry3 = '[Position3, D3.UV, Normal3]
 
--- ^ A 2D geometry.
+-- | A 2D geometry.
 type Geometry2 = '[Position2, D2.UV]
 
 instance H.Hashable (AttrList is) where

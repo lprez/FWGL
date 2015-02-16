@@ -229,4 +229,4 @@ toKey Key'Pad6 = KeyPad6
 toKey Key'Pad7 = KeyPad7
 toKey Key'Pad8 = KeyPad8
 toKey Key'Pad9 = KeyPad9
-toKey Key'Unknown = KeyUnknown
+toKey _ = KeyUnknown

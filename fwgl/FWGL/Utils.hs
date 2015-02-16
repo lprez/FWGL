@@ -1,6 +1,7 @@
 module FWGL.Utils (
         screenScale,
-        perspective4
+        perspective4,
+        perspectiveView
 ) where
 
 import FRP.Yampa
@@ -24,16 +25,14 @@ perspective4 f n fov =
         size >>^ \(w, h) -> perspectiveMat4 f n fov
                                             (fromIntegral w / fromIntegral h)
 
--- | Combination of 'perspective4' and 'cameraMat4'.
-cameraPersp :: V3       -- ^ Eye
-            -> Float    -- ^ Pitch
-            -> Float    -- ^ Yaw
-            -> Float    -- ^ Far
-            -> Float    -- ^ Near
-            -> Float    -- ^ FOV
-            -> SF Input M4
-cameraPersp eye pitch yaw far near fov =
-        perspective4 far near fov >>^ \m -> mul4 m $ cameraMat4 eye pitch yaw
+-- | Combine a perspective and a view matrix.
+perspectiveView :: Float    -- ^ Far
+                -> Float    -- ^ Near
+                -> Float    -- ^ FOV
+                -> SF (Input, M4) M4
+perspectiveView far near fov  =
+        perspective4 far near fov *** identity
+        >>^ \(perspMat, viewMat) -> mul4 viewMat perspMat
 
 -- | Like 'dynamic', but instead of comparing the two objects it checks the
 -- event with the new object.
