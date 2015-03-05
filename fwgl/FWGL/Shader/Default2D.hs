@@ -1,5 +1,5 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, DataKinds,
-             FlexibleContexts, RebindableSyntax, TypeFamilies #-}
+{-# LANGUAGE DataKinds, RebindableSyntax, DeriveDataTypeable,
+             GeneralizedNewtypeDeriving, GADTs #-}
 
 module FWGL.Shader.Default2D where
 
@@ -33,17 +33,11 @@ newtype UV = UV V2
 
 vertexShader :: VertexShader '[Transform2, View2, Depth]
                              '[Position2, UV] '[UV]
-vertexShader = do (Position2 (V2 x y)) <- get
-                  uv@(UV _) <- get
-                  Transform2 trans <- global
-                  View2 view <- global
-                  Depth z <- global
-                  let V3 x' y' _ = view * trans * V3 x y 1
-                  putVertex $ V4 x' y' z 1
-                  put uv
-                  -- BUG
+vertexShader (Transform2 trans :- View2 view :- Depth z :- N)
+             (Position2 (V2 x y) :- uv@(UV _) :- N) =
+                let V3 x' y' _ = view * trans * V3 x y 1
+                in Vertex (V4 x' y' z 1) :- uv :- N
 
 fragmentShader :: FragmentShader '[Image] '[UV]
-fragmentShader = do Image sampler <- global
-                    UV (V2 s t) <- get
-                    putFragment $ texture2D sampler (V2 s $ 1 - t)
+fragmentShader (Image sampler :- N) (UV (V2 s t) :- N) =
+                Fragment (texture2D sampler (V2 s $ 1 - t)) :- N

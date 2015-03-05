@@ -1,4 +1,5 @@
-{-# LANGUAGE ScopedTypeVariables, GADTs, RankNTypes, FlexibleContexts #-}
+{-# LANGUAGE ScopedTypeVariables, GADTs, RankNTypes, FlexibleContexts,
+             KindSignatures, DataKinds, TypeOperators, ConstraintKinds #-}
 
 module FWGL.Shader.GLSL (
         vertexToGLSLAttr,
@@ -11,28 +12,29 @@ module FWGL.Shader.GLSL (
 ) where
 
 import Data.Typeable
-import FWGL.Shader.Monad (Shader(..))
+import FWGL.Shader.Shader
 import FWGL.Shader.Language (Expr(..), ShaderType(..))
-import FWGL.Shader.Stages (VertexShader, FragmentShader)
+import FWGL.Shader.Stages (VertexShader, FragmentShader, ValidVertex)
 
 type ShaderVars = ( [(String, String)]
                   , [(String, String, Int)]
                   , [(String, String, Expr)])
 
-vertexToGLSLAttr :: VertexShader g i o -> (String, [(String, Int)])
+vertexToGLSLAttr :: ValidVertex g i o => VertexShader g i o
+                 -> (String, [(String, Int)])
 vertexToGLSLAttr v =
-        let r@(_, is, _) = snd $ reduce False v
+        let r@(_, is, _) = vars False v
         in ( shaderToGLSL "#version 100\n" "attribute" "varying"
                           r [("hvVertexShaderOutput", "gl_Position")]
            , map (\(t, n, s) -> (n, s)) is)
 
-vertexToGLSL :: VertexShader g i o -> String
+vertexToGLSL :: ValidVertex g i o => VertexShader g i o -> String
 vertexToGLSL = fst . vertexToGLSLAttr
 
-fragmentToGLSL :: FragmentShader g i -> String
+fragmentToGLSL :: Valid g i '[] => FragmentShader g i -> String
 fragmentToGLSL v = shaderToGLSL "#version 100\nprecision mediump float;"
                                 "varying" ""
-                                (snd $ reduce True v)
+                                (vars True v)
                                 [("hvFragmentShaderOutput", "gl_FragColor")]
 
 shaderToGLSL :: String -> String -> String -> ShaderVars -> [(String, String)] -> String
@@ -52,24 +54,33 @@ shaderToGLSL header ins outs (gs, is, os) predec =
                                         ((_, y) : []) -> y
                                         _ -> x
 
-reduce :: Bool -> Shader g i o a -> (a, ShaderVars)
-reduce _ (Pure x) = (x, ([], [], []))
-reduce b (Bind s f) = case reduce b s of
-                        (x, (gs, is, os)) -> case reduce b $ f x of
-                                (y, (gs', is', os')) ->
-                                        (y, (gs ++ gs', is ++ is', os ++ os'))
-reduce _ (Global :: Shader g i o a) = (fromExpr $ Read nm, ([(ty, nm)], [], []))
-        where (ty, nm) = globalTypeAndName (undefined :: a)
-reduce isFragment (Get :: Shader g i o a) =
-        (fromExpr $ Read nm, ([], [(ty, nm, size (undefined :: a))], []))
-        where (ty, nm) = (if isFragment
-                                then varyingTypeAndName
-                                else attributeTypeAndName) (undefined :: a)
-reduce _ (Put x) = ((), ([], [], [(ty, nm, toExpr x)]))
-        where (ty, nm) = varyingTypeAndName x
+vars :: Valid gs is os => Bool -> Shader gs is os -> ShaderVars
+vars isFragment (shader :: Shader gs is os) =
+        ( staticList (undefined :: Proxy gs) globalTypeAndName
+        , staticList (undefined :: Proxy is) inputVar
+        , stFold (\acc x -> outputVar x : acc) [] outputs)
+        where outputs = shader (staticSTList (undefined :: Proxy gs) globalExpr)
+                               (staticSTList (undefined :: Proxy is) inputExpr)
+
+              globalExpr, inputExpr :: (Typeable x, ShaderType y) => x -> y
+              globalExpr x = fromExpr . Read $ globalName x
+              inputExpr x = fromExpr . Read $ if isFragment then varyingName x
+                                               else attributeName x
+
+              inputVar :: (Typeable x, ShaderType x)
+                       => x -> (String, String, Int)
+              inputVar x = let (ty, nm) = if isFragment
+                                                then varyingTypeAndName x
+                                                else attributeTypeAndName x
+                           in (ty, nm, size x)
+
+              outputVar :: (Typeable x, ShaderType x)
+                        => x -> (String, String, Expr)
+              outputVar x = let (ty, nm) = varyingTypeAndName x
+                            in (ty, nm, toExpr x)
 
 exprToGLSL :: Expr -> String
-exprToGLSL Nil = ""
+exprToGLSL Empty = ""
 exprToGLSL (Read s) = s
 exprToGLSL (Op1 s e) = "(" ++ s ++ exprToGLSL e ++ ")"
 exprToGLSL (Op2 s x y) = "(" ++ exprToGLSL x ++ s ++ exprToGLSL y ++ ")"

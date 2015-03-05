@@ -2,18 +2,23 @@
              TypeOperators, UndecidableInstances, FlexibleContexts,
              FlexibleInstances, ConstraintKinds, PolyKinds #-}
 
-module FWGL.Internal.TList where
+module FWGL.Internal.TList (
+        Equal,
+        Member,
+        IsMember,
+        Subset,
+        IsSubset,
+        Remove,
+        Difference,
+        Append,
+        Insert,
+        Reverse,
+        Union
+) where
 
-class Subset (xs :: [*]) (ys :: [*])
-instance Subset '[] ys
-instance (Subset '[x] ys, Subset xs ys) => Subset (x ': xs) ys
--- BUG: Subset x x?
+type Equal xs ys = And (IsSubset xs ys) (IsSubset ys xs) ~ True
 
--- class Equal (xs :: [*]) (ys :: [*])
--- instance (Subset xs ys, Subset ys xs) => Equal xs ys
-type Equal xs ys = (Subset xs ys, Subset ys xs)
-
-type Member x xs = Subset '[x] xs
+type Member x xs = IsMember x xs ~ True
 
 type NotMember x xs = IsMember x xs ~ False
 
@@ -22,6 +27,13 @@ type family IsMember x (xs :: [*]) :: Bool where
         IsMember x (x ': xs) = True
         IsMember y (x ': xs) = IsMember y xs
 
+type family IsSubset (xs :: [*]) (ys :: [*]) :: Bool where
+        IsSubset xs xs = True
+        IsSubset '[] ys = True
+        IsSubset (x ': xs) ys = And (IsMember x ys) (IsSubset xs ys)
+
+class Subset (xs :: [*]) (ys :: [*])
+instance IsSubset xs ys ~ 'True => Subset xs ys
 type family Remove x (xs :: [*]) where
         Remove x '[] = '[]
         Remove x (x ': xs) = Remove x xs
@@ -40,6 +52,12 @@ type family Insert y (xs :: [*]) where
         Insert y (y ': xs) = y ': xs
         Insert y (x ': xs) = x ': Insert y xs
 
+type Reverse xs = Reverse' xs '[]
+
+type family Reverse' (xs :: [*]) (ys :: [*]) where
+        Reverse' '[] ys = ys
+        Reverse' (x ': xs) ys = Reverse' xs (x ': ys)
+
 type family Union (xs :: [*]) (ys :: [*]) where
         Union '[] ys = ys
         Union (x ': xs) ys = Union xs (Insert x ys)
@@ -47,3 +65,7 @@ type family Union (xs :: [*]) (ys :: [*]) where
 type family TypeEq (x :: k) (y :: k) :: Bool where
         TypeEq x x = True
         TypeEq x y = False
+
+type family And (a :: Bool) (b :: Bool) :: Bool where
+        And True True = True
+        And a b = False

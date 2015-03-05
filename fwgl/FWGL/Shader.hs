@@ -1,9 +1,11 @@
-{-# LANGUAGE FlexibleContexts, RankNTypes #-}
+{-# LANGUAGE FlexibleContexts, RankNTypes, TypeFamilies #-}
 
 module FWGL.Shader (
         Shader,
         VertexShader,
         FragmentShader,
+        VertexShaderOutput(Vertex),
+        FragmentShaderOutput(Fragment),
         Typeable,
         AllTypeable,
         ShaderType,
@@ -44,6 +46,8 @@ module FWGL.Shader (
         sign,
         sqrt,
         texture2D,
+        STList((:-), N),
+        {-
         (>>=),
         (>>),
         fail,
@@ -53,6 +57,7 @@ module FWGL.Shader (
         put,
         putVertex,
         putFragment,
+        -}
         (.),
         id,
         const,
@@ -64,13 +69,11 @@ import Data.Typeable (Typeable)
 import qualified FWGL.Internal.GL as CPU
 import FWGL.Shader.CPU (UniformCPU, AttributeCPU)
 import FWGL.Shader.Language
-import FWGL.Shader.Monad hiding (Shader)
+import FWGL.Shader.Shader
 import FWGL.Shader.Stages
 import qualified FWGL.Vector as CPU
 import Prelude ((.), id, const, flip, ($))
 import qualified Prelude as CPU
-
-type Shader g i o a = PartialShader g i o a
 
 type CFloat = CPU.Float
 type CSampler2D = CPU.ActiveTexture

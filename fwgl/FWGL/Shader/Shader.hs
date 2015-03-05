@@ -1,65 +1,68 @@
 {-# LANGUAGE GADTs, DataKinds, KindSignatures, TypeOperators,
-             RankNTypes, FlexibleContexts #-}
+             RankNTypes, FlexibleContexts, ScopedTypeVariables,
+             MultiParamTypeClasses, FlexibleInstances, ConstraintKinds #-}
 
-module FWGL.Shader.Monad (
+module FWGL.Shader.Shader (
         Shader(..),
-        PartialShader,
+        Valid,
         Member,
         AllTypeable,
         Subset,
         Equal,
         Union,
         Insert,
-        return,
-        get,
-        global,
-        put,
-        (>>),
-        (>>=),
-        fail
+        STList(..),
+        stFold,
+        staticList,
+        staticSTList
 ) where
 
 import Data.Typeable
 import FWGL.Internal.TList
 import FWGL.Shader.Language (ShaderType)
-import Prelude (String, error)
+import Prelude (String, error, Bool(False), undefined)
 
-data Shader g i o a where
-        Pure :: a -> Shader g i o a
-        Bind :: Shader g' i' o' b
-             -> (b -> Shader g'' i'' o'' a)
-             -> Shader g i o a
-        Get :: (Member a i, Typeable a, ShaderType a) => Shader g i o a
-        Global :: (Member a g, Typeable a, ShaderType a) => Shader g i o a
-        -- Put :: (Typeable a, ShaderType a) => a -> Shader g i (a ': o) ()
-        Put :: (Member a o, Typeable a, ShaderType a) => a -> Shader g i o ()
+infixr 4 :-
 
-type PartialShader g i o a =
-        (Subset o o', Subset g g', Subset i i', Subset i' i)
-        => Shader g' i' o' a
+data STList :: [*] -> * where
+        N :: STList '[]
+        (:-) :: (ShaderType a, Typeable a, IsMember a xs ~ False)
+             => a -> STList xs -> STList (a ': xs)
 
--- TODO: Shader è una monade e un funtore, non c'è bisogno di rebindare la
--- sintassi
-return :: a -> Shader g i o a
-return = Pure
+type Valid gs is os = ( StaticList gs, StaticList is, StaticList os
+                      , StaticSTList gs, StaticSTList is, StaticSTList os)
 
-get :: (Member a i, Typeable a, ShaderType a) => Shader g i o a
-get = Get
+type Shader gs is os = STList gs -> STList is -> STList os
 
-global :: (Member a g, Typeable a, ShaderType a) => Shader g i o a
-global = Global
+stFold :: (forall x. (Typeable x, ShaderType x) => acc -> x -> acc)
+       -> acc -> STList xs -> acc
+stFold _ acc N = acc
+stFold f acc (x :- xs) = stFold f (f acc x) xs
 
-put :: (Member a o, Typeable a, ShaderType a) => a -> Shader g i o ()
-put = Put
+class StaticList (xs :: [*]) where
+        staticList :: Proxy (xs :: [*])
+                   -> (forall x. (Typeable x, ShaderType x) => x -> y)
+                   -> [y]
 
-fail :: String -> Shader g i o a
-fail = error
+instance StaticList '[] where
+        staticList (_ :: Proxy '[]) _ = []
 
-(>>=) :: Shader g i o a -> (a -> Shader g i o b) -> Shader g i o b
-(>>=) = Bind
+instance (ShaderType x, Typeable x, StaticList xs) => StaticList (x ': xs) where
+        staticList (_ :: Proxy (x ': xs)) f =
+                f (undefined :: x) : staticList (undefined :: Proxy xs) f
 
-(>>) :: Shader g i o a -> Shader g i o b -> Shader g i o b
-x >> y = x >>= \_ -> y
+class StaticSTList (xs :: [*]) where
+        staticSTList :: Proxy (xs :: [*])
+                     -> (forall x. (Typeable x, ShaderType x) => x -> x)
+                     -> STList xs
+
+instance StaticSTList '[] where
+        staticSTList (_ :: Proxy '[]) _ = N
+
+instance (ShaderType x, Typeable x, StaticSTList xs, IsMember x xs ~ False) =>
+         StaticSTList (x ': xs) where
+        staticSTList (_ :: Proxy (x ': xs)) f =
+                f (undefined :: x) :- staticSTList (undefined :: Proxy xs) f
 
 class AllTypeable (xs :: [*])
 instance AllTypeable '[]

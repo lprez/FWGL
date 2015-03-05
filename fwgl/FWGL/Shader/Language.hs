@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses, DeriveDataTypeable, FunctionalDependencies #-}
+{-# LANGUAGE GADTs, MultiParamTypeClasses, DeriveDataTypeable, DataKinds,
+             FunctionalDependencies #-}
 
 module FWGL.Shader.Language (
         ShaderType(..),
@@ -38,7 +39,7 @@ import Prelude (String, (.), ($))
 import qualified Prelude
 import Text.Printf
 
-data Expr = Nil | Read String | Op1 String Expr | Op2 String Expr Expr
+data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
           | Apply String [Expr] | X Expr | Y Expr | Z Expr | W Expr
           | Literal String deriving (Prelude.Eq)
 

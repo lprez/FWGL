@@ -1,7 +1,8 @@
-{-# LANGUAGE MultiParamTypeClasses, ExistentialQuantification,
-             FunctionalDependencies, KindSignatures, DataKinds,
+{-# LANGUAGE MultiParamTypeClasses, ExistentialQuantification, ConstraintKinds,
+             FunctionalDependencies, KindSignatures, DataKinds, GADTs,
              RankNTypes, FlexibleInstances, ScopedTypeVariables,
-             TypeOperators, ImpredicativeTypes, TypeSynonymInstances #-}
+             TypeOperators, ImpredicativeTypes, TypeSynonymInstances,
+             FlexibleContexts #-}
 
 module FWGL.Shader.Program (
         LoadedProgram(..),
@@ -23,11 +24,12 @@ import Data.Word (Word)
 import qualified FWGL.Shader.Default2D as Default2D
 import qualified FWGL.Shader.Default3D as Default3D
 import FWGL.Shader.GLSL
-import FWGL.Shader.Monad (Subset, Union, Insert)
+import FWGL.Shader.Shader (Valid)
 import FWGL.Shader.Stages
 import FWGL.Internal.GL hiding (Program)
 import qualified FWGL.Internal.GL as GL
 import FWGL.Internal.Resource
+import FWGL.Internal.TList
 import Unsafe.Coerce
 
 -- | A vertex shader associated with a compatible fragment shader.
@@ -71,9 +73,10 @@ castProgram :: Program gs is -> Program gs' is'
 castProgram = unsafeCoerce
 
 -- | Create a 'Program' from the shaders.
-program :: (Subset gs' gs, Subset gs'' gs, Subset os' os)
-        => VertexShader gs' is os -> FragmentShader gs'' os'
-        -> Program gs is
+program :: (ValidVertex vgs vis vos, Valid fgs vos '[],
+            Equal pgs (Union vgs fgs))
+        => VertexShader vgs vis vos -> FragmentShader fgs vos
+        -> Program pgs vis
 program vs fs = let (vss, attrs) = vertexToGLSLAttr vs
                     fss = fragmentToGLSL fs
                 in Program (vss, attrs) fss (hash (vss, fss))

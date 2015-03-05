@@ -1,9 +1,8 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, DataKinds,
-             FlexibleContexts, RebindableSyntax, TypeFamilies #-}
+{-# LANGUAGE DataKinds, RebindableSyntax, DeriveDataTypeable,
+             GeneralizedNewtypeDeriving, GADTs #-}
 
 module FWGL.Shader.Default3D where
 
-import FWGL.Shader.CPU
 import FWGL.Shader
 import qualified FWGL.Vector
 
@@ -30,24 +29,12 @@ newtype UV = UV V2
 
 vertexShader :: VertexShader '[ Transform3, View3 ]
                              '[ Position3, UV, Normal3 ]
-                             '[ UV ]
-vertexShader = do v <- applyMatrices
-                  get >>= \x@(UV _) -> put x
-                  (Normal3 _) <- get
-                  putVertex v
-
-applyMatrices :: Shader '[ Transform3, View3 ]
-                        '[ Position3 ]
-                        '[]
-                        V4
-applyMatrices = do View3 viewMatrix <- global
-                   Transform3 modelMatrix <- global
-                   Position3 (V3 x y z) <- get
-                   return $
-                        viewMatrix * modelMatrix * V4 x y z 1.0
+                             '[ UV, Normal3 ]
+vertexShader (Transform3 modelMatrix :- View3 viewMatrix :- N)
+             (Position3 (V3 x y z) :- uv@(UV _) :- norm@(Normal3 _) :- N) =
+             let v = viewMatrix * modelMatrix * V4 x y z 1.0
+             in Vertex v :- uv :- norm :- N
 
 fragmentShader :: FragmentShader '[ Texture2 ] [ UV, Normal3 ]
-fragmentShader = do Texture2 sampler <- global
-                    UV (V2 s t) <- get
-                    putFragment .
-                            texture2D sampler $ V2 s (1 - t)
+fragmentShader (Texture2 sampler :- N) (UV (V2 s t) :- Normal3 _ :- N) =
+                Fragment (texture2D sampler $ V2 s (1 - t)) :- N
