@@ -46,8 +46,8 @@ Project
   * 3D picking
   * Audio/side effects
   * AJAX/Local file OBJ loading
+  * Window/canvas customization
   * Lots of examples
-  * Decent documentation
   * Skeletal animations
 
 ### Maybe

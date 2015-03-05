@@ -34,6 +34,7 @@ module FWGL.Graphics.D3 (
         elements,
         view,
         -- ** Object layers
+        Program,
         layer,
         layerPrg,
         program,

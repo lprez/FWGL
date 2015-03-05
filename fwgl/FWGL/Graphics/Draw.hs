@@ -39,7 +39,11 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 
-drawInit :: (BackendIO, GLES) => Int -> Int -> GL DrawState
+-- | Create a 'DrawState'.
+drawInit :: (BackendIO, GLES)
+         => Int         -- ^ Viewport width
+         -> Int         -- ^ Viewport height
+         -> GL DrawState
 drawInit w h = do enable gl_DEPTH_TEST
                   enable gl_BLEND
                   blendFunc gl_SRC_ALPHA gl_ONE_MINUS_SRC_ALPHA
@@ -55,18 +59,27 @@ drawInit w h = do enable gl_DEPTH_TEST
         where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
 
-execDraw :: Draw () -> DrawState -> GL DrawState
+-- | Execute a 'Draw' action.
+execDraw :: Draw ()             -- ^ Action.
+         -> DrawState           -- ^ State.
+         -> GL DrawState
 execDraw (Draw a) = execStateT a
 
-resize :: GLES => Int -> Int -> GL ()
+-- | Viewport.
+resize :: GLES
+       => Int   -- ^ Width.
+       -> Int   -- ^ Height.
+       -> GL ()
 resize w h = viewport 0 0 (fromIntegral w) (fromIntegral h)
 
+-- | Clear the buffers.
 drawBegin :: GLES => Draw ()
 drawBegin = gl . clear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
 
 drawEnd :: GLES => Draw ()
 drawEnd = return ()
 
+-- | Draw a 'Layer'.
 drawLayer :: (GLES, BackendIO) => Layer -> Draw ()
 drawLayer (Layer prg obj) = setProgram prg >> drawObject obj
 drawLayer (SubLayer w' h' sub sup) =
@@ -101,11 +114,13 @@ textureUniform tex = do withRes_ (getTexture tex)
                                                 bindTexture gl_TEXTURE_2D wtex
                         return $ ActiveTexture 0
 
+-- | Get the dimensions of a 'Texture'.
 textureSize :: (GLES, BackendIO, Num a) => Texture -> Draw (a, a)
 textureSize tex = withRes (getTexture tex) (return (0, 0))
                           $ \(LoadedTexture w h _) -> return ( fromIntegral w
                                                              , fromIntegral h)
 
+-- | Set the program.
 setProgram :: GLES => Program g i -> Draw ()
 setProgram p = do current <- program <$> Draw get
                   when (current /= Just (castProgram p)) $
