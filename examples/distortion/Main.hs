@@ -33,12 +33,14 @@ surface = mkGeometry2 (quads (- 0.5) (- 0.5))
 
 main :: IO ()
 main = run $ pointer >>^ \(x, y) -> Output [
-                layerPrg prg $
+                layerPrg distProgram $
                 global (undefined :: Pointer)
                        (V2 (fromIntegral x / 640 - 0.5)
                            (- fromIntegral y / 480 + 0.5))
                        obj
        ] Audio
         where tex = textureFile "tex.png"
-              prg = program vertexShader fragmentShader
               obj = object idMat3 [geom tex surface]
+
+distProgram :: Program Uniforms Attributes
+distProgram = program vertexShader fragmentShader

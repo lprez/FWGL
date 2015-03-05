@@ -1,31 +1,28 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving, DeriveDataTypeable, DataKinds,
-             FlexibleContexts, RebindableSyntax, TypeFamilies #-}
+{-# LANGUAGE DataKinds, RebindableSyntax, DeriveDataTypeable,
+             GeneralizedNewtypeDeriving, GADTs #-}
 
 module Program (
         vertexShader,
         fragmentShader,
-        Pointer
+        Pointer,
+        Uniforms,
+        Attributes
 ) where
 
 import FWGL.Shader
-import FWGL.Shader.Default2D hiding (vertexShader)
+import FWGL.Shader.Default2D hiding (vertexShader, Uniforms, Attributes)
 
 newtype Pointer = Pointer V2
         deriving (Typeable, ShaderType, UniformCPU CV2)
 
-vertexShader :: VertexShader '[Pointer, Transform2, View2, Depth]
-                             '[Position2, UV] '[UV]
-vertexShader = do (Position2 (V2 x y)) <- get
-                  uv@(UV _) <- get
+type VUniforms = '[Pointer, Transform2, View2, Depth]
+type Uniforms = '[Pointer, Transform2, View2, Depth, Image]
+type Attributes = '[Position2, UV]
 
-                  Transform2 trans <- global
-                  View2 view <- global
-                  Depth z <- global
-                  Pointer (V2 px py) <- global
-
-                  let V3 x' y' _ = view * trans * V3 x y 1
-                  putVertex $ V4 (dist x' px)
-                                 (dist y' py) z 1
-                  put uv
-
-        where dist x x' = x + (abs $ x' - x) ^ 0.7 / 2 * sign (x - x')
+vertexShader :: VertexShader VUniforms Attributes '[UV]
+vertexShader (Pointer (V2 px py) :- Transform2 trans :-
+              View2 view :- Depth z :- N)
+             (Position2 (V2 x y) :- uv@(UV _) :- N) =
+                let V3 x' y' _ = view * trans * V3 x y 1
+                    dist x x' = x + (abs $ x' - x) ^ 0.7 / 2 * sign (x - x')
+                in Vertex (V4 (dist x' px) (dist y' py) z 1) :- uv :- N
