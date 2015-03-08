@@ -10,7 +10,6 @@ module FWGL.Graphics.Types (
         LoadedTexture(..),
         Geometry(..),
         Mesh(..),
-        Light(..),
         Object(..),
         Layer(..)
 ) where
@@ -31,6 +30,7 @@ import FWGL.Vector
 
 newtype UniformLocation = UniformLocation GL.UniformLocation
 
+-- | The state of the 'Draw' monad.
 data DrawState = DrawState {
         program :: Maybe (Program '[] '[]),
         loadedProgram :: Maybe LoadedProgram,
@@ -40,6 +40,7 @@ data DrawState = DrawState {
         textureImages :: ResMap TextureImage LoadedTexture
 }
 
+-- | A monad that represents OpenGL actions with some state ('DrawState').
 newtype Draw a = Draw { unDraw :: StateT DrawState GL a }
         deriving (Functor, Applicative, Monad, MonadIO)
 
@@ -59,9 +60,14 @@ data Mesh is where
         StaticGeom :: Geometry is -> Mesh is
         DynamicGeom :: Geometry is -> Geometry is -> Mesh is
 
-data Light
-
--- | An object is a set of geometries associated with some uniforms.
+-- | An object is a set of geometries associated with some uniforms. For
+-- example, if you want to draw a rotating cube, its vertices, normals, etc.
+-- would be the 'Geometry', the combination of the geometry and the value of the
+-- model matrix would be the 'Object', and the combination of the object with
+-- a 'Program' would be the 'Layer'. In fact, 'Object's are just descriptions
+-- of the actions to perform to draw something. Instead, the Element types in
+-- "FWGL.Graphics.D2" and "FWGL.Graphics.D3" represent managed (high level) objects,
+-- and they are ultimately converted to them.
 data Object (gs :: [*]) (is :: [*]) where
         ObjectEmpty :: Object gs is
         ObjectMesh :: Mesh is -> Object gs is
@@ -69,16 +75,8 @@ data Object (gs :: [*]) (is :: [*]) where
                      -> Object gs is -> Object gs' is 
         ObjectAppend :: Object gs is -> Object gs' is' -> Object gs'' is''
 
-{-
--- | An 'Element' is anything that can be converted to an 'Object'.
-class Element o gs is | o -> gs is where
-        object :: o -> Object gs is
-
-instance Element (Object gs is) gs is where
-        object = id
--}
-
--- | An object associated with a program.
+-- | An object associated with a program. It can also be a layer included in
+-- another.
 data Layer = forall oi pi og pg. (Subset oi pi, Subset og pg)
                               => Layer (Program pg pi) (Object og oi)
            | SubLayer Int Int Layer (Texture -> [Layer])

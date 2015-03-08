@@ -16,8 +16,10 @@ module FWGL.Shader.Language (
         fromRational,
         fromInteger,
         negate,
+        Mul,
         (*),
         (/),
+        Sum,
         (+),
         (-),
         (^),
@@ -43,15 +45,32 @@ data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
           | Apply String [Expr] | X Expr | Y Expr | Z Expr | W Expr
           | Literal String deriving (Prelude.Eq)
 
+-- | A GPU boolean.
 newtype Bool = Bool Expr deriving Typeable
+
+-- | A GPU float.
 newtype Float = Float Expr deriving Typeable
+
+-- | A GPU sampler (sampler2D in GLSL).
 newtype Sampler2D = Sampler2D Expr deriving Typeable
--- | NB: These are different types from 'FWGL.Vector.V2', 'FWGL.Vector.V3', etc.
+
+-- | A GPU 2D vector.
+-- NB: This is a different type from FWGL.Vector.'FWGL.Vector.V2'.
 data V2 = V2 Float Float deriving (Typeable)
+
+-- | A GPU 3D vector.
 data V3 = V3 Float Float Float deriving (Typeable)
+
+-- | A GPU 4D vector.
 data V4 = V4 Float Float Float Float deriving (Typeable)
+
+-- | A GPU 2x2 matrix.
 data M2 = M2 V2 V2 deriving (Typeable)
+
+-- | A GPU 3x3 matrix.
 data M3 = M3 V3 V3 V3 deriving (Typeable)
+
+-- | A GPU 4x4 matrix.
 data M4 = M4 V4 V4 V4 V4 deriving (Typeable)
 
 infix 4 =!
@@ -62,6 +81,7 @@ infixr 3 &&!
 (&&!) :: Prelude.Bool -> Prelude.Bool -> Prelude.Bool
 (&&!) = (Prelude.&&)
 
+-- | A type in the GPU.
 class ShaderType t where
         toExpr :: t -> Expr
 
@@ -238,6 +258,7 @@ instance Matrix M2
 instance Matrix M3
 instance Matrix M4
 
+-- | Types that can be multiplied.
 class Mul a b c | a b -> c
 instance Mul Float Float Float
 instance Mul V2 V2 V2
@@ -273,6 +294,7 @@ infixl 7 /
 (/) :: (Mul a b c, ShaderType a, ShaderType b, ShaderType c) => a -> b -> c
 x / y = fromExpr $ Op2 "/" (toExpr x) (toExpr y)
 
+-- | Types that can be added.
 class Sum a
 instance Sum Float
 instance Sum V2

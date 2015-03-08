@@ -2,29 +2,36 @@
              TypeFamilies, FlexibleContexts #-}
 
 module FWGL.Graphics.Custom (
-        module FWGL.Vector,
-        Layer,
         Object,
-        AttrList(..),
-        Geometry,
-        Texture,
-        Color(..),
         (~~),
-        program,
+        unsafeJoin,
         nothing,
         static,
+
+        Program,
+        program,
         global,
         globalDraw,
         globalTexture,
         globalTexSize,
+
+        Layer,
         layer,
         subLayer,
-        unsafeJoin,
+
+        Geometry,
+        AttrList(..),
         mkGeometry,
+
+        Texture,
         mkTexture,
         textureURL,
         textureFile,
-        colorTex
+
+        Color(..),
+        colorTex,
+
+        module FWGL.Vector
 ) where
 
 import Control.Applicative
@@ -50,7 +57,7 @@ nothing = ObjectEmpty
 static :: Geometry i -> Object '[] i
 static = ObjectMesh . StaticGeom
 
--- | Sets a global (uniform) of an object.
+-- | Sets a global variable (uniform) of an object.
 global :: (Typeable g, UniformCPU c g) => g -> c
        -> Object gs is -> Object (g ': gs) is
 global g c = globalDraw g $ return c

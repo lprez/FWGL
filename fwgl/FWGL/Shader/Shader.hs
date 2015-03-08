@@ -24,14 +24,18 @@ import Prelude (String, error, Bool(False), undefined)
 
 infixr 4 :-
 
+-- | An heterogeneous set of 'ShaderType's and 'Typeable's.
 data STList :: [*] -> * where
         N :: STList '[]
         (:-) :: (ShaderType a, Typeable a, IsMember a xs ~ False)
              => a -> STList xs -> STList (a ': xs)
 
+-- | The condition for a valid 'Shader'.
 type Valid gs is os = ( StaticList gs, StaticList is, StaticList os
                       , StaticSTList gs, StaticSTList is, StaticSTList os)
 
+-- | A function from a (heterogeneous) set of uniforms and a set of inputs
+-- (attributes or varyings) to a set of outputs (varyings).
 type Shader gs is os = STList gs -> STList is -> STList os
 
 stFold :: (forall x. (Typeable x, ShaderType x) => acc -> x -> acc)

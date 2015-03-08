@@ -10,9 +10,11 @@ import FWGL.Internal.GL as CPU
 import qualified FWGL.Vector as CPU
 import Prelude as CPU
 
+-- | CPU types convertible to GPU types (as uniforms).
 class Typeable g => UniformCPU c g | g -> c where
         setUniform :: UniformLocation -> g -> c -> GL ()
 
+-- | CPU types convertible to GPU types (as attributes).
 class Typeable g => AttributeCPU c g | g -> c where
         encodeAttribute :: g -> [c] -> GL Array
         setAttribute :: g -> GLUInt -> GL ()
