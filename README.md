@@ -4,13 +4,13 @@ FWGL
 Examples
 --------
 
-[Demo](http://ziocrocifisso.github.io/FWGL/demo)
+[Demo](http://ziocroc.github.io/FWGL/demo)
 
-[Recursive signals](http://ziocrocifisso.github.io/FWGL/recur)
+[Recursive signals](http://ziocroc.github.io/FWGL/recur)
 
-[Avoid the obstacles](http://ziocrocifisso.github.io/FWGL/avoid)
+[Avoid the obstacles](http://ziocroc.github.io/FWGL/avoid)
 
-[Distortion](http://ziocrocifisso.github.io/FWGL/distortion)
+[Distortion](http://ziocroc.github.io/FWGL/distortion)
 
 Installation
 ------------
