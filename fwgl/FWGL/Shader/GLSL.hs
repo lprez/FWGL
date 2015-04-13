@@ -100,10 +100,10 @@ compileExpr (Apply s es) = do vs <- mapM compileExpr es
                               return . concat $ 
                                 [ s, "(" , tail (vs >>= (',' :)), ")" ]
 
-compileExpr (X e) = compileExpr e >>= \x -> return $ x ++ ".x"
-compileExpr (Y e) = compileExpr e >>= \x -> return $ x ++ ".y"
-compileExpr (Z e) = compileExpr e >>= \x -> return $ x ++ ".z"
-compileExpr (W e) = compileExpr e >>= \x -> return $ x ++ ".w"
+compileExpr (X e) = compileExpr e >>= \x -> return $ x ++ "[0]"
+compileExpr (Y e) = compileExpr e >>= \x -> return $ x ++ "[1]"
+compileExpr (Z e) = compileExpr e >>= \x -> return $ x ++ "[2]"
+compileExpr (W e) = compileExpr e >>= \x -> return $ x ++ "[3]"
 compileExpr (Literal s) = return s
 compileExpr (Action i a) = do modify $ H.insert i a
                               return $ "a" ++ show i
@@ -125,13 +125,15 @@ compileAction (Bind ax f) = do (xr, xs) <- compileAction ax
                                (yr, ys) <- compileAction $ f xr
                                return (yr, xs ++ ys)
 
-compileAction (Var x) = do initValue <- expr $ toExpr x
-                           name <- varName
-                           return ( (fromExpr $ Read name, Set name)
-                                  , concat [ typeName x
-                                           , " ", name
-                                           , "=", initValue, ";" ]
-                                  )
+compileAction (Var mName x) = do initValue <- expr $ toExpr x
+                                 name <- case mName of
+                                                Just n -> return n
+                                                Nothing -> genName
+                                 return ( (fromExpr $ Read name, Set name)
+                                        , concat [ typeName x
+                                                 , " ", name
+                                                 , "=", initValue, ";" ]
+                                        )
 
 compileAction (If condValue actionTrue actionFalse) =
         do (_, true) <- compileAction actionTrue
@@ -147,8 +149,11 @@ compileAction (For actionInit condValue actionNext actionBody) =
            return ((), concat [ "for(", init, ";", cond, ";", next, "){" 
                               , body, "}" ])
 
-varName :: ActionCompiler String
-varName = get >>= \(a, d, i) -> put (a, d, i + 1) >> return ("a" ++ show i)
+compileAction (Set name value) = do str <- expr $ toExpr value
+                                    return ((), concat [ name, "=", str, ";" ])
+
+genName :: ActionCompiler String
+genName = get >>= \(a, d, i) -> put (a, d, i + 1) >> return ("v" ++ show i)
 
 expr :: Expr -> ActionCompiler String
 expr e = let (compiledExpr, exprActionMap) = runState (compileExpr e) H.empty

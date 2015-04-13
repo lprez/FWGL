@@ -39,13 +39,14 @@ module FWGL.Shader.Language (
         sign,
         texture2D,
         sqrt,
+        -- TODO: memoized versions of the functions
 ) where
 
 import Control.Applicative
 import Control.Monad
 import Data.IORef
 import Data.Typeable
-import Prelude (String, (.), ($), error)
+import Prelude (String, (.), ($), error, Maybe(..))
 import qualified Prelude
 import Text.Printf
 import System.IO.Unsafe
@@ -57,7 +58,7 @@ data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
 data AM a where
         Pure :: a -> AM a
         Bind :: AM a -> (a -> AM b) -> AM b
-        Var :: ShaderType a => a -> AM (a, a -> AM ())
+        Var :: ShaderType a => Maybe String -> a -> AM (a, a -> AM ())
         Set :: ShaderType a => String -> a -> AM ()
         If :: Bool -> AM () -> AM () -> AM ()
         For :: AM () -> Bool -> AM () -> AM () -> AM ()
@@ -432,7 +433,7 @@ sign (Float e) = Float $ Apply "sign" [e]
 -- | Avoid executing this expression more than one time. Conditionals and loops
 -- imply it.
 store :: ShaderType a => a -> a
-store x = action $ Prelude.fst <$> Var x
+store x = action ($ x)
 
 true :: Bool
 true = Bool $ Literal "true"
@@ -441,7 +442,7 @@ false :: Bool
 false = Bool $ Literal "false"
 
 ifThenElse :: ShaderType a => Bool -> a -> a -> a
-ifThenElse b t f = action . withVar zero $ \set -> If b (set t) (set f)
+ifThenElse b t f = action $ \set -> If b (set t) (set f)
 
 sqrt :: Float -> Float
 sqrt (Float e) = Float $ Apply "sqrt" [e]
@@ -452,12 +453,12 @@ texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]
 ctr :: IORef Prelude.Int
 ctr = unsafePerformIO $ newIORef 0
 
-action :: ShaderType a => AM a -> a
-action a = unsafePerformIO $ do i <- readIORef ctr
-                                writeIORef ctr $ i Prelude.+ 1
-                                return . fromExpr $ Action i (toExpr <$> a)
-
-withVar :: ShaderType a => a -> ((a -> AM ()) -> AM ()) -> AM a
-withVar init act = do (x, set) <- Var init
+action :: ShaderType a => ((a -> AM ()) -> AM ()) -> a
+action act = unsafePerformIO $
+        do i <- readIORef ctr
+           writeIORef ctr $ i Prelude.+ 1
+           return . fromExpr $ Action i (
+                   do (var, set) <- Var (Just $ "a" Prelude.++ Prelude.show i) zero
                       act set
-                      return x
+                      return $ toExpr var
+                )
