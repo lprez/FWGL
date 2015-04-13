@@ -5,14 +5,15 @@ module FWGL.Shader.Language (
         ShaderType(..),
         Expr(..),
         Float(..),
+        Unknown(..),
         Sampler2D(..),
+        AM(..),
         V2(..),
         V3(..),
         V4(..),
         M2(..),
         M3(..),
         M4(..),
-        -- (==), (>=, >, ..), ifThenElse
         fromRational,
         fromInteger,
         negate,
@@ -30,20 +31,50 @@ module FWGL.Shader.Language (
         (<=),
         (<),
         (>),
+        ifThenElse,
+        true,
+        false,
+        store,
         abs,
         sign,
         texture2D,
         sqrt,
 ) where
 
+import Control.Applicative
+import Control.Monad
+import Data.IORef
 import Data.Typeable
-import Prelude (String, (.), ($))
+import Prelude (String, (.), ($), error)
 import qualified Prelude
 import Text.Printf
+import System.IO.Unsafe
 
 data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
           | Apply String [Expr] | X Expr | Y Expr | Z Expr | W Expr
-          | Literal String deriving (Prelude.Eq)
+          | Literal String | Action Prelude.Int (AM Expr) deriving (Prelude.Eq)
+
+data AM a where
+        Pure :: a -> AM a
+        Bind :: AM a -> (a -> AM b) -> AM b
+        Var :: ShaderType a => a -> AM (a, a -> AM ())
+        Set :: ShaderType a => String -> a -> AM ()
+        If :: Bool -> AM () -> AM () -> AM ()
+        For :: AM () -> Bool -> AM () -> AM () -> AM ()
+
+instance Prelude.Eq (AM a) where
+        _ == _ = Prelude.False
+
+instance Functor AM where
+        fmap = liftM
+
+instance Applicative AM where
+        pure = Pure
+        (<*>) = ap
+
+instance Monad AM where
+        return = Pure
+        (>>=) = Bind
 
 -- | A GPU boolean.
 newtype Bool = Bool Expr deriving Typeable
@@ -53,6 +84,8 @@ newtype Float = Float Expr deriving Typeable
 
 -- | A GPU sampler (sampler2D in GLSL).
 newtype Sampler2D = Sampler2D Expr deriving Typeable
+
+newtype Unknown = Unknown Expr
 
 -- | A GPU 2D vector.
 -- NB: This is a different type from FWGL.Vector.'FWGL.Vector.V2'.
@@ -83,6 +116,8 @@ infixr 3 &&!
 
 -- | A type in the GPU.
 class ShaderType t where
+        zero :: t
+
         toExpr :: t -> Expr
 
         fromExpr :: Expr -> t
@@ -91,7 +126,16 @@ class ShaderType t where
 
         size :: t -> Prelude.Int
 
+instance ShaderType Unknown where
+        zero = error "zero: Unknown type."
+        toExpr (Unknown e) = e
+        fromExpr = Unknown
+        typeName = error "typeName: Unknown type."
+        size = error "size: Unknown type."
+
 instance ShaderType Bool where
+        zero = Bool $ Literal "false"
+
         toExpr (Bool e) = e
 
         fromExpr = Bool
@@ -101,6 +145,8 @@ instance ShaderType Bool where
         size _ = 1
 
 instance ShaderType Float where
+        zero = Float $ Literal "0.0"
+
         toExpr (Float e) = e
 
         fromExpr = Float
@@ -110,6 +156,8 @@ instance ShaderType Float where
         size _ = 1
 
 instance ShaderType Sampler2D where
+        zero = Sampler2D $ Literal "0"
+
         toExpr (Sampler2D e) = e
 
         fromExpr = Sampler2D
@@ -119,6 +167,9 @@ instance ShaderType Sampler2D where
         size _ = 1
 
 instance ShaderType V2 where
+        zero = V2 zero zero
+
+        -- BUG: V3, V4...
         toExpr (V2 (Float (X v)) (Float (Y v'))) | v =! v' = v
         toExpr (V2 (Float x) (Float y)) = Apply "vec2" [x, y]
 
@@ -129,6 +180,8 @@ instance ShaderType V2 where
         size _ = 1
 
 instance ShaderType V3 where
+        zero = V3 zero zero zero
+
         toExpr (V3 (Float (X v)) (Float (Y v')) (Float (Z v'')))
                | v =! v' &&! v' =! v'' = v
         toExpr (V3 (Float x) (Float y) (Float z)) = Apply "vec3" [x, y, z]
@@ -140,6 +193,8 @@ instance ShaderType V3 where
         size _ = 1
 
 instance ShaderType V4 where
+        zero = V4 zero zero zero zero
+
         toExpr (V4 (Float (X v)) (Float (Y v1)) (Float (Z v2)) (Float (W v3)))
                | v =! v1 &&! v1 =! v2 &&! v2 =! v3 = v
         toExpr (V4 (Float x) (Float y) (Float z) (Float w)) =
@@ -152,6 +207,8 @@ instance ShaderType V4 where
         size _ = 1
 
 instance ShaderType M2 where
+        zero = M2 zero zero
+
         toExpr (M2 (V2 (Float (X (X m))) (Float (X (Y m1))))
                    (V2 (Float (Y (X m2))) (Float (Y (Y m3)))))
                | m =! m1 &&! m1 =! m2 &&! m2 =! m3 = m
@@ -167,6 +224,8 @@ instance ShaderType M2 where
         size _ = 2
 
 instance ShaderType M3 where
+        zero = M3 zero zero zero
+
         toExpr (M3 (V3 (Float (X (X m)))
                        (Float (X (Y m1)))
                        (Float (X (Z m2))))
@@ -198,6 +257,8 @@ instance ShaderType M3 where
         size _ = 3
 
 instance ShaderType M4 where
+        zero = M4 zero zero zero zero
+
         toExpr (M4 (V4 (Float (X (X m)))
                        (Float (X (Y m1)))
                        (Float (X (Z m2)))
@@ -368,8 +429,35 @@ sign (Float e) = Float $ Apply "sign" [e]
 
 -- TODO: add functions, ifThenElse, etc.
 
+-- | Avoid executing this expression more than one time. Conditionals and loops
+-- imply it.
+store :: ShaderType a => a -> a
+store x = action $ Prelude.fst <$> Var x
+
+true :: Bool
+true = Bool $ Literal "true"
+
+false :: Bool
+false = Bool $ Literal "false"
+
+ifThenElse :: ShaderType a => Bool -> a -> a -> a
+ifThenElse b t f = action . withVar zero $ \set -> If b (set t) (set f)
+
 sqrt :: Float -> Float
 sqrt (Float e) = Float $ Apply "sqrt" [e]
 
 texture2D :: Sampler2D -> V2 -> V4
 texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]
+
+ctr :: IORef Prelude.Int
+ctr = unsafePerformIO $ newIORef 0
+
+action :: ShaderType a => AM a -> a
+action a = unsafePerformIO $ do i <- readIORef ctr
+                                writeIORef ctr $ i Prelude.+ 1
+                                return . fromExpr $ Action i (toExpr <$> a)
+
+withVar :: ShaderType a => a -> ((a -> AM ()) -> AM ()) -> AM a
+withVar init act = do (x, set) <- Var init
+                      act set
+                      return x

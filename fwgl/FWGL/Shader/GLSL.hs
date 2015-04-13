@@ -6,14 +6,16 @@ module FWGL.Shader.GLSL (
         vertexToGLSL,
         fragmentToGLSL,
         shaderToGLSL,
-        exprToGLSL,
         globalName,
         attributeName
 ) where
 
+import Control.Monad
+import Control.Monad.Trans.State
+import qualified Data.HashMap.Strict as H
 import Data.Typeable
 import FWGL.Shader.Shader
-import FWGL.Shader.Language (Expr(..), ShaderType(..))
+import FWGL.Shader.Language (Expr(..), ShaderType(..), AM(..), Unknown)
 import FWGL.Shader.Stages (VertexShader, FragmentShader, ValidVertex)
 
 type ShaderVars = ( [(String, String)]
@@ -38,17 +40,19 @@ fragmentToGLSL v = shaderToGLSL "#version 100\nprecision mediump float;"
                                 [("hvFragmentShaderOutput", "gl_FragColor")]
 
 shaderToGLSL :: String -> String -> String -> ShaderVars -> [(String, String)] -> String
-shaderToGLSL header ins outs (gs, is, os) predec =
-        header ++
-        concatMap (var "uniform") gs ++
-        concatMap (\(t, n, _) -> var ins (t, n)) is ++
-        concatMap (\(t, n, _) -> if any ((== n) . fst) predec
-                                        then []
-                                        else var outs (t, n)
-                  ) os ++
-        "void main(){" ++
-        concatMap (\(_, n, e) -> replace n predec ++ "=" ++
-                                 exprToGLSL e ++ ";") os ++ "}"
+shaderToGLSL header ins outs (gs, is, os) predec = concat
+        [ header
+        , concatMap (var "uniform") gs
+        , concatMap (\(t, n, _) -> var ins (t, n)) is
+        , concatMap (\(t, n, _) -> if any ((== n) . fst) predec
+                                          then []
+                                          else var outs (t, n)
+                    ) os
+        , "void main(){"
+        , runAction $ mapM_ (\(_, n, e) -> Set (replace n predec)
+                                               (fromExpr e :: Unknown)
+                            ) os
+        , "}" ]
         where var qual (ty, nm) = qual ++ " " ++ ty ++ " " ++ nm ++ ";"
               replace x xs = case filter ((== x) . fst) xs of
                                         ((_, y) : []) -> y
@@ -79,17 +83,86 @@ vars isFragment (shader :: Shader gs is os) =
               outputVar x = let (ty, nm) = varyingTypeAndName x
                             in (ty, nm, toExpr x)
 
-exprToGLSL :: Expr -> String
-exprToGLSL Empty = ""
-exprToGLSL (Read s) = s
-exprToGLSL (Op1 s e) = "(" ++ s ++ exprToGLSL e ++ ")"
-exprToGLSL (Op2 s x y) = "(" ++ exprToGLSL x ++ s ++ exprToGLSL y ++ ")"
-exprToGLSL (Apply s es) = s ++ "(" ++ tail (es >>= (',' :) . exprToGLSL) ++ ")"
-exprToGLSL (X x) = exprToGLSL x ++ ".x"
-exprToGLSL (Y x) = exprToGLSL x ++ ".y"
-exprToGLSL (Z x) = exprToGLSL x ++ ".z"
-exprToGLSL (W x) = exprToGLSL x ++ ".w"
-exprToGLSL (Literal s) = s
+type ActionMap = H.HashMap Int (AM Expr)
+type ActionStringMap = H.HashMap Int String
+
+compileExpr :: Expr -> State ActionMap String
+compileExpr Empty = return ""
+compileExpr (Read s) = return s
+
+compileExpr (Op1 s e) = compileExpr e >>= \x -> return $ "(" ++ s ++ x ++ ")"
+
+compileExpr (Op2 s ex ey) = do x <- compileExpr ex
+                               y <- compileExpr ey
+                               return $ "(" ++ x ++ s ++ y ++ ")"
+
+compileExpr (Apply s es) = do vs <- mapM compileExpr es
+                              return . concat $ 
+                                [ s, "(" , tail (vs >>= (',' :)), ")" ]
+
+compileExpr (X e) = compileExpr e >>= \x -> return $ x ++ ".x"
+compileExpr (Y e) = compileExpr e >>= \x -> return $ x ++ ".y"
+compileExpr (Z e) = compileExpr e >>= \x -> return $ x ++ ".z"
+compileExpr (W e) = compileExpr e >>= \x -> return $ x ++ ".w"
+compileExpr (Literal s) = return s
+compileExpr (Action i a) = do modify $ H.insert i a
+                              return $ "a" ++ show i
+
+type ActionCompiler = State (ActionStringMap, [Int], Int)
+
+runAction :: AM a -> String
+runAction = runActionCompiler . fmap snd . compileAction
+
+runActionCompiler :: ActionCompiler String -> String
+runActionCompiler c =
+        let (mainAct, (preActs, order, _)) = runState c (H.empty, [], 0)
+        in concatMap (\idx -> preActs H.! idx) (reverse order) ++ mainAct
+
+compileAction :: AM a -> ActionCompiler (a, String)
+compileAction (Pure x) = return (x, "")
+
+compileAction (Bind ax f) = do (xr, xs) <- compileAction ax
+                               (yr, ys) <- compileAction $ f xr
+                               return (yr, xs ++ ys)
+
+compileAction (Var x) = do initValue <- expr $ toExpr x
+                           name <- varName
+                           return ( (fromExpr $ Read name, Set name)
+                                  , concat [ typeName x
+                                           , " ", name
+                                           , "=", initValue, ";" ]
+                                  )
+
+compileAction (If condValue actionTrue actionFalse) =
+        do (_, true) <- compileAction actionTrue
+           (_, false) <- compileAction actionFalse
+           cond <- expr $ toExpr condValue
+           return ((), concat [ "if(", cond, "){", true, "}else{", false, "}" ])
+
+compileAction (For actionInit condValue actionNext actionBody) =
+        do (_, init) <- compileAction actionInit
+           (_, next) <- compileAction actionNext
+           (_, body) <- compileAction actionBody
+           cond <- expr $ toExpr condValue
+           return ((), concat [ "for(", init, ";", cond, ";", next, "){" 
+                              , body, "}" ])
+
+varName :: ActionCompiler String
+varName = get >>= \(a, d, i) -> put (a, d, i + 1) >> return ("a" ++ show i)
+
+expr :: Expr -> ActionCompiler String
+expr e = let (compiledExpr, exprActionMap) = runState (compileExpr e) H.empty
+         in do H.traverseWithKey
+                (\depIndex depAction ->
+                        do (curStringMap, curIndices, _) <- get
+                           when (not $ H.member depIndex curStringMap) $
+                                do (_, actionString) <- compileAction depAction
+                                   modify $ \(newStringMap, newIndices, i) ->
+                                        ( H.insert depIndex actionString
+                                                   newStringMap
+                                        , depIndex : newIndices, i )
+                ) exprActionMap
+               return compiledExpr
 
 globalTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
 globalTypeAndName t = (typeName t, globalName t)
