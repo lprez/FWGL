@@ -87,6 +87,7 @@ module FWGL.Shader (
         (<),
         (>),
         ifThenElse,
+        loop,
         true,
         false,
         store,
@@ -99,7 +100,9 @@ module FWGL.Shader (
         id,
         const,
         flip,
-        ($)
+        ($),
+        CPU.fst,
+        CPU.snd
 ) where
 
 import Data.Typeable (Typeable)

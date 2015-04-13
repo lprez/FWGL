@@ -15,7 +15,8 @@ import Control.Monad.Trans.State
 import qualified Data.HashMap.Strict as H
 import Data.Typeable
 import FWGL.Shader.Shader
-import FWGL.Shader.Language (Expr(..), ShaderType(..), AM(..), Unknown)
+import FWGL.Shader.Language (Expr(..), ShaderType(..), AM(..),
+                             Unknown)
 import FWGL.Shader.Stages (VertexShader, FragmentShader, ValidVertex)
 
 type ShaderVars = ( [(String, String)]
@@ -108,16 +109,31 @@ compileExpr (Literal s) = return s
 compileExpr (Action i a) = do modify $ H.insert i a
                               return $ "a" ++ show i
 
-type ActionCompiler = State (ActionStringMap, [Int], Int)
+data ActionCompilerState =
+        ActionCompilerState {
+                parentDeps :: ActionStringMap,
+                currentDeps :: ActionStringMap,
+                depOrder :: [Int],
+                varIndex :: Int
+        }
+
+type ActionCompiler = State ActionCompilerState
 
 runAction :: AM a -> String
-runAction = runActionCompiler . fmap snd . compileAction
+runAction = snd . runActionCompiler . compileAction
 
-runActionCompiler :: ActionCompiler String -> String
+runActionCompiler :: ActionCompiler (a, String) -> (a, String)
 runActionCompiler c =
-        let (mainAct, (preActs, order, _)) = runState c (H.empty, [], 0)
-        in concatMap (\idx -> preActs H.! idx) (reverse order) ++ mainAct
+        let ((r, mainAct), state) =
+                runState c ActionCompilerState {
+                        parentDeps = H.empty,
+                        currentDeps = H.empty,
+                        depOrder = [],
+                        varIndex = 0 }
+        in (r, concatMap (\idx -> currentDeps state H.! idx)
+                         (reverse $ depOrder state) ++ mainAct)
 
+-- TODO: rewrite (extremely complex)
 compileAction :: AM a -> ActionCompiler (a, String)
 compileAction (Pure x) = return (x, "")
 
@@ -135,38 +151,59 @@ compileAction (Var mName x) = do initValue <- expr $ toExpr x
                                                  , "=", initValue, ";" ]
                                         )
 
-compileAction (If condValue actionTrue actionFalse) =
-        do (_, true) <- compileAction actionTrue
-           (_, false) <- compileAction actionFalse
-           cond <- expr $ toExpr condValue
-           return ((), concat [ "if(", cond, "){", true, "}else{", false, "}" ])
-
-compileAction (For actionInit condValue actionNext actionBody) =
-        do (_, init) <- compileAction actionInit
-           (_, next) <- compileAction actionNext
-           (_, body) <- compileAction actionBody
-           cond <- expr $ toExpr condValue
-           return ((), concat [ "for(", init, ";", cond, ";", next, "){" 
-                              , body, "}" ])
-
 compileAction (Set name value) = do str <- expr $ toExpr value
                                     return ((), concat [ name, "=", str, ";" ])
 
+compileAction (If condValue actionTrue actionFalse) =
+        do (_, true) <- compileSubAction actionTrue
+           (_, false) <- compileSubAction actionFalse
+           cond <- expr $ toExpr condValue
+           return ((), concat [ "if(", cond, "){", true, "}else{", false, "}" ])
+
+compileAction (For repeats action) =
+        do i <- genName
+           (_, body) <- compileSubAction . action . fromExpr $ Read i
+           return ((), concat [ "for(float ", i, "=0.0;", i, "<", show repeats
+                              , ".0", ";++", i, "){", body, "}" ])
+
+compileAction Break = return ((), "break;")
+
+compileSubAction :: AM a -> ActionCompiler (a, String)
+compileSubAction act =
+        do parentState <- get
+
+           let ((i, r), actionString) = runActionCompiler $
+                 do modify $ \s -> s {
+                         parentDeps = currentDeps parentState,
+                         varIndex = varIndex parentState }
+                    (r, str) <- compileAction act
+                    i <- fmap varIndex get
+                    return ((i, r), str)
+
+           put parentState { varIndex = i }
+           return (r, actionString)
+
+addDependency :: Int -> AM a -> ActionCompiler ()
+addDependency idx act =
+        do (_, actionString) <- compileSubAction act
+           state <- get
+           let deps = currentDeps state
+
+           when (not $ H.member idx (parentDeps state) ||
+                       H.member idx deps) $
+                put state
+                        { currentDeps = H.insert idx actionString deps
+                        , depOrder = idx : depOrder state }
+
 genName :: ActionCompiler String
-genName = get >>= \(a, d, i) -> put (a, d, i + 1) >> return ("v" ++ show i)
+genName = get >>= \s -> let i = varIndex s
+                        in put s { varIndex = i + 1 } >> return ("v" ++ show i)
 
 expr :: Expr -> ActionCompiler String
 expr e = let (compiledExpr, exprActionMap) = runState (compileExpr e) H.empty
          in do H.traverseWithKey
-                (\depIndex depAction ->
-                        do (curStringMap, curIndices, _) <- get
-                           when (not $ H.member depIndex curStringMap) $
-                                do (_, actionString) <- compileAction depAction
-                                   modify $ \(newStringMap, newIndices, i) ->
-                                        ( H.insert depIndex actionString
-                                                   newStringMap
-                                        , depIndex : newIndices, i )
-                ) exprActionMap
+                (\depIndex depAction -> addDependency depIndex depAction)
+                exprActionMap
                return compiledExpr
 
 globalTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)

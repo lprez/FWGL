@@ -32,6 +32,7 @@ module FWGL.Shader.Language (
         (<),
         (>),
         ifThenElse,
+        loop,
         true,
         false,
         store,
@@ -46,7 +47,7 @@ import Control.Applicative
 import Control.Monad
 import Data.IORef
 import Data.Typeable
-import Prelude (String, (.), ($), error, Maybe(..))
+import Prelude (String, (.), ($), error, Maybe(..), const, fst, snd)
 import qualified Prelude
 import Text.Printf
 import System.IO.Unsafe
@@ -61,7 +62,8 @@ data AM a where
         Var :: ShaderType a => Maybe String -> a -> AM (a, a -> AM ())
         Set :: ShaderType a => String -> a -> AM ()
         If :: Bool -> AM () -> AM () -> AM ()
-        For :: AM () -> Bool -> AM () -> AM () -> AM ()
+        For :: Prelude.Int -> (Float -> AM ()) -> AM ()
+        Break :: AM ()
 
 instance Prelude.Eq (AM a) where
         _ == _ = Prelude.False
@@ -433,7 +435,7 @@ sign (Float e) = Float $ Apply "sign" [e]
 -- | Avoid executing this expression more than one time. Conditionals and loops
 -- imply it.
 store :: ShaderType a => a -> a
-store x = action ($ x)
+store x = action x $ \_ _ -> return ()
 
 true :: Bool
 true = Bool $ Literal "true"
@@ -442,7 +444,19 @@ false :: Bool
 false = Bool $ Literal "false"
 
 ifThenElse :: ShaderType a => Bool -> a -> a -> a
-ifThenElse b t f = action $ \set -> If b (set t) (set f)
+ifThenElse b t f = action zero $ \_ set -> If b (set t) (set f)
+
+loop :: ShaderType a 
+     => Float -- ^ Maximum number of iterations (should be as low as possible, must be an integer literal)
+     -> a -- ^ Initial value
+     -> (Float -> a -> (a, Bool)) -- ^ Iteration -> Old value -> (Next, Stop)
+     -> a
+loop (Float (Literal maxIters)) initValue f = action zero $ \v setV ->
+        do setV initValue
+           For (Prelude.floor (Prelude.read maxIters :: Prelude.Float))
+               (\i -> let (next, stop) = f i v
+                      in do setV next
+                            If stop Break $ Pure ())
 
 sqrt :: Float -> Float
 sqrt (Float e) = Float $ Apply "sqrt" [e]
@@ -453,12 +467,13 @@ texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]
 ctr :: IORef Prelude.Int
 ctr = unsafePerformIO $ newIORef 0
 
-action :: ShaderType a => ((a -> AM ()) -> AM ()) -> a
-action act = unsafePerformIO $
+action :: ShaderType a => a -> (a -> (a -> AM ()) -> AM ()) -> a
+action initValue act = unsafePerformIO $
         do i <- readIORef ctr
            writeIORef ctr $ i Prelude.+ 1
            return . fromExpr $ Action i (
-                   do (var, set) <- Var (Just $ "a" Prelude.++ Prelude.show i) zero
-                      act set
+                   do (var, set) <- Var (Just $ "a" Prelude.++ Prelude.show i)
+                                        initValue
+                      act var set
                       return $ toExpr var
                 )
