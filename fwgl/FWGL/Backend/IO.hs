@@ -12,5 +12,6 @@ class GLES => BackendIO where
 
         setup :: (Int -> Int -> Ctx -> IO state)
               -> (out -> Ctx -> state -> IO state)
-              -> SF Input out
+              -> IO inp
+              -> SF (Input inp) out
               -> IO ()

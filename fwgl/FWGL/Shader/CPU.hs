@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies, MultiParamTypeClasses, FunctionalDependencies #-}
 
 -- FWGL.Shader.Variables? (+ loadUniform, loadAttribute, inputName, etc.)
-module FWGL.Shader.CPU where
+module FWGL.Shader.CPU (UniformCPU(..), AttributeCPU(..)) where
 
 import Data.Word (Word)
 import Data.Typeable

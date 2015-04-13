@@ -37,7 +37,7 @@ module FWGL.Graphics.D3 (
         Program,
         layer,
         layerPrg,
-        program,
+        program, -- TODO: wrong!
         -- ** Sublayers
         C.subLayer,
         -- * Custom 3D objects

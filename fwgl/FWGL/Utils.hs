@@ -11,7 +11,7 @@ import FWGL.Vector
 
 -- | Generate a view matrix that transforms the pixel coordinates in OpenGL
 -- coordinates.
-screenScale :: SF Input M3
+screenScale :: SF (Input a) M3
 screenScale = size >>^ \(x, y) -> scaleMat3 (V2 (1 / fromIntegral x)
                                                 (1 / fromIntegral y))
 
@@ -20,7 +20,7 @@ screenScale = size >>^ \(x, y) -> scaleMat3 (V2 (1 / fromIntegral x)
 perspective4 :: Float   -- ^ Far
              -> Float   -- ^ Near
              -> Float   -- ^ FOV
-             -> SF Input M4
+             -> SF (Input a) M4
 perspective4 f n fov =
         size >>^ \(w, h) -> perspectiveMat4 f n fov
                                             (fromIntegral w / fromIntegral h)
@@ -29,7 +29,7 @@ perspective4 f n fov =
 perspectiveView :: Float    -- ^ Far
                 -> Float    -- ^ Near
                 -> Float    -- ^ FOV
-                -> SF (Input, M4) M4
+                -> SF (Input a, M4) M4
 perspectiveView far near fov  =
         perspective4 far near fov *** identity
         >>^ \(perspMat, viewMat) -> mul4 viewMat perspMat

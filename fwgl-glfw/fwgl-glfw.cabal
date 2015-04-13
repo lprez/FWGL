@@ -2,7 +2,7 @@ name:                fwgl-glfw
 version:             0.1.0.3
 synopsis:            FWGL GLFW backend
 description:         FWGL GLFW backend.
-homepage:            https://github.com/ZioCrocifisso/FWGL
+homepage:            https://github.com/ziocroc/FWGL
 stability:           experimental
 license:             BSD3
 license-file:        LICENSE
