@@ -36,10 +36,43 @@ module FWGL.Shader.Language (
         true,
         false,
         store,
-        abs,
-        sign,
         texture2D,
-        sqrt,
+	radians,
+	degrees,
+	sin,
+	cos,
+	tan,
+	asin,
+	acos,
+	atan,
+	atan2,
+	exp,
+	log,
+	exp2,
+	log2,
+	sqrt,
+	inversesqrt,
+	abs,
+	sign,
+	floor,
+	ceil,
+	fract,
+	mod,
+	min,
+	max,
+	clamp,
+	mix,
+	step,
+	smoothstep,
+	length,
+	distance,
+	dot,
+	cross,
+	normalize,
+	faceforward,
+	reflect,
+	refract,
+	matrixCompMult
         -- TODO: memoized versions of the functions
 ) where
 
@@ -312,12 +345,12 @@ instance ShaderType M4 where
 
         size _ = 4
 
-class Vector a
+class ShaderType a => Vector a
 instance Vector V2
 instance Vector V3
 instance Vector V4
 
-class Matrix a
+class ShaderType a => Matrix a
 instance Matrix M2
 instance Matrix M3
 instance Matrix M4
@@ -349,6 +382,12 @@ instance Mul M4 V4 V4
 instance Mul V2 M2 V2
 instance Mul V3 M3 V3
 instance Mul V4 M4 V4
+
+class ShaderType a => GenType a
+instance GenType Float
+instance GenType V2
+instance GenType V3
+instance GenType V4
 
 infixl 7 *
 (*) :: (Mul a b c, ShaderType a, ShaderType b, ShaderType c) => a -> b -> c
@@ -424,11 +463,115 @@ fromRational = Float . Literal
                         . (printf "%f" :: Prelude.Float -> String)
                         . Prelude.fromRational
 
-abs :: Float -> Float
-abs (Float e) = Float $ Apply "abs" [e]
+radians :: GenType a => a -> a
+radians x = fromExpr $ Apply "radians" [toExpr x]
 
-sign :: Float -> Float
-sign (Float e) = Float $ Apply "sign" [e]
+degrees :: GenType a => a -> a
+degrees x = fromExpr $ Apply "degrees" [toExpr x]
+
+sin :: GenType a => a -> a
+sin x = fromExpr $ Apply "sin" [toExpr x]
+
+cos :: GenType a => a -> a
+cos x = fromExpr $ Apply "cos" [toExpr x]
+
+tan :: GenType a => a -> a
+tan x = fromExpr $ Apply "tan" [toExpr x]
+
+asin :: GenType a => a -> a
+asin x = fromExpr $ Apply "asin" [toExpr x]
+
+acos :: GenType a => a -> a
+acos x = fromExpr $ Apply "acos" [toExpr x]
+
+atan :: GenType a => a -> a
+atan x = fromExpr $ Apply "atan" [toExpr x]
+
+atan2 :: GenType a => a -> a -> a
+atan2 x y = fromExpr $ Apply "atan" [toExpr x, toExpr y]
+
+exp :: GenType a => a -> a
+exp x = fromExpr $ Apply "exp" [toExpr x]
+
+log :: GenType a => a -> a
+log x = fromExpr $ Apply "log" [toExpr x]
+
+exp2 :: GenType a => a -> a
+exp2 x = fromExpr $ Apply "exp2" [toExpr x]
+
+log2 :: GenType a => a -> a
+log2 x = fromExpr $ Apply "log2" [toExpr x]
+
+sqrt :: GenType a => a -> a
+sqrt x = fromExpr $ Apply "sqrt" [toExpr x]
+
+inversesqrt :: GenType a => a -> a
+inversesqrt x = fromExpr $ Apply "inversesqrt" [toExpr x]
+
+abs :: GenType a => a -> a
+abs x = fromExpr $ Apply "abs" [toExpr x]
+
+sign :: GenType a => a -> a
+sign x = fromExpr $ Apply "sign" [toExpr x]
+
+floor :: GenType a => a -> a
+floor x = fromExpr $ Apply "floor" [toExpr x]
+
+ceil :: GenType a => a -> a
+ceil x = fromExpr $ Apply "ceil" [toExpr x]
+
+fract :: GenType a => a -> a
+fract x = fromExpr $ Apply "fract" [toExpr x]
+
+mod :: (GenType a, GenType b) => a -> b -> a
+mod x y = fromExpr $ Apply "mod" [toExpr x, toExpr y]
+
+min :: GenType a => a -> a -> a
+min x y = fromExpr $ Apply "min" [toExpr x, toExpr y]
+
+max :: GenType a => a -> a -> a
+max x y = fromExpr $ Apply "max" [toExpr x, toExpr y]
+
+clamp :: (GenType a, GenType b) => a -> b -> b -> a
+clamp x y z = fromExpr $ Apply "clamp" [toExpr x, toExpr y, toExpr z]
+
+mix :: (GenType a, GenType b) => a -> a -> b -> a
+mix x y z = fromExpr $ Apply "mix" [toExpr x, toExpr y, toExpr z]
+
+step :: GenType a => a -> a -> a
+step x y = fromExpr $ Apply "step" [toExpr x, toExpr y]
+
+smoothstep :: (GenType a, GenType b) => b -> b -> a -> a
+smoothstep x y z = fromExpr $ Apply "smoothstep" [toExpr x, toExpr y, toExpr z]
+
+length :: GenType a => a -> Float
+length x = fromExpr $ Apply "length" [toExpr x]
+
+distance :: GenType a => a -> a -> Float
+distance x y = fromExpr $ Apply "distance" [toExpr x, toExpr y]
+
+dot :: GenType a => a -> a -> Float
+dot x y = fromExpr $ Apply "dot" [toExpr x, toExpr y]
+
+cross :: V3 -> V3 -> V3
+cross x y = fromExpr $ Apply "cross" [toExpr x, toExpr y]
+
+normalize :: GenType a => a -> a
+normalize x = fromExpr $ Apply "normalize" [toExpr x]
+
+faceforward :: GenType a => a -> a -> a -> a
+faceforward x y z = fromExpr $ Apply "faceforward" [toExpr x, toExpr y, toExpr z]
+
+reflect :: GenType a => a -> a -> a
+reflect x y = fromExpr $ Apply "reflect" [toExpr x, toExpr y]
+
+refract :: GenType a => a -> a -> Float -> a
+refract x y z = fromExpr $ Apply "refract" [toExpr x, toExpr y, toExpr z]
+
+-- TODO: unsafe
+matrixCompMult :: (Matrix a, Matrix b, Matrix c) => a -> b -> c
+matrixCompMult x y = fromExpr $ Apply "matrixCompMult" [toExpr x, toExpr y]
+
 
 -- TODO: add functions, ifThenElse, etc.
 
@@ -457,9 +600,7 @@ loop (Float (Literal maxIters)) initValue f = action zero $ \v setV ->
                (\i -> let (next, stop) = f i v
                       in do setV next
                             If stop Break $ Pure ())
-
-sqrt :: Float -> Float
-sqrt (Float e) = Float $ Apply "sqrt" [e]
+loop _ _ _ = error "loop: iteration number is not a literal."
 
 texture2D :: Sampler2D -> V2 -> V4
 texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]
