@@ -85,17 +85,30 @@ import qualified Prelude
 import Text.Printf
 import System.IO.Unsafe
 
+-- | A GLSL expression.
 data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
           | Apply String [Expr] | X Expr | Y Expr | Z Expr | W Expr
           | Literal String | Action Prelude.Int (AM Expr) deriving (Prelude.Eq)
 
+-- | The action monad. Actions are operations like conditionals and loops that
+-- needs to be performed to be used in an expression.
 data AM a where
         Pure :: a -> AM a
         Bind :: AM a -> (a -> AM b) -> AM b
+
+        -- | Declare a variable.
         Var :: ShaderType a => Maybe String -> a -> AM (a, a -> AM ())
+
+        -- | Set the value of a variable.
         Set :: ShaderType a => String -> a -> AM ()
+
+        -- | Imperative if.
         If :: Bool -> AM () -> AM () -> AM ()
+
+        -- | For loop.
         For :: Prelude.Int -> (Float -> AM ()) -> AM ()
+
+        -- | Break instruction.
         Break :: AM ()
 
 instance Prelude.Eq (AM a) where
@@ -121,6 +134,7 @@ newtype Float = Float Expr deriving Typeable
 -- | A GPU sampler (sampler2D in GLSL).
 newtype Sampler2D = Sampler2D Expr deriving Typeable
 
+-- | The type of a generic expression.
 newtype Unknown = Unknown Expr
 
 -- | A GPU 2D vector.
@@ -142,10 +156,12 @@ data M3 = M3 V3 V3 V3 deriving (Typeable)
 -- | A GPU 4x4 matrix.
 data M4 = M4 V4 V4 V4 V4 deriving (Typeable)
 
+-- | CPU equality.
 infix 4 =!
 (=!) :: Prelude.Eq a => a -> a -> Prelude.Bool
 (=!) = (Prelude.==)
 
+-- | CPU and.
 infixr 3 &&!
 (&&!) :: Prelude.Bool -> Prelude.Bool -> Prelude.Bool
 (&&!) = (Prelude.&&)
@@ -383,6 +399,7 @@ instance Mul V2 M2 V2
 instance Mul V3 M3 V3
 instance Mul V4 M4 V4
 
+-- | Floats or vectors.
 class ShaderType a => GenType a
 instance GenType Float
 instance GenType V2
@@ -451,6 +468,8 @@ x < y = fromExpr $ Op2 "<" (toExpr x) (toExpr y)
 infix 4 >
 (>) :: ShaderType a => a -> a -> Bool
 x > y = fromExpr $ Op2 ">" (toExpr x) (toExpr y)
+
+-- TODO: not
 
 negate :: Float -> Float
 negate (Float e) = Float $ Op1 "-" e
@@ -586,6 +605,7 @@ true = Bool $ Literal "true"
 false :: Bool
 false = Bool $ Literal "false"
 
+-- | Rebinded if.
 ifThenElse :: ShaderType a => Bool -> a -> a -> a
 ifThenElse b t f = action zero $ \_ set -> If b (set t) (set f)
 
@@ -605,9 +625,11 @@ loop _ _ _ = error "loop: iteration number is not a literal."
 texture2D :: Sampler2D -> V2 -> V4
 texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]
 
+-- | Action index counter.
 ctr :: IORef Prelude.Int
 ctr = unsafePerformIO $ newIORef 0
 
+-- | Generate an action expression.
 action :: ShaderType a => a -> (a -> (a -> AM ()) -> AM ()) -> a
 action initValue act = unsafePerformIO $
         do i <- readIORef ctr

@@ -84,9 +84,13 @@ vars isFragment (shader :: Shader gs is os) =
               outputVar x = let (ty, nm) = varyingTypeAndName x
                             in (ty, nm, toExpr x)
 
+-- | Uncompiled actions.
 type ActionMap = H.HashMap Int (AM Expr)
+
+-- | Compiled actions.
 type ActionStringMap = H.HashMap Int String
 
+-- | Compile an 'Expr', preserving its action dependencies in the state.
 compileExpr :: Expr -> State ActionMap String
 compileExpr Empty = return ""
 compileExpr (Read s) = return s
@@ -109,19 +113,31 @@ compileExpr (Literal s) = return s
 compileExpr (Action i a) = do modify $ H.insert i a
                               return $ "a" ++ show i
 
+-- | The state of the 'ActionCompiler'.
 data ActionCompilerState =
         ActionCompilerState {
+                -- | Dependencies of the parent action (they won't be compiled
+                -- in this action).
                 parentDeps :: ActionStringMap,
+
+                -- | Dependencies of the current action.
                 currentDeps :: ActionStringMap,
+
+                -- | Sequence of the dependencies.
                 depOrder :: [Int],
+
+                -- | For 'genName'.
                 varIndex :: Int
         }
 
 type ActionCompiler = State ActionCompilerState
 
+-- | Compile an action with its dependencies, ignoring the returned value.
 runAction :: AM a -> String
 runAction = snd . runActionCompiler . compileAction
 
+-- | Fully evaluate a partially compiled action, appending its dependencies
+-- to the top of the result string.
 runActionCompiler :: ActionCompiler (a, String) -> (a, String)
 runActionCompiler c =
         let ((r, mainAct), state) =
@@ -133,7 +149,8 @@ runActionCompiler c =
         in (r, concatMap (\idx -> currentDeps state H.! idx)
                          (reverse $ depOrder state) ++ mainAct)
 
--- TODO: rewrite (extremely complex)
+-- | Partially compile a single action, preserving its dependencies in the
+-- state.
 compileAction :: AM a -> ActionCompiler (a, String)
 compileAction (Pure x) = return (x, "")
 
@@ -168,6 +185,8 @@ compileAction (For repeats action) =
 
 compileAction Break = return ((), "break;")
 
+-- | Fully compile an action with the dependencies of the current
+-- 'ActionCompiler' as parent dependencies.
 compileSubAction :: AM a -> ActionCompiler (a, String)
 compileSubAction act =
         do parentState <- get
@@ -183,6 +202,8 @@ compileSubAction act =
            put parentState { varIndex = i }
            return (r, actionString)
 
+-- | Fully compile a sub-action with its separate dependencies and add it as a
+-- dependency to the current action.
 addDependency :: Int -> AM a -> ActionCompiler ()
 addDependency idx act =
         do (_, actionString) <- compileSubAction act
@@ -195,16 +216,19 @@ addDependency idx act =
                         { currentDeps = H.insert idx actionString deps
                         , depOrder = idx : depOrder state }
 
+-- | Generate a new variable name in the 'ActionCompiler'.
 genName :: ActionCompiler String
 genName = get >>= \s -> let i = varIndex s
                         in put s { varIndex = i + 1 } >> return ("v" ++ show i)
 
-expr :: Expr -> ActionCompiler String
-expr e = let (compiledExpr, exprActionMap) = runState (compileExpr e) H.empty
-         in do H.traverseWithKey
-                (\depIndex depAction -> addDependency depIndex depAction)
-                exprActionMap
-               return compiledExpr
+-- | Compile an 'Expr', adding its possible action dependencies.
+actionExpr :: Expr -> ActionCompiler String
+actionExpr e = let (compiledExpr, exprActionMap) = runState (compileExpr e)
+                                                   H.empty
+               in do H.traverseWithKey
+                       (\depIndex depAction -> addDependency depIndex depAction)
+                       exprActionMap
+                     return compiledExpr
 
 globalTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
 globalTypeAndName t = (typeName t, globalName t)
