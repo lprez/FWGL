@@ -158,7 +158,7 @@ compileAction (Bind ax f) = do (xr, xs) <- compileAction ax
                                (yr, ys) <- compileAction $ f xr
                                return (yr, xs ++ ys)
 
-compileAction (Var mName x) = do initValue <- expr $ toExpr x
+compileAction (Var mName x) = do initValue <- actionExpr $ toExpr x
                                  name <- case mName of
                                                 Just n -> return n
                                                 Nothing -> genName
@@ -168,13 +168,13 @@ compileAction (Var mName x) = do initValue <- expr $ toExpr x
                                                  , "=", initValue, ";" ]
                                         )
 
-compileAction (Set name value) = do str <- expr $ toExpr value
+compileAction (Set name value) = do str <- actionExpr $ toExpr value
                                     return ((), concat [ name, "=", str, ";" ])
 
 compileAction (If condValue actionTrue actionFalse) =
         do (_, true) <- compileSubAction actionTrue
            (_, false) <- compileSubAction actionFalse
-           cond <- expr $ toExpr condValue
+           cond <- actionExpr $ toExpr condValue
            return ((), concat [ "if(", cond, "){", true, "}else{", false, "}" ])
 
 compileAction (For repeats action) =
