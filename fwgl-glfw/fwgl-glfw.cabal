@@ -1,12 +1,12 @@
 name:                fwgl-glfw
-version:             0.1.0.3
+version:             0.1.0.4
 synopsis:            FWGL GLFW backend
 description:         FWGL GLFW backend.
 homepage:            https://github.com/ziocroc/FWGL
 stability:           experimental
 license:             BSD3
 license-file:        LICENSE
-author:              Luca "ZioCrocifisso" Prezzavento
+author:              Luca "ziocroc" Prezzavento
 maintainer:          ziocroc@gmail.com
 category:            Game, Game Engine
 build-type:          Simple

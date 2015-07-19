@@ -1,12 +1,12 @@
 name:                fwgl-javascript
-version:             0.1.0.2
+version:             0.1.0.3
 synopsis:            FWGL GHCJS backend
 description:         FWGL GHCJS backend
 homepage:            https://github.com/ziocroc/FWGL
 stability:           experimental
 license:             BSD3
 license-file:        LICENSE
-author:              Luca "ZioCrocifisso" Prezzavento
+author:              Luca "ziocroc" Prezzavento
 maintainer:          ziocroc@gmail.com
 category:            Game, Game Engine, Javascript
 build-type:          Simple

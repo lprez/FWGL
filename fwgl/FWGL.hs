@@ -21,12 +21,12 @@ module FWGL (
         module FWGL.Input,
         module FWGL.Utils,
         module FRP.Yampa,
-        (.>),
         draw,
-        io,
         run,
         run',
         Output,
+        (.>),
+        io,
 ) where
 
 import Control.Monad.IO.Class
@@ -62,7 +62,7 @@ run = run' $ return ()
 
 -- | Run a FWGL program, using custom inputs.
 run' :: BackendIO
-     => IO inp
+     => IO inp                -- ^ An IO effect generating the custom inputs.
      -> SF (Input inp) Output
      -> IO ()
 run' customInput sigf = setup initState loop customInput sigf
