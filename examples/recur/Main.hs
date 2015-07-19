@@ -15,7 +15,7 @@ import FWGL.Backend.GLFW.GL20
 width :: Num a => a
 width = 640
 
-quad :: SF (Float, Input) Float
+quad :: SF (Float, Input ()) Float
 quad = proc (mx, inp) -> do
         d <- key KeyD >>> arrPrim (tagWith 0.02) -< inp
         a <- key KeyA >>> arrPrim (tagWith $ -0.02) -< inp
@@ -24,13 +24,13 @@ quad = proc (mx, inp) -> do
                                                 else x) 0
                 -< joinE (mergeBy (+) d a) (Event mx)
 
-wall :: SF (Float, Input) Float
+wall :: SF (Float, Input ()) Float
 wall = proc (mx, inp) -> do
         (px, _) <- pointer -< inp
         sscan (\ x (mx, px) -> if px - 0.4 > mx then px else x) 1
                 -< (mx, ((fromIntegral px / width) * 2) - 1)
 
-mainSF :: SF Input Output
+mainSF :: SF (Input ()) Output
 mainSF = proc inp -> do
         rec qx <- quad -< (wx, inp)
             wx <- wall -< (qx, inp)
@@ -38,7 +38,7 @@ mainSF = proc inp -> do
                       rect (V2 0.4 0.4) (colorTex red)
             wallObj = pos (V2 wx 0) $
                       rect (V2 0.4 2) (colorTex blue)
-        returnA -< Output [elements [cubeObj, wallObj]] Audio
+        returnA -< draw [elements [cubeObj, wallObj]]
 
 main :: IO ()
 main = run mainSF

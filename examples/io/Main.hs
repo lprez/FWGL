@@ -17,7 +17,7 @@ import System.Environment
 otherPos :: SF (Input String) (Int, Int)
 otherPos = custom >>^ read
 
-mainSF :: (String -> IO ()) -> SF (Input String) (Output X)
+mainSF :: (String -> IO ()) -> SF (Input String) Output
 mainSF change = proc inp ->
         do me <- pointer -< inp
            other <- otherPos -< inp

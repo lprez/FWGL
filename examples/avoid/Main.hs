@@ -25,7 +25,7 @@ outline c = mkTexture 128 128 [ if x < 5 || y < 5 || x > 123 || y > 123
 width :: Num a => a
 width = 640
 
-walls :: RandomGen g => g -> SF Input [Box]
+walls :: RandomGen g => g -> SF (Input ()) [Box]
 walls r = noiseR (- 1.8, 1.8) r >>> sscan (step (0 :: Int)) []
         where step len (b : bs) newX = advance b $ step (len + 1) bs newX
               step len [] newX = [ Box (V3 newX 1.8 (- 2)) (V3 0.2 0.1 0.1)
@@ -34,7 +34,7 @@ walls r = noiseR (- 1.8, 1.8) r >>> sscan (step (0 :: Int)) []
                       if - y < 1.4 then (Box (V3 x (y - 0.02) z) hs :)
                                    else id
 
-car :: SF Input Box
+car :: SF (Input ()) Box
 car = pointer >>^ \(x, _) -> Box (V3 (fromIntegral (x * 3) / width - 1.5)
                                      (- 0.8)
                                      (- 2))
@@ -54,16 +54,16 @@ drawBox tex (Box p (V3 hx hy hz)) = pos p .
                                     scaleV (V3 hx hy hz) $
                                     cube tex
 
-draw :: SF (Box, [Box]) [Element]
-draw = arrPrim $ \(c, ws) -> drawBox outRed c : map (drawBox outWhite) ws
+drawAll :: SF (Box, [Box]) [Element]
+drawAll = arrPrim $ \(c, ws) -> drawBox outRed c : map (drawBox outWhite) ws
         where outRed = outline red
               outWhite = outline white
 
-mainSig :: RandomGen g => g -> SF Input Output
+mainSig :: RandomGen g => g -> SF (Input ()) Output
 mainSig r = perspective4 1000 0.3 100 &&& car &&& walls r >>>
-            second (draw &&& death) >>^
+            second (drawAll &&& death) >>^
             second (\(els, ded) -> if ded then redScreen else els) >>^
-            (\(viewMat, els) -> Output [view viewMat els] Audio)
+            (\(viewMat, els) -> draw [view viewMat els])
         where redScreen = [cube $ colorTex red]
 
 main :: IO ()
