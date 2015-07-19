@@ -12,8 +12,8 @@ import FWGL.Vector
 -- | Generate a view matrix that transforms the pixel coordinates in OpenGL
 -- coordinates.
 screenScale :: SF (Input a) M3
-screenScale = size >>^ \(x, y) -> scaleMat3 (V2 (1 / fromIntegral x)
-                                                (1 / fromIntegral y))
+screenScale = size >>^ \(x, y) -> scaleMat3 (V2 (2 / fromIntegral x)
+                                                (2 / fromIntegral y))
 
 -- | Generate a perspective view matrix using the aspect ratio of the
 -- framebuffer.
