@@ -11,6 +11,7 @@ module FWGL.Shader.GLSL (
 ) where
 
 import Control.Monad
+import Control.Monad.Trans.Class
 import Control.Monad.Trans.State
 import qualified Data.HashMap.Strict as H
 import Data.Typeable
@@ -84,151 +85,147 @@ vars isFragment (shader :: Shader gs is os) =
               outputVar x = let (ty, nm) = varyingTypeAndName x
                             in (ty, nm, toExpr x)
 
--- | Uncompiled actions.
-type ActionMap = H.HashMap Int (AM Expr)
+type ActionID = Int
+type ActionMap = H.HashMap ActionID Action
+type ActionSet = H.HashMap ActionID ()
 
--- | Compiled actions.
-type ActionStringMap = H.HashMap Int String
+data ActionInfo = ActionInfo {
+        action :: Action,
+        actionString :: String -> String,
+        actionDeps :: ActionSet,
+        actionContext :: ActionContext,
+        actionFullContext :: Bool
+}
 
--- | Compile an 'Expr', preserving its action dependencies in the state.
-compileExpr :: Expr -> State ActionMap String
-compileExpr Empty = return ""
-compileExpr (Read s) = return s
+-- | The context is where an action should be put. Only for-loops are considered
+-- contexts, because there is no reason to put some action inside another block.
+-- Of course, an action could have many contexts (e.g. for(..) { for (..) {
+-- act; } }), but only one is actually needed to compile the action. Shallow and
+-- deep contexts are the precursors to the real context (LowestContext).
+data ActionContext = ShallowContext ActionSet       -- ^ The contexts of the expressions used in the action.
+                   | DeepContext ActionSet          -- ^ All the contexts (including those of the dependencies).
+                   | LowestContext (Maybe ActionID) -- ^ The lowest context.
 
-compileExpr (Op1 s e) = compileExpr e >>= \x -> return $ "(" ++ s ++ x ++ ")"
+type ActionGraph = H.HashMap ActionID ActionInfo
+-- type ActionCompiler = State ActionGraph
 
-compileExpr (Op2 s ex ey) = do x <- compileExpr ex
-                               y <- compileExpr ey
-                               return $ "(" ++ x ++ s ++ y ++ ")"
+-- | Build an action graph with full contexts.
+preCompileActions :: ActionMap -> ActionGraph
+preCompileActions = findLCAs . contextualizeAll . buildActionGraph
 
-compileExpr (Apply s es) = do vs <- mapM compileExpr es
-                              return . concat $ 
-                                [ s, "(" , tail (vs >>= (',' :)), ")" ]
+-- | Build an action graph with shallow contexts.
+buildActionGraph :: ActionMap -> ActionGraph
+buildActionGraph = flip foldrWithKey H.empty $
+        \aid act graph ->
+                let (info, deps) = compileAction act
+                in H.union (H.insert aid info graph)
+                           (buildActionGraph deps)
 
-compileExpr (X e) = compileExpr e >>= \x -> return $ x ++ "[0]"
-compileExpr (Y e) = compileExpr e >>= \x -> return $ x ++ "[1]"
-compileExpr (Z e) = compileExpr e >>= \x -> return $ x ++ "[2]"
-compileExpr (W e) = compileExpr e >>= \x -> return $ x ++ "[3]"
-compileExpr (Literal s) = return s
-compileExpr (Action i a) = do modify $ H.insert i a
-                              return $ "a" ++ show i
+-- |Turn 'ShallowContext's into 'DeepContext's. 
+contextualizeAll :: ActionGraph -> ActionGraph
+contextualizeAll g = foldrWithKey
+                        (\aid _ graph -> snd $ contextualize aid graph) g g
 
--- | The state of the 'ActionCompiler'.
-data ActionCompilerState =
-        ActionCompilerState {
-                -- | Dependencies of the parent action (they won't be compiled
-                -- in this action).
-                parentDeps :: ActionStringMap,
+-- | Turn 'DeepContext's into 'LowestContext's.
+findLCAs :: ActionGraph -> ActionGraph
 
-                -- | Dependencies of the current action.
-                currentDeps :: ActionStringMap,
 
-                -- | Sequence of the dependencies.
-                depOrder :: [Int],
+-- | Find and build the deep context of this action. Returns a deep context and
+-- a new graph with the deep contextes of this action and of its dependencies.
+contextualize :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
+contextualize aid graph =
+        case actionContext act of
+                ShallowContext sctx ->
+                        let (dctx, graph') = H.foldrWithKey addDepContext
+                                                            (sctx, graph)
+                                                            (actionDeps sctx)
+                        in ( DeepContext dctx
+                           , H.insert aid
+                                      (act { actionContext = DeepContext dctx })
+                                      graph' )
+                ctx -> (ctx, graph)
+        where act = graph H.! aid
+              addDepContext depId depInfo (ctx, graph) = 
+                      -- XXX
+                      let (DeepContext dCtx, graph') = contextualize aid graph 
+                      in (H.union ctx dCtx, graph')
 
-                -- | For 'genName'.
-                varIndex :: Int
-        }
+-- | Compile an 'Expr'. Returns the compiled expression, the map of dependencies
+-- and the context.
+compileExpr :: Expr -> (String, ActionMap, ActionSet)
+compileExpr Empty = ("", H.empty, H.empty)
+compileExpr (Read s) = (s, H.empty, H.empty)
 
-type ActionCompiler = State ActionCompilerState
+compileExpr (Op1 s e) = let (x, a, c) = compileExpr e
+                        in ("(" ++ s ++ x ++ ")", a, c)
 
--- | Compile an action with its dependencies, ignoring the returned value.
-runAction :: AM a -> String
-runAction = snd . runActionCompiler . compileAction
+compileExpr (Op2 s ex ey) = let (x, ax, cx) = compileExpr ex
+                                (y, ay, cy) = compileExpr ey
+                            in ( "(" ++ x ++ s ++ y ++ ")"
+                               , H.union ax ay, H.union cx cy )
 
--- | Fully evaluate a partially compiled action, appending its dependencies
--- to the top of the result string.
-runActionCompiler :: ActionCompiler (a, String) -> (a, String)
-runActionCompiler c =
-        let ((r, mainAct), state) =
-                runState c ActionCompilerState {
-                        parentDeps = H.empty,
-                        currentDeps = H.empty,
-                        depOrder = [],
-                        varIndex = 0 }
-        in (r, concatMap (\idx -> currentDeps state H.! idx)
-                         (reverse $ depOrder state) ++ mainAct)
+compileExpr (Apply s es) = let (vs, as, cs) = unzip3 $ map compileExpr es
+                           in ( concat $ [ s, "(" , tail (vs >>= (',' :)), ")" ]
+                              , H.unions as, H.unions cs)
 
--- | Partially compile a single action, preserving its dependencies in the
--- state.
-compileAction :: AM a -> ActionCompiler (a, String)
-compileAction (Pure x) = return (x, "")
+compileExpr (X e) = (compileExpr e ++ "[0]", H.empty, H.empty)
+compileExpr (Y e) = (compileExpr e ++ "[1]", H.empty, H.empty)
+compileExpr (Z e) = (compileExpr e ++ "[2]", H.empty, H.empty)
+compileExpr (W e) = (compileExpr e ++ "[3]", H.empty, H.empty)
+compileExpr (Literal s) = (s, H.empty, H.empty)
+compileExpr (Action a) = let h = hash a
+                         in (actionName h, H.singleton h a, H.empty)
+compileExpr (ContextVar i t) = (contextVarName t i, H.empty, H.singleton i ())
+compileExpr (Dummy _) = error "compileExpr: Dummy"
 
-compileAction (Bind ax f) = do (xr, xs) <- compileAction ax
-                               (yr, ys) <- compileAction $ f xr
-                               return (yr, xs ++ ys)
+compileAction :: ActionID -> Action -> (ActionInfo, ActionMap)
+compileAction aid a@(Store ty expr) =
+        let (eStr, deps, ctxs) = compileExpr expr
+        in ( Action a (\c -> concat [ c, ty, " ", actionName aid
+                                    , "=", eStr, ";" ])
+                    (H.map (const ()) deps) (ShallowContext ctxs)
+           , deps )
 
-compileAction (Var mName x) = do initValue <- actionExpr $ toExpr x
-                                 name <- case mName of
-                                                Just n -> return n
-                                                Nothing -> genName
-                                 return ( (fromExpr $ Read name, Set name)
-                                        , concat [ typeName x
-                                                 , " ", name
-                                                 , "=", initValue, ";" ]
-                                        )
+compileAction aid a@(If cExpr ty tExpr fExpr) =
+        let (cStr, cDeps, cCtxs) = compileExpr cExpr
+            (tStr, tDeps, tCtxs) = compileExpr tExpr
+            (fStr, fDeps, fCtxs) = compileExpr fExpr
+            deps = H.unions [cDeps, tDeps, fDeps]
+            name = actionName aid
+        in ( Action a
+                    (\c -> concat [ ty, " ", name, "=", toExpr zero, ";if("
+                                  , cStr, "){", c, name, "=", tStr, ";}else{"
+                                  , name, "fStr", ";}" ])
+                    (H.map (const ()) deps)
+                    (ShallowContext $ H.unions [cCtxs, tCtxs, fCtxs])
+           , deps )
 
-compileAction (Set name value) = do str <- actionExpr $ toExpr value
-                                    return ((), concat [ name, "=", str, ";" ])
+compileAction aid a@(For iters ty initVal body) =
+        let iterName = contextVarName LoopIteration aid
+            valueName = contextVarName LoopValue aid
+            (nExpr, sExpr) = body (ContextVar aid LoopIteration)
+                                  (ContextVar aid LoopValue)
+            (iStr, iDeps, iCtxs) = compileExpr iExpr
+            (nStr, nDeps, nCtxs) = compileExpr nExpr
+            (sStr, sDeps, sCtxs) = compileExpr sExpr
+            deps = H.unions [iDeps, nDeps, sDeps]
+        in ( Action a
+                    (\c -> concat [ ty, " ", valueName, "=", iStr, ";"
+                                  , "for(float ", iterName, "=0.0;"
+                                  , iterName, "<", show iters, ".0;"
+                                  , "++", iterName, "){", c
+                                  , "if(", sStr, "){break;}"
+                                  , valueName, "=", nStr, ";}" ])
+                    (H.map (const ()) deps)
+                    (ShallowContext $ H.unions [iCtxs, nCtxs, sCtxs])
+           , deps )
 
-compileAction (If condValue actionTrue actionFalse) =
-        do (_, true) <- compileSubAction actionTrue
-           (_, false) <- compileSubAction actionFalse
-           cond <- actionExpr $ toExpr condValue
-           return ((), concat [ "if(", cond, "){", true, "}else{", false, "}" ])
+actionName :: ActionID -> String
+actionName = ('a' :) . show
 
-compileAction (For repeats action) =
-        do i <- genName
-           (_, body) <- compileSubAction . action . fromExpr $ Read i
-           return ((), concat [ "for(float ", i, "=0.0;", i, "<", show repeats
-                              , ".0", ";++", i, "){", body, "}" ])
-
-compileAction Break = return ((), "break;")
-
--- | Fully compile an action with the dependencies of the current
--- 'ActionCompiler' as parent dependencies.
-compileSubAction :: AM a -> ActionCompiler (a, String)
-compileSubAction act =
-        do parentState <- get
-
-           let ((i, r), actionString) = runActionCompiler $
-                 do modify $ \s -> s {
-                         parentDeps = currentDeps parentState,
-                         varIndex = varIndex parentState }
-                    (r, str) <- compileAction act
-                    i <- fmap varIndex get
-                    return ((i, r), str)
-
-           put parentState { varIndex = i }
-           return (r, actionString)
-
--- | Fully compile a sub-action with its separate dependencies and add it as a
--- dependency to the current action.
-addDependency :: Int -> AM a -> ActionCompiler ()
-addDependency idx act =
-        do (_, actionString) <- compileSubAction act
-           state <- get
-           let deps = currentDeps state
-
-           when (not $ H.member idx (parentDeps state) ||
-                       H.member idx deps) $
-                put state
-                        { currentDeps = H.insert idx actionString deps
-                        , depOrder = idx : depOrder state }
-
--- | Generate a new variable name in the 'ActionCompiler'.
-genName :: ActionCompiler String
-genName = get >>= \s -> let i = varIndex s
-                        in put s { varIndex = i + 1 } >> return ("v" ++ show i)
-
--- | Compile an 'Expr', adding its possible action dependencies.
-actionExpr :: Expr -> ActionCompiler String
-actionExpr e = let (compiledExpr, exprActionMap) = runState (compileExpr e)
-                                                   H.empty
-               in do H.traverseWithKey
-                       (\depIndex depAction -> addDependency depIndex depAction)
-                       exprActionMap
-                     return compiledExpr
+contextVarName :: ContextVarType -> ActionID -> String
+contextVarName LoopIteration = ('l' :) . show
+contextVarName LoopValue = actionName
 
 globalTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
 globalTypeAndName t = (typeName t, globalName t)

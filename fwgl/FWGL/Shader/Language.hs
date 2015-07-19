@@ -1,13 +1,15 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, DeriveDataTypeable, DataKinds,
              FunctionalDependencies #-}
 
+-- TODO FWGL.Shader.Language.Prefix and FWGL.Shader.Prefix (or Postfix)
 module FWGL.Shader.Language (
         ShaderType(..),
         Expr(..),
+        Action(..),
+        ContextVarType(..),
         Float(..),
         Unknown(..),
         Sampler2D(..),
-        AM(..),
         V2(..),
         V3(..),
         V4(..),
@@ -78,52 +80,29 @@ module FWGL.Shader.Language (
 
 import Control.Applicative
 import Control.Monad
+import Data.Hashable
 import Data.IORef
 import Data.Typeable
-import Prelude (String, (.), ($), error, Maybe(..), const, fst, snd)
+import Prelude (String, (.), ($), error, Maybe(..), const, fst, snd, Eq)
 import qualified Prelude
 import Text.Printf
 import System.IO.Unsafe
 
--- | A GLSL expression.
+-- | CPU integer.
+type CInt = Prelude.Int
+
+-- | An expression.
 data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
           | Apply String [Expr] | X Expr | Y Expr | Z Expr | W Expr
-          | Literal String | Action Prelude.Int (AM Expr) deriving (Prelude.Eq)
+          | Literal String | Action Action | Dummy CInt
+          | ContextVar CInt ContextVarType
+          deriving Eq
 
--- | The action monad. Actions are operations like conditionals and loops that
--- needs to be performed to be used in an expression.
-data AM a where
-        Pure :: a -> AM a
-        Bind :: AM a -> (a -> AM b) -> AM b
+-- | Expressions that have to be compiled to a statement.
+data Action = Store String Expr | If Expr String Expr Expr
+            | For CInt String Expr (Expr -> Expr -> (Expr, Expr))
 
-        -- | Declare a variable.
-        Var :: ShaderType a => Maybe String -> a -> AM (a, a -> AM ())
-
-        -- | Set the value of a variable.
-        Set :: ShaderType a => String -> a -> AM ()
-
-        -- | Imperative if.
-        If :: Bool -> AM () -> AM () -> AM ()
-
-        -- | For loop.
-        For :: Prelude.Int -> (Float -> AM ()) -> AM ()
-
-        -- | Break instruction.
-        Break :: AM ()
-
-instance Prelude.Eq (AM a) where
-        _ == _ = Prelude.False
-
-instance Functor AM where
-        fmap = liftM
-
-instance Applicative AM where
-        pure = Pure
-        (<*>) = ap
-
-instance Monad AM where
-        return = Pure
-        (>>=) = Bind
+data ContextVarType = LoopIteration | LoopValue deriving Eq
 
 -- | A GPU boolean.
 newtype Bool = Bool Expr deriving Typeable
@@ -176,7 +155,7 @@ class ShaderType t where
 
         typeName :: t -> String
 
-        size :: t -> Prelude.Int
+        size :: t -> CInt
 
 instance ShaderType Unknown where
         zero = error "zero: Unknown type."
@@ -597,7 +576,7 @@ matrixCompMult x y = fromExpr $ Apply "matrixCompMult" [toExpr x, toExpr y]
 -- | Avoid executing this expression more than one time. Conditionals and loops
 -- imply it.
 store :: ShaderType a => a -> a
-store x = action x $ \_ _ -> return ()
+store x = fromExpr . Action $ Store (typeName x) (toExpr x)
 
 true :: Bool
 true = Bool $ Literal "true"
@@ -607,36 +586,54 @@ false = Bool $ Literal "false"
 
 -- | Rebinded if.
 ifThenElse :: ShaderType a => Bool -> a -> a -> a
-ifThenElse b t f = action zero $ \_ set -> If b (set t) (set f)
+ifThenElse b t f = fromExpr . Action $ If (toExpr b) (typeName t)
+                                          (toExpr t) (toExpr f)
 
 loop :: ShaderType a 
      => Float -- ^ Maximum number of iterations (should be as low as possible, must be an integer literal)
      -> a -- ^ Initial value
      -> (Float -> a -> (a, Bool)) -- ^ Iteration -> Old value -> (Next, Stop)
      -> a
-loop (Float (Literal maxIters)) initValue f = action zero $ \v setV ->
-        do setV initValue
-           For (Prelude.floor (Prelude.read maxIters :: Prelude.Float))
-               (\i -> let (next, stop) = f i v
-                      in do setV next
-                            If stop Break $ Pure ())
+loop (Float (Literal iters)) iv f =
+        fromExpr . Action $
+                For (Prelude.floor (Prelude.read iters :: Prelude.Float))
+                    (typeName iv)
+                    (toExpr iv)
+                    (\ie ve -> let (next, stop) = f (fromExpr ie) (fromExpr ve)
+                               in (toExpr next, toExpr stop))
 loop _ _ _ = error "loop: iteration number is not a literal."
 
 texture2D :: Sampler2D -> V2 -> V4
 texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]
 
--- | Action index counter.
-ctr :: IORef Prelude.Int
-ctr = unsafePerformIO $ newIORef 0
+instance Hashable Expr where
+        hashWithSalt s e = case e of
+                                Empty -> hash2 s 0 (0 :: CInt)
+                                Read str -> hash2 s 1 str
+                                Op1 str exp -> hash2 s 2 (str, exp)
+                                Op2 str exp exp' -> hash2 3 s (str, exp, exp')
+                                Apply str exps -> hash2 4 s exps
+                                X exp -> hash2 5 s exp
+                                Y exp -> hash2 6 s exp
+                                Z exp -> hash2 7 s exp
+                                W exp -> hash2 8 s exp
+                                Literal str -> hash2 s 9 str
+                                Action hash -> hash2 s 10 (0 :: CInt)
+                                Dummy i -> hash2 s 11 i
+                                ContextVar i LoopIteration -> hash2 s 12 i
+                                ContextVar i LoopValue -> hash2 s 13 i
 
--- | Generate an action expression.
-action :: ShaderType a => a -> (a -> (a -> AM ()) -> AM ()) -> a
-action initValue act = unsafePerformIO $
-        do i <- readIORef ctr
-           writeIORef ctr $ i Prelude.+ 1
-           return . fromExpr $ Action i (
-                   do (var, set) <- Var (Just $ "a" Prelude.++ Prelude.show i)
-                                        initValue
-                      act var set
-                      return $ toExpr var
-                )
+instance Hashable Action where
+        hashWithSalt s (Store t e) = hash2 s 0 (t, e)
+        hashWithSalt s (If eb tt et ef) = hash2 s 1 (eb, tt, et, ef)
+        hashWithSalt s (For iters tv iv eFun) =
+                let baseHash = hash (iters, tv, iv, eFun (Dummy 0) (Dummy 1))
+                in hash2 s 2 ( baseHash
+                             , eFun (Dummy baseHash)
+                                    (Dummy $ baseHash Prelude.+ 1))
+
+instance Prelude.Eq Action where
+        a == a' = hash a =! hash a'
+
+hash2 :: Hashable a => CInt -> CInt -> a -> CInt
+hash2 s i x = s `hashWithSalt` i `hashWithSalt` x
