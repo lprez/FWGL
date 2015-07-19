@@ -39,9 +39,10 @@ loadImage path c = do eimg <- readImage path
 setup :: ClientAPI -> Int -> Int
       -> (Int -> Int -> () -> IO state)
       -> (out -> () -> state -> IO state)
-      -> SF Input out
+      -> IO inp
+      -> SF (Input inp) out
       -> IO ()
-setup clientAPI maj min initState draw sigf =
+setup clientAPI maj min initState draw customInp sigf =
         do GLFW.init -- TODO: checks
            windowHint $ WindowHint'ClientAPI clientAPI
            windowHint $ WindowHint'ContextVersionMajor maj
@@ -52,7 +53,8 @@ setup clientAPI maj min initState draw sigf =
 
            eventsRef <- newMVar H.empty
            drawStateRef <- initState w h () >>= newIORef
-           reactStateRef <- reactInit (return $ initInput w h)
+           initCustom <- customInp
+           reactStateRef <- reactInit (return $ initInput w h initCustom)
                                       (\_ _ -> actuate win drawStateRef)
                                       sigf
            setTime 0
@@ -75,8 +77,10 @@ setup clientAPI maj min initState draw sigf =
                                 else threadDelay 16000 >> loop
            loop
         where refresh er rsf = do (Just tm) <- getTime
+                                  custom <- customInp
                                   modifyMVar_ er $ \inp -> do
-                                        react rsf (tm * 1000, Just $ Input inp)
+                                        react rsf ( tm * 1000
+                                                  , Just $ Input inp custom)
                                         return H.empty
                                   setTime 0
 

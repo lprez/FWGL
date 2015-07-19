@@ -16,7 +16,7 @@ import FWGL.Backend.JavaScript
 import FWGL.Backend.GLFW.GL20
 #endif
 
-mouseCount :: Num a => a -> MouseButton -> SF Input a
+mouseCount :: Num a => a -> MouseButton -> SF (Input ()) a
 mouseCount i mb = mouse mb >>> accumHoldBy (\c _ -> c + 1) i
 
 monkeyTex :: String
@@ -36,7 +36,7 @@ gradient c1 c2 = mkTexture (floor w) (floor w) $ unfoldr f (0, 0)
                                             , (x + 1, y) )
               w = 256 :: Num a => a
 
-mainSF :: SF Input Output
+mainSF :: SF (Input ()) Output
 mainSF = proc inp -> do (x, y) <- pointer -< inp
 
                         tm <- time >>> arr realToFrac -< inp
@@ -63,7 +63,7 @@ mainSF = proc inp -> do (x, y) <- pointer -< inp
                                                
 
                         viewMatrix <- perspective4 10000 0.12 100 -< inp
-                        returnA -< flip Output Audio . return . view viewMatrix
+                        returnA -< draw . return . view viewMatrix
                                         $ [ transformedCube 0 gradRedYellow
                                           , transformedCube (pi / 2) gradGreenBlue
                                           , transformedCube pi gradRedYellow

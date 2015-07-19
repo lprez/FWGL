@@ -48,7 +48,7 @@ instance BackendIO where
                            (Just h) <- getProp "height" img >>= fromJSRef
                            f (img, w, h)
 
-        setup initState draw sigf =
+        setup initState draw customInp sigf =
                 do element <- query $ toJSString "canvas"
                    eventSrc <- source handledEvents element
                    ctx <- JS.getCtx element
@@ -56,17 +56,19 @@ instance BackendIO where
                    (Just h) <- getProp "clientHeight" element >>= fromJSRef
                    focus element -- ... no
                    drawStateRef <- initState w h ctx >>= newIORef
-                   reactStateRef <- reactInit (return $ initInput w h)
+                   initCustom <- customInp
+                   reactStateRef <- reactInit (return $ initInput w h initCustom)
                                               (\ _ _ -> actuate ctx drawStateRef)
                                               sigf
                    onFrame $ frame reactStateRef eventSrc Nothing
                 where frame rsf src last crf =
                         do events <- clear src
+                           custom <- customInp
                            (Just cur) <- fromJSRef crf
                            let tm = case last of
                                          Just l -> cur - l
                                          Nothing -> 0
-                           react rsf (tm, Just $ Input events)
+                           react rsf (tm, Just $ Input events custom)
                            onFrame $ frame rsf src (Just cur)
         
                       onFrame handler = asyncCallback1 NeverRetain handler

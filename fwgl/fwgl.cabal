@@ -1,12 +1,12 @@
 name:                fwgl
-version:             0.1.1.0
+version:             0.1.2.0
 synopsis:            FRP 2D/3D game engine
 description:         FRP 2D/3D game engine (work in progress).
-homepage:            https://github.com/ZioCrocifisso/FWGL
+homepage:            https://github.com/ziocroc/FWGL
 stability:           experimental
 license:             BSD3
 license-file:        LICENSE
-author:              Luca "ZioCrocifisso" Prezzavento
+author:              Luca "ziocroc" Prezzavento
 maintainer:          ziocroc@gmail.com
 category:            Game, Game Engine, Javascript
 build-type:          Simple
