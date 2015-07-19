@@ -21,14 +21,12 @@ module FWGL (
         module FWGL.Input,
         module FWGL.Utils,
         module FRP.Yampa,
+        (.>),
         draw,
         io,
-        (.>),
         run,
         run',
-        Output(drawOutput),
-        OutputComp,
-        X
+        Output,
 ) where
 
 import Control.Monad.IO.Class
@@ -42,43 +40,35 @@ import FWGL.Utils
 import FRP.Yampa
 
 -- | The general output.
-newtype Output a = Output { drawOutput :: Draw () }
-
--- | This indicates an 'Output' that contains a Draw action.
-data X
+newtype Output = Output { drawOutput :: Draw () }
 
 -- | Compose two 'Output' effects.
-(.>) :: OutputComp a b c => Output a -> Output b -> Output c
+(.>) :: Output -> Output -> Output
 Output a .> Output b = Output $ a >> b
 
--- | Composable 'Output's.
-class OutputComp a b c | a b -> c where
-instance OutputComp () () ()
-instance OutputComp () X X
-instance OutputComp X () X
-
 -- | Draw some layers.
-draw :: BackendIO => [Layer] -> Output X
-draw layers = Output $ do drawBegin
-                          mapM_ drawLayer layers
-                          drawEnd
+draw :: BackendIO => [Layer] -> Output
+draw layers = Output $ mapM_ drawLayer layers
 
 -- | Perform an IO action.
-io :: IO () -> Output ()
+io :: IO () -> Output
 io = Output . liftIO
 
 -- | Run a FWGL program.
 run :: BackendIO
-    => SF (Input ()) (Output a)  -- ^ Main signal
+    => SF (Input ()) Output  -- ^ Main signal
     -> IO ()
 run = run' $ return ()
 
 -- | Run a FWGL program, using custom inputs.
 run' :: BackendIO
      => IO inp
-     -> SF (Input inp) (Output a)
+     -> SF (Input inp) Output
      -> IO ()
 run' customInput sigf = setup initState loop customInput sigf
         where initState w h = evalGL $ drawInit w h
               loop (Output act) ctx drawState =
-                      flip evalGL ctx . flip execDraw drawState $ act
+                      flip evalGL ctx . flip execDraw drawState $ do
+                              drawBegin
+                              act
+                              drawEnd
