@@ -177,9 +177,9 @@ mul4 (M4 (V4 _1 _2 _3 _4)
          (V4 _9 _a _b _c)
          (V4 _d _e _f _g))
      (M4 (V4 a b c d)
-	 (V4 e f g h)
-	 (V4 i j k l)
-	 (V4 m n o p)) =
+         (V4 e f g h)
+         (V4 i j k l)
+         (V4 m n o p)) =
         mat4 (
                 _1 * a + _2 * e + _3 * i + _4 * m,
                 _1 * b + _2 * f + _3 * j + _4 * n,

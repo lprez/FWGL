@@ -1,4 +1,4 @@
-{-# LANGUAGE NullaryTypeClasses, TypeFamilies #-}
+{-# LANGUAGE MultiParamTypeClasses, TypeFamilies #-}
 
 module FWGL.Backend.IO where
 

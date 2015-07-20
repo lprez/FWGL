@@ -11,8 +11,6 @@ module FWGL.Shader.GLSL (
 ) where
 
 import Control.Monad
-import Control.Monad.Trans.Class
-import Control.Monad.Trans.State
 import qualified Data.HashMap.Strict as H
 import Data.Typeable
 import FWGL.Shader.Shader
@@ -90,28 +88,52 @@ type ActionMap = H.HashMap ActionID Action
 type ActionSet = H.HashMap ActionID ()
 
 data ActionInfo = ActionInfo {
-        action :: Action,
-        actionString :: String -> String,
+        actionGenerator :: ActionGenerator
         actionDeps :: ActionSet,
-        actionContext :: ActionContext,
-        actionFullContext :: Bool
+        actionContext :: ActionContext
 }
+
+type ActionGenerator = String -> String
 
 -- | The context is where an action should be put. Only for-loops are considered
 -- contexts, because there is no reason to put some action inside another block.
 -- Of course, an action could have many contexts (e.g. for(..) { for (..) {
--- act; } }), but only one is actually needed to compile the action. Shallow and
--- deep contexts are the precursors to the real context (LowestContext).
+-- act; } }), but only one is actually needed to compile the action.
 data ActionContext = ShallowContext ActionSet       -- ^ The contexts of the expressions used in the action.
                    | DeepContext ActionSet          -- ^ All the contexts (including those of the dependencies).
-                   | LowestContext (Maybe ActionID) -- ^ The lowest context.
+                   | NoContext                      -- ^ Root action.
+                   | LeastContext Int ActionID      -- ^ Depth and smallest context.
 
 type ActionGraph = H.HashMap ActionID ActionInfo
--- type ActionCompiler = State ActionGraph
 
--- | Build an action graph with full contexts.
-preCompileActions :: ActionMap -> ActionGraph
-preCompileActions = findLCAs . contextualizeAll . buildActionGraph
+-- | Compile a list of 'Expr', sharing their actions.
+compile :: [Expr] -> [String]
+
+generate :: ActionGenerator -> Maybe ActionGraph -> String
+generate gen Nothing = gen ""
+generate gen (Just graph) = gen $ sortActions graph >>= uncurry generate
+
+sortActions :: ActionGraph -> [(ActionGenerator, Maybe ActionGraph)]
+sortActions g = sortActions' (H.empty, [], listToMaybe $ H.keys g, g)
+        where sortActions' (childrenMap, sortedAids, aid, graph) = 
+                let ai = graph H.! aid
+                    nextAid = head $ H.keys graph
+                in case actionContext ai of
+                        LeastContext _ parentId ->
+                                let cmap' = H.insertWith H.union
+                                                         parentId 
+                                                         (H.singleton aid ai)
+                                in sortActions (cmap', sortedAids, nextAid, graph)
+                        NoContext ->
+                                let (cmap', sa', _, graph') =
+                                        sortActions' (childrenMap, sortedAids, 
+                                in (aid ++ 
+
+-- | Build an action graph with full contexts. It is both a graph (with
+-- dependencies as edges) and a tree (with contexts).
+buildHierarchicalGraph :: ActionMap -> ActionGraph
+buildHierarchicalGraph =
+        contextAll depth . contextAll deep . buildActionGraph
 
 -- | Build an action graph with shallow contexts.
 buildActionGraph :: ActionMap -> ActionGraph
@@ -121,19 +143,38 @@ buildActionGraph = flip foldrWithKey H.empty $
                 in H.union (H.insert aid info graph)
                            (buildActionGraph deps)
 
--- |Turn 'ShallowContext's into 'DeepContext's. 
-contextualizeAll :: ActionGraph -> ActionGraph
-contextualizeAll g = foldrWithKey
-                        (\aid _ graph -> snd $ contextualize aid graph) g g
+-- | Transform every context.
+contextAll :: (ActionID -> ActionGraph -> (ActionContext, ActionGraph))
+           -> ActionGraph -> ActionGraph
+contextAll f g = foldrWithKey (\aid _ graph -> snd $ f aid graph) g g
 
--- | Turn 'DeepContext's into 'LowestContext's.
-findLCAs :: ActionGraph -> ActionGraph
+-- | Calculate the depth of the contexts and pick the smallest context.
+depth :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
+depth aid graph =
+        case actionContext act of
+                ShallowContext _ -> error "depth: action must be contextualized"
+                DeepContext ctx -> updateContext $
+                        H.foldrWithKey accumDepth (NoContext, graph) ctx
+                ctx -> (ctx, graph)
+        where act = graph H.! aid
+              updateContext (ctx, graph) =
+                      H.insert aid (act { actionContext = ctx }) graph
 
+              depthNum NoContext = 0
+              depthNum (LeastContext n _) = n
+
+              accumDepth aid' act' (ctx, graph) =
+                      let dep = depthNum ctx
+                          (ctx', graph') = depth aid' graph
+                          dep' = depthNum ctx'
+                      in if dep <= dep'
+                             then (LeastContext (dep' + 1) aid', graph')
+                             else (ctx, graph')
 
 -- | Find and build the deep context of this action. Returns a deep context and
 -- a new graph with the deep contextes of this action and of its dependencies.
-contextualize :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
-contextualize aid graph =
+deep :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
+deep aid graph =
         case actionContext act of
                 ShallowContext sctx ->
                         let (dctx, graph') = H.foldrWithKey addDepContext
@@ -147,7 +188,7 @@ contextualize aid graph =
         where act = graph H.! aid
               addDepContext depId depInfo (ctx, graph) = 
                       -- XXX
-                      let (DeepContext dCtx, graph') = contextualize aid graph 
+                      let (DeepContext dCtx, graph') = deep aid graph 
                       in (H.union ctx dCtx, graph')
 
 -- | Compile an 'Expr'. Returns the compiled expression, the map of dependencies
@@ -179,28 +220,27 @@ compileExpr (ContextVar i t) = (contextVarName t i, H.empty, H.singleton i ())
 compileExpr (Dummy _) = error "compileExpr: Dummy"
 
 compileAction :: ActionID -> Action -> (ActionInfo, ActionMap)
-compileAction aid a@(Store ty expr) =
+compileAction aid (Store ty expr) =
         let (eStr, deps, ctxs) = compileExpr expr
-        in ( Action a (\c -> concat [ c, ty, " ", actionName aid
-                                    , "=", eStr, ";" ])
+        in ( Action (\c -> concat [ c, ty, " ", actionName aid
+                                  , "=", eStr, ";" ])
                     (H.map (const ()) deps) (ShallowContext ctxs)
            , deps )
 
-compileAction aid a@(If cExpr ty tExpr fExpr) =
+compileAction aid (If cExpr ty tExpr fExpr) =
         let (cStr, cDeps, cCtxs) = compileExpr cExpr
             (tStr, tDeps, tCtxs) = compileExpr tExpr
             (fStr, fDeps, fCtxs) = compileExpr fExpr
             deps = H.unions [cDeps, tDeps, fDeps]
             name = actionName aid
-        in ( Action a
-                    (\c -> concat [ ty, " ", name, "=", toExpr zero, ";if("
+        in ( Action (\c -> concat [ ty, " ", name, "=", toExpr zero, ";if("
                                   , cStr, "){", c, name, "=", tStr, ";}else{"
                                   , name, "fStr", ";}" ])
                     (H.map (const ()) deps)
                     (ShallowContext $ H.unions [cCtxs, tCtxs, fCtxs])
            , deps )
 
-compileAction aid a@(For iters ty initVal body) =
+compileAction aid (For iters ty initVal body) =
         let iterName = contextVarName LoopIteration aid
             valueName = contextVarName LoopValue aid
             (nExpr, sExpr) = body (ContextVar aid LoopIteration)
@@ -209,8 +249,7 @@ compileAction aid a@(For iters ty initVal body) =
             (nStr, nDeps, nCtxs) = compileExpr nExpr
             (sStr, sDeps, sCtxs) = compileExpr sExpr
             deps = H.unions [iDeps, nDeps, sDeps]
-        in ( Action a
-                    (\c -> concat [ ty, " ", valueName, "=", iStr, ";"
+        in ( Action (\c -> concat [ ty, " ", valueName, "=", iStr, ";"
                                   , "for(float ", iterName, "=0.0;"
                                   , iterName, "<", show iters, ".0;"
                                   , "++", iterName, "){", c
