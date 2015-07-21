@@ -28,6 +28,13 @@ Documentation
 
 https://hackage.haskell.org/package/fwgl/docs/FWGL.html
 
+Patch for ghcjs/shims#13
+------------------------
+
+If you want to use the GHCJS backend, you need to apply
+[fix.patch](https://github.com/ziocroc/FWGL/tree/master/fix.patch)
+in ~/.ghcjs/CURRENT_VERSION/ghcjs/shims/src.
+
 Project
 --------
 
