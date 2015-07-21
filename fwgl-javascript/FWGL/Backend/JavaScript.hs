@@ -284,9 +284,10 @@ instance GLES where
         glUniform4fv = JS.glUniform4fv
         glUniform4i = JS.glUniform4i
         glUniform4iv = JS.glUniform4iv
-        glUniformMatrix2fv = JS.glUniformMatrix2fv
-        glUniformMatrix3fv = JS.glUniformMatrix3fv
-        glUniformMatrix4fv = JS.glUniformMatrix4fv
+        -- XXX
+        glUniformMatrix2fv c loc _ arr = JS.glUniformMatrix2fv c loc False arr
+        glUniformMatrix3fv c loc _ arr = JS.glUniformMatrix3fv c loc False arr
+        glUniformMatrix4fv c loc _ arr = JS.glUniformMatrix4fv c loc False arr
         glUseProgram = JS.glUseProgram
         glValidateProgram = JS.glValidateProgram
         glVertexAttrib1f = JS.glVertexAttrib1f
