@@ -11,12 +11,15 @@ module FWGL.Shader.GLSL (
 ) where
 
 import Control.Monad
+import Data.Hashable (hash)
 import qualified Data.HashMap.Strict as H
 import Data.Typeable
+import Debug.Trace -- TODO
 import FWGL.Shader.Shader
-import FWGL.Shader.Language (Expr(..), ShaderType(..), AM(..),
-                             Unknown)
+import FWGL.Shader.Language ( Expr(..), ShaderType(..), Unknown, Action(..)
+                            , ContextVarType(..) )
 import FWGL.Shader.Stages (VertexShader, FragmentShader, ValidVertex)
+import Text.Printf
 
 type ShaderVars = ( [(String, String)]
                   , [(String, String, Int)]
@@ -49,14 +52,17 @@ shaderToGLSL header ins outs (gs, is, os) predec = concat
                                           else var outs (t, n)
                     ) os
         , "void main(){"
-        , runAction $ mapM_ (\(_, n, e) -> Set (replace n predec)
-                                               (fromExpr e :: Unknown)
-                            ) os
+        , actions
+        , concatMap (\(n, s) -> replace n predec ++ "=" ++ s ++ ";")
+                    compiledOuts
         , "}" ]
         where var qual (ty, nm) = qual ++ " " ++ ty ++ " " ++ nm ++ ";"
               replace x xs = case filter ((== x) . fst) xs of
                                         ((_, y) : []) -> y
                                         _ -> x
+              (_, outNames, outExprs) = unzip3 os
+              (actions, outStrs) = compile outExprs
+              compiledOuts = zip outNames outStrs
 
 vars :: Valid gs is os => Bool -> Shader gs is os -> ShaderVars
 vars isFragment (shader :: Shader gs is os) =
@@ -88,10 +94,13 @@ type ActionMap = H.HashMap ActionID Action
 type ActionSet = H.HashMap ActionID ()
 
 data ActionInfo = ActionInfo {
-        actionGenerator :: ActionGenerator
+        actionGenerator :: ActionGenerator,
         actionDeps :: ActionSet,
         actionContext :: ActionContext
 }
+
+instance Show ActionInfo where
+        show (ActionInfo gen deps ctx) = "{{ \"" ++ gen "CHILDREN;" ++ "\", " ++ show (H.keys deps) ++ ", " ++ show ctx ++ "}}"
 
 type ActionGenerator = String -> String
 
@@ -103,31 +112,56 @@ data ActionContext = ShallowContext ActionSet       -- ^ The contexts of the exp
                    | DeepContext ActionSet          -- ^ All the contexts (including those of the dependencies).
                    | NoContext                      -- ^ Root action.
                    | LeastContext Int ActionID      -- ^ Depth and smallest context.
+                   deriving (Show)
 
 type ActionGraph = H.HashMap ActionID ActionInfo
 
 -- | Compile a list of 'Expr', sharing their actions.
-compile :: [Expr] -> [String]
+compile :: [Expr] -> (String, [String])
+compile exprs = let (strs, deps, _) = unzip3 $ map compileExpr exprs
+                    depGraph = buildHierarchicalGraph $ H.unions deps
+                    sorted = sortActions depGraph
+                in (sorted >>= uncurry generate, strs)
 
-generate :: ActionGenerator -> Maybe ActionGraph -> String
-generate gen Nothing = gen ""
-generate gen (Just graph) = gen $ sortActions graph >>= uncurry generate
+generate :: ActionGenerator -> ActionGraph -> String
+generate gen graph = gen $ sortActions graph >>= uncurry generate
 
-sortActions :: ActionGraph -> [(ActionGenerator, Maybe ActionGraph)]
-sortActions g = sortActions' (H.empty, [], listToMaybe $ H.keys g, g)
-        where sortActions' (childrenMap, sortedAids, aid, graph) = 
-                let ai = graph H.! aid
-                    nextAid = head $ H.keys graph
-                in case actionContext ai of
-                        LeastContext _ parentId ->
-                                let cmap' = H.insertWith H.union
-                                                         parentId 
-                                                         (H.singleton aid ai)
-                                in sortActions (cmap', sortedAids, nextAid, graph)
-                        NoContext ->
-                                let (cmap', sa', _, graph') =
-                                        sortActions' (childrenMap, sortedAids, 
-                                in (aid ++ 
+sortActions :: ActionGraph -> [(ActionGenerator, ActionGraph)]
+sortActions fullGraph = visitLoop (H.empty, [], fullGraph)
+        where visitLoop state@(childrenMap, sortedIDs, graph)
+                | H.null graph = map (makePair childrenMap fullGraph) sortedIDs
+                | otherwise = visitLoop $ visit (head $ H.keys graph) state
+
+              visit aID state@(_, _, graph) =
+                      case H.lookup aID graph of
+                              Nothing -> state
+                              Just ai -> visitNew aID ai state
+
+              visitNew aID ai (childrenMap, sortedIDs, graph) = 
+                      let deps = actionDeps ai
+                          (childrenMap', sortedIDs', graph') =
+                                H.foldrWithKey
+                                        (\aID _ state -> visit aID state)
+                                        (childrenMap, sortedIDs, graph)
+                                        deps
+                      in case actionContext ai of
+                              LeastContext _ parentID ->
+                                      let ai' = ai { actionContext =
+                                                      decDepth $ actionContext ai }
+                                          cmap' = H.insertWith H.union
+                                                               parentID
+                                                               (H.singleton aID ai')
+                                                               childrenMap'
+                                      in (cmap', sortedIDs', H.delete aID graph')
+                              NoContext ->
+                                         ( childrenMap', sortedIDs' ++ [aID]
+                                         , H.delete aID graph' )
+
+              makePair childrenMap graph aID = 
+                      ( actionGenerator $ graph H.! aID
+                      , case H.lookup aID childrenMap of
+                             Just g -> g
+                             Nothing -> H.empty )
 
 -- | Build an action graph with full contexts. It is both a graph (with
 -- dependencies as edges) and a tree (with contexts).
@@ -137,58 +171,62 @@ buildHierarchicalGraph =
 
 -- | Build an action graph with shallow contexts.
 buildActionGraph :: ActionMap -> ActionGraph
-buildActionGraph = flip foldrWithKey H.empty $
-        \aid act graph ->
-                let (info, deps) = compileAction act
-                in H.union (H.insert aid info graph)
+buildActionGraph = flip H.foldrWithKey H.empty $
+        \aID act graph ->
+                let (info, deps) = compileAction aID act
+                in H.union (H.insert aID info graph)
                            (buildActionGraph deps)
 
 -- | Transform every context.
 contextAll :: (ActionID -> ActionGraph -> (ActionContext, ActionGraph))
            -> ActionGraph -> ActionGraph
-contextAll f g = foldrWithKey (\aid _ graph -> snd $ f aid graph) g g
+contextAll f g = H.foldrWithKey (\aID _ graph -> snd $ f aID graph) g g
+
+decDepth :: ActionContext -> ActionContext
+decDepth NoContext = NoContext
+decDepth (LeastContext 1 _) = NoContext
+decDepth (LeastContext n p) = LeastContext (n - 1) p
+decDepth _ = error "decDepth: invalid context"
 
 -- | Calculate the depth of the contexts and pick the smallest context.
 depth :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
-depth aid graph =
+depth aID graph = trace ("depth " ++ show aID) $
         case actionContext act of
                 ShallowContext _ -> error "depth: action must be contextualized"
                 DeepContext ctx -> updateContext $
                         H.foldrWithKey accumDepth (NoContext, graph) ctx
                 ctx -> (ctx, graph)
-        where act = graph H.! aid
+        where act = graph H.! aID
               updateContext (ctx, graph) =
-                      H.insert aid (act { actionContext = ctx }) graph
+                      (ctx, H.insert aID (act { actionContext = ctx }) graph)
 
               depthNum NoContext = 0
               depthNum (LeastContext n _) = n
 
-              accumDepth aid' act' (ctx, graph) =
+              accumDepth aID' act' (ctx, graph) =
                       let dep = depthNum ctx
-                          (ctx', graph') = depth aid' graph
+                          (ctx', graph') = depth aID' graph
                           dep' = depthNum ctx'
                       in if dep <= dep'
-                             then (LeastContext (dep' + 1) aid', graph')
+                             then (LeastContext (dep' + 1) aID', graph')
                              else (ctx, graph')
 
 -- | Find and build the deep context of this action. Returns a deep context and
--- a new graph with the deep contextes of this action and of its dependencies.
+-- a new graph with the deep contexts of this action and of its dependencies.
 deep :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
-deep aid graph =
+deep aID graph = trace ("deep " ++ show aID) $
         case actionContext act of
                 ShallowContext sctx ->
                         let (dctx, graph') = H.foldrWithKey addDepContext
                                                             (sctx, graph)
-                                                            (actionDeps sctx)
-                        in ( DeepContext dctx
-                           , H.insert aid
-                                      (act { actionContext = DeepContext dctx })
-                                      graph' )
+                                                            (actionDeps act)
+                            ctx' = DeepContext $ H.delete aID dctx
+                        in (ctx', H.insert
+                                      aID (act { actionContext = ctx' }) graph')
                 ctx -> (ctx, graph)
-        where act = graph H.! aid
-              addDepContext depId depInfo (ctx, graph) = 
-                      -- XXX
-                      let (DeepContext dCtx, graph') = deep aid graph 
+        where act = graph H.! aID
+              addDepContext depID depInfo (ctx, graph) = 
+                      let (DeepContext dCtx, graph') = deep depID graph 
                       in (H.union ctx dCtx, graph')
 
 -- | Compile an 'Expr'. Returns the compiled expression, the map of dependencies
@@ -197,8 +235,7 @@ compileExpr :: Expr -> (String, ActionMap, ActionSet)
 compileExpr Empty = ("", H.empty, H.empty)
 compileExpr (Read s) = (s, H.empty, H.empty)
 
-compileExpr (Op1 s e) = let (x, a, c) = compileExpr e
-                        in ("(" ++ s ++ x ++ ")", a, c)
+compileExpr (Op1 s e) = first3 (\x -> "(" ++ s ++ x ++ ")") $ compileExpr e
 
 compileExpr (Op2 s ex ey) = let (x, ax, cx) = compileExpr ex
                                 (y, ay, cy) = compileExpr ey
@@ -209,62 +246,70 @@ compileExpr (Apply s es) = let (vs, as, cs) = unzip3 $ map compileExpr es
                            in ( concat $ [ s, "(" , tail (vs >>= (',' :)), ")" ]
                               , H.unions as, H.unions cs)
 
-compileExpr (X e) = (compileExpr e ++ "[0]", H.empty, H.empty)
-compileExpr (Y e) = (compileExpr e ++ "[1]", H.empty, H.empty)
-compileExpr (Z e) = (compileExpr e ++ "[2]", H.empty, H.empty)
-compileExpr (W e) = (compileExpr e ++ "[3]", H.empty, H.empty)
+compileExpr (X e) = first3 (++ "[0]") $ compileExpr e
+compileExpr (Y e) = first3 (++ "[1]") $ compileExpr e
+compileExpr (Z e) = first3 (++ "[2]") $ compileExpr e
+compileExpr (W e) = first3 (++ "[3]") $ compileExpr e
 compileExpr (Literal s) = (s, H.empty, H.empty)
 compileExpr (Action a) = let h = hash a
                          in (actionName h, H.singleton h a, H.empty)
 compileExpr (ContextVar i t) = (contextVarName t i, H.empty, H.singleton i ())
 compileExpr (Dummy _) = error "compileExpr: Dummy"
 
+first3 :: (a -> a') -> (a, b, c) -> (a', b, c)
+first3 f (a, b, c) = (f a, b, c)
+
 compileAction :: ActionID -> Action -> (ActionInfo, ActionMap)
-compileAction aid (Store ty expr) =
+compileAction aID (Store ty expr) =
         let (eStr, deps, ctxs) = compileExpr expr
-        in ( Action (\c -> concat [ c, ty, " ", actionName aid
-                                  , "=", eStr, ";" ])
-                    (H.map (const ()) deps) (ShallowContext ctxs)
+        in ( ActionInfo  (\c -> concat [ c, ty, " ", actionName aID
+                                       , "=", eStr, ";" ])
+                         (H.map (const ()) deps)
+                         (ShallowContext ctxs)
            , deps )
 
-compileAction aid (If cExpr ty tExpr fExpr) =
+compileAction aID (If cExpr ty tExpr fExpr) =
         let (cStr, cDeps, cCtxs) = compileExpr cExpr
             (tStr, tDeps, tCtxs) = compileExpr tExpr
             (fStr, fDeps, fCtxs) = compileExpr fExpr
             deps = H.unions [cDeps, tDeps, fDeps]
-            name = actionName aid
-        in ( Action (\c -> concat [ ty, " ", name, "=", toExpr zero, ";if("
-                                  , cStr, "){", c, name, "=", tStr, ";}else{"
-                                  , name, "fStr", ";}" ])
-                    (H.map (const ()) deps)
-                    (ShallowContext $ H.unions [cCtxs, tCtxs, fCtxs])
+            name = actionName aID
+        in ( ActionInfo (\c -> concat [ ty, " ", name, ";if("
+                                      , cStr, "){", c, name, "=", tStr
+                                      , ";}else{" , name, "=", fStr, ";}" ])
+                        (H.map (const ()) deps)
+                        (ShallowContext $ H.unions [cCtxs, tCtxs, fCtxs])
            , deps )
 
-compileAction aid (For iters ty initVal body) =
-        let iterName = contextVarName LoopIteration aid
-            valueName = contextVarName LoopValue aid
-            (nExpr, sExpr) = body (ContextVar aid LoopIteration)
-                                  (ContextVar aid LoopValue)
-            (iStr, iDeps, iCtxs) = compileExpr iExpr
+compileAction aID (For iters ty initVal body) =
+        let iterName = contextVarName LoopIteration aID
+            valueName = contextVarName LoopValue aID
+            (nExpr, sExpr) = body (ContextVar aID LoopIteration)
+                                  (ContextVar aID LoopValue)
+            (iStr, iDeps, iCtxs) = compileExpr initVal
             (nStr, nDeps, nCtxs) = compileExpr nExpr
             (sStr, sDeps, sCtxs) = compileExpr sExpr
             deps = H.unions [iDeps, nDeps, sDeps]
-        in ( Action (\c -> concat [ ty, " ", valueName, "=", iStr, ";"
-                                  , "for(float ", iterName, "=0.0;"
-                                  , iterName, "<", show iters, ".0;"
-                                  , "++", iterName, "){", c
-                                  , "if(", sStr, "){break;}"
-                                  , valueName, "=", nStr, ";}" ])
-                    (H.map (const ()) deps)
-                    (ShallowContext $ H.unions [iCtxs, nCtxs, sCtxs])
+        in ( ActionInfo (\c -> concat [ ty, " ", valueName, "=", iStr, ";"
+                                      , "for(float ", iterName, "=0.0;"
+                                      , iterName, "<", show iters, ".0;"
+                                      , "++", iterName, "){", c
+                                      , "if(", sStr, "){break;}"
+                                      , valueName, "=", nStr, ";}" ])
+                        (H.map (const ()) deps)
+                        (ShallowContext . H.delete aID $
+                                H.unions [iCtxs, nCtxs, sCtxs])
            , deps )
 
 actionName :: ActionID -> String
-actionName = ('a' :) . show
+actionName = ('a' :) . hashName
 
 contextVarName :: ContextVarType -> ActionID -> String
-contextVarName LoopIteration = ('l' :) . show
+contextVarName LoopIteration = ('l' :) . hashName
 contextVarName LoopValue = actionName
+
+hashName :: ActionID -> String
+hashName = printf "%x"
 
 globalTypeAndName :: (Typeable t, ShaderType t) => t -> (String, String)
 globalTypeAndName t = (typeName t, globalName t)

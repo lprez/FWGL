@@ -618,7 +618,7 @@ instance Hashable Expr where
                                 Z exp -> hash2 7 s exp
                                 W exp -> hash2 8 s exp
                                 Literal str -> hash2 s 9 str
-                                Action hash -> hash2 s 10 (0 :: CInt)
+                                Action hash -> hash2 s 10 hash
                                 Dummy i -> hash2 s 11 i
                                 ContextVar i LoopIteration -> hash2 s 12 i
                                 ContextVar i LoopValue -> hash2 s 13 i
