@@ -37,9 +37,10 @@ module FWGL.Graphics.D2 (
         Program,
         layer,
         layerPrg,
-        program,
+        C.program,
         -- ** Sublayers
         C.subLayer,
+        C.depthSubLayer,
         -- * Custom 2D objects
         Object,
         object,
@@ -119,6 +120,9 @@ object m = viewObject m . foldl acc ObjectEmpty
 -- the default 2D shader), you have to set it with 'viewObject'.
 object1 :: BackendIO => Element -> Object '[Image, Depth, Transform2] Geometry2
 object1 (Element d t m g) = C.globalTexture (undefined :: Image) t $
+
+-- TODO: object1Image, object1Depth, object1Trans, object1ImageDepth,
+-- object1ImageTrans, object1DepthTrans
                             C.global (undefined :: Depth) d $
                             C.globalDraw (undefined :: Transform2) m $
                             C.static g

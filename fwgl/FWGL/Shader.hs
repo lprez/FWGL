@@ -128,6 +128,8 @@ module FWGL.Shader (
         reflect,
         refract,
         matrixCompMult,
+        position,
+        fragColor,
         STList((:-), N),
         (.),
         id,

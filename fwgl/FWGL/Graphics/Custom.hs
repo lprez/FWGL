@@ -18,6 +18,7 @@ module FWGL.Graphics.Custom (
         Layer,
         layer,
         subLayer,
+        depthSubLayer,
 
         Geometry,
         AttrList(..),
@@ -103,4 +104,12 @@ subLayer :: Int                         -- ^ Texture width.
          -> Layer                       -- ^ Layer to draw on a 'Texture'.
          -> (Texture -> [Layer])        -- ^ Layer to draw on the screen.
          -> Layer
-subLayer = SubLayer
+subLayer = SubLayer ColorSubLayer
+
+-- | Use the depth 'Layer' as a 'Texture' on another.
+depthSubLayer :: Int                         -- ^ Texture width.
+              -> Int                         -- ^ Texture height.
+              -> Layer                       -- ^ Layer to draw on a 'Texture'.
+              -> (Texture -> [Layer])        -- ^ Layer to draw on the screen.
+              -> Layer
+depthSubLayer = SubLayer DepthSubLayer

@@ -37,13 +37,16 @@ module FWGL.Graphics.D3 (
         Program,
         layer,
         layerPrg,
-        program, -- TODO: wrong!
+        C.program,
         -- ** Sublayers
         C.subLayer,
+        C.depthSubLayer,
         -- * Custom 3D objects
         Object,
         object,
         object1,
+        object1Trans,
+        object1Tex,
         (C.~~),
         -- ** Globals
         C.global,
@@ -61,6 +64,7 @@ module FWGL.Graphics.D3 (
         mul4,
         -- ** View matrices
         perspectiveMat4,
+        orthoMat4,
         cameraMat4,
         -- ** Transformation matrices
         idMat4,
@@ -109,6 +113,16 @@ object1 :: BackendIO => Element -> Object '[Transform3, Texture2] Geometry3
 object1 (Element t m g) = C.globalDraw (undefined :: Transform3) m $
                           C.globalTexture (undefined :: Texture2) t $
                           C.static g
+
+-- | Like 'object1', but it will only set the transformation matrix.
+object1Trans :: BackendIO => Element -> Object '[Transform3] Geometry3
+object1Trans (Element _ m g) = C.globalDraw (undefined :: Transform3) m $
+                               C.static g
+
+-- | Like 'object1, but it will only set the texture.
+object1Tex :: BackendIO => Element -> Object '[Texture2] Geometry3
+object1Tex (Element t _ g) = C.globalTexture (undefined :: Texture2) t $
+                             C.static g
 
 -- | Create a standard 'Layer' from a list of 'Element's.
 elements :: BackendIO => [Element] -> Layer

@@ -16,7 +16,13 @@ class ( Integral GLEnum
       , Num GLUInt
       , Num GLInt
       , Num GLPtrDiff
-      , Num GLSize) => GLES where
+      , Num GLSize
+      , Eq GLEnum
+      , Eq GLUInt
+      , Eq GLInt
+      , Eq GLPtrDiff
+      , Eq GLSize
+      , Eq Texture) => GLES where
         type Ctx
         type GLEnum
         type GLUInt

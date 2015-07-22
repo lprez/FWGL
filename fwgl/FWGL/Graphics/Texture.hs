@@ -4,7 +4,6 @@ module FWGL.Graphics.Texture (
         mkTexture,
         textureURL,
         textureFile,
-        textureHash,
         emptyTexture
 ) where
 
@@ -25,7 +24,8 @@ mkTexture :: GLES
           -> [Color]  -- ^ List of pixels
           -> Texture
 mkTexture w h ps = TextureImage . TexturePixels ps (fromIntegral w)
-                                                   (fromIntegral h) $ hash ps
+                                                   (fromIntegral h)
+                        $ hash (w, h, ps)
 
 -- | Creates a 'Texture' from an URL or a local file.
 textureURL :: String  -- ^ URL
@@ -35,18 +35,6 @@ textureURL url = TextureImage . TextureURL url $ hash url
 -- | The same as 'textureURL'.
 textureFile :: String -> Texture
 textureFile = textureURL
-
-textureHash :: TextureImage -> Int
-textureHash (TexturePixels _ _ _ h) = h
-textureHash (TextureURL _ h) = h
-
-instance Hashable TextureImage where
-        hashWithSalt salt tex = hashWithSalt salt $ textureHash tex
-
-instance Eq TextureImage where
-        (TexturePixels _ _ _ h) == (TexturePixels _ _ _ h') = h == h'
-        (TextureURL _ h) == (TextureURL _ h') = h == h'
-        _ == _ = False
 
 instance (BackendIO, GLES) => Resource TextureImage LoadedTexture GL where
         loadResource i f = loadTextureImage i $ f . Right -- TODO: err check

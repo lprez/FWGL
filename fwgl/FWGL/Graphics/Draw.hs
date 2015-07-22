@@ -31,6 +31,7 @@ import FWGL.Vector
 import Data.Bits ((.|.))
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as H
+import qualified Data.Vector as V
 import Data.Typeable
 import Data.Word (Word)
 import Control.Applicative
@@ -55,9 +56,13 @@ drawInit w h = do enable gl_DEPTH_TEST
                                    , programs = newGLResMap
                                    , gpuMeshes = newGLResMap
                                    , uniforms = newGLResMap
-                                   , textureImages = newGLResMap }
+                                   , textureImages = newGLResMap
+                                   , activeTextures =
+                                           V.replicate maxTexs Nothing }
         where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
+
+              maxTexs = fromIntegral gl_MAX_COMBINED_TEXTURE_IMAGE_UNITS
 
 -- | Execute a 'Draw' action.
 execDraw :: Draw ()             -- ^ Action.
@@ -74,7 +79,8 @@ resize w h = viewport 0 0 (fromIntegral w) (fromIntegral h)
 
 -- | Clear the buffers.
 drawBegin :: GLES => Draw ()
-drawBegin = gl . clear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
+drawBegin = do freeActiveTextures
+               gl . clear $ gl_COLOR_BUFFER_BIT .|. gl_DEPTH_BUFFER_BIT
 
 drawEnd :: GLES => Draw ()
 drawEnd = return ()
@@ -82,12 +88,22 @@ drawEnd = return ()
 -- | Draw a 'Layer'.
 drawLayer :: (GLES, BackendIO) => Layer -> Draw ()
 drawLayer (Layer prg obj) = setProgram prg >> drawObject obj
-drawLayer (SubLayer w' h' sub sup) =
-        do t <- renderTexture w h sub
+drawLayer (SubLayer stype w' h' sub sup) =
+        do t <- renderTexture internalFormat format ptype attachment w h sub
            mapM_ drawLayer $ sup (TextureLoaded $ LoadedTexture w h t)
            gl $ deleteTexture t
         where w = fromIntegral w'
               h = fromIntegral h'
+              (internalFormat, format, ptype, attachment) =
+                      case stype of
+                              ColorSubLayer -> ( fromIntegral gl_RGBA
+                                               , gl_RGBA
+                                               , gl_UNSIGNED_BYTE
+                                               , gl_COLOR_ATTACHMENT0 )
+                              DepthSubLayer -> ( fromIntegral gl_DEPTH_COMPONENT
+                                               , gl_DEPTH_COMPONENT
+                                               , gl_FLOAT
+                                               , gl_DEPTH_ATTACHMENT )
 
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
 drawObject ObjectEmpty = return ()
@@ -108,11 +124,11 @@ uniform g c = withRes_ (getUniform g)
                        $ \(UniformLocation l) -> gl $ setUniform l g c
 
 textureUniform :: (GLES, BackendIO) => Texture -> Draw ActiveTexture
-textureUniform tex = do withRes_ (getTexture tex)
+textureUniform tex = withRes (getTexture tex) (return $ ActiveTexture 0)
                                  $ \(LoadedTexture _ _ wtex) ->
-                                        gl $ do activeTexture gl_TEXTURE0
-                                                bindTexture gl_TEXTURE_2D wtex
-                        return $ ActiveTexture 0
+                                        do at <- makeActive tex
+                                           gl $ bindTexture gl_TEXTURE_2D wtex
+                                           return at
 
 -- | Get the dimensions of a 'Texture'.
 textureSize :: (GLES, BackendIO, Num a) => Texture -> Draw (a, a)
@@ -164,21 +180,39 @@ getTextureImage = getDrawResource gl textureImages
 getProgram :: GLES => Program '[] '[] -> Draw (ResStatus LoadedProgram)
 getProgram = getDrawResource gl programs (\ m s -> s { programs = m })
 
-renderTexture :: (GLES, BackendIO) => GLSize -> GLSize
-              -> Layer -> Draw GL.Texture
-renderTexture w h layer = do
+freeActiveTextures :: Draw ()
+freeActiveTextures = Draw . modify $ \ds ->
+        ds { activeTextures = V.map (const Nothing) $ activeTextures ds }
+
+makeActive :: GLES => Texture -> Draw ActiveTexture
+makeActive t = do ats <- activeTextures <$> Draw get
+                  let at@(ActiveTexture atn) =
+                        case V.elemIndex (Just t) ats of
+                                Just n -> ActiveTexture $ fi n
+                                Nothing ->
+                                        case V.elemIndex Nothing ats of
+                                             Just n -> ActiveTexture $ fi n
+                                             Nothing -> ActiveTexture 0 -- XXX
+                  gl . activeTexture $ gl_TEXTURE0 + fi atn
+                  Draw . modify $ \ds ->
+                          ds { activeTextures = ats V.// [(fi atn, Just t)] }
+                  return at
+        where fi :: (Integral a, Integral b) => a -> b
+              fi = fromIntegral
+
+renderTexture :: (GLES, BackendIO) => GLInt -> GLEnum -> GLEnum
+              -> GLEnum -> GLSize -> GLSize -> Layer -> Draw GL.Texture
+renderTexture internalFormat format pixelType attachment w h layer = do
         fb <- gl createFramebuffer
         t <- gl emptyTexture
 
         gl $ do arr <- liftIO $ noArray
                 bindTexture gl_TEXTURE_2D t
-                texImage2DBuffer gl_TEXTURE_2D 0 (fromIntegral gl_RGBA) w 
-                                 h 0 gl_RGBA
-                                 gl_UNSIGNED_BYTE arr
+                texImage2DBuffer gl_TEXTURE_2D 0 internalFormat w 
+                                 h 0 format pixelType arr
 
                 bindFramebuffer gl_FRAMEBUFFER fb
-                framebufferTexture2D gl_FRAMEBUFFER
-                                     gl_COLOR_ATTACHMENT0
+                framebufferTexture2D gl_FRAMEBUFFER attachment
                                      gl_TEXTURE_2D t 0
                 -- viewport ?
 

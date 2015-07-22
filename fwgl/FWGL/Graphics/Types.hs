@@ -11,12 +11,15 @@ module FWGL.Graphics.Types (
         Geometry(..),
         Mesh(..),
         Object(..),
-        Layer(..)
+        Layer(..),
+        SubLayerType(..)
 ) where
 
 import Control.Applicative
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State
+import Data.Hashable
+import Data.Vector (Vector)
 import Data.Typeable
 import FWGL.Geometry
 import FWGL.Graphics.Color
@@ -37,7 +40,8 @@ data DrawState = DrawState {
         programs :: ResMap (Program '[] '[]) LoadedProgram,
         uniforms :: ResMap (LoadedProgram, String) UniformLocation,
         gpuMeshes :: ResMap (Geometry '[]) GPUGeometry,
-        textureImages :: ResMap TextureImage LoadedTexture
+        textureImages :: ResMap TextureImage LoadedTexture,
+        activeTextures :: Vector (Maybe Texture)
 }
 
 -- | A monad that represents OpenGL actions with some state ('DrawState').
@@ -47,6 +51,7 @@ newtype Draw a = Draw { unDraw :: StateT DrawState GL a }
 -- | A texture.
 data Texture = TextureImage TextureImage
              | TextureLoaded LoadedTexture
+             deriving Eq
              
 data TextureImage = TexturePixels [Color] GLSize GLSize Int
                   | TextureURL String Int
@@ -79,4 +84,21 @@ data Object (gs :: [*]) (is :: [*]) where
 -- another.
 data Layer = forall oi pi og pg. (Subset oi pi, Subset og pg)
                               => Layer (Program pg pi) (Object og oi)
-           | SubLayer Int Int Layer (Texture -> [Layer])
+           | SubLayer SubLayerType Int Int Layer (Texture -> [Layer])
+
+data SubLayerType = ColorSubLayer | DepthSubLayer deriving Eq
+
+instance Hashable TextureImage where
+        hashWithSalt salt tex = hashWithSalt salt $ textureHash tex
+
+instance Eq TextureImage where
+        (TexturePixels _ _ _ h) == (TexturePixels _ _ _ h') = h == h'
+        (TextureURL _ h) == (TextureURL _ h') = h == h'
+        _ == _ = False
+
+instance GLES => Eq LoadedTexture where
+        LoadedTexture _ _ t == LoadedTexture _ _ t' = t == t'
+
+textureHash :: TextureImage -> Int
+textureHash (TexturePixels _ _ _ h) = h
+textureHash (TextureURL _ h) = h

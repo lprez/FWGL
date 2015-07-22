@@ -22,6 +22,7 @@ module FWGL.Vector (
         rotZMat4,
         rotAAMat4,
         scaleMat4,
+        orthoMat4,
         perspectiveMat4,
         cameraMat4,
         -- lookAtMat4,
@@ -260,7 +261,7 @@ scaleMat4 (V3 x y z) = mat4from3 ( x, 0, 0
                                  , 0, y, 0
                                  , 0, 0, z )
 
--- | 4x4 perspective matrix.
+-- | 4x4 perspective projection matrix.
 perspectiveMat4 :: Float        -- ^ Far
                 -> Float        -- ^ Near
                 -> Float        -- ^ FOV
@@ -272,6 +273,20 @@ perspectiveMat4 f n fov ar =
              , 0      , 0 , (f + n) / (n - f) , (2 * f * n) / (n - f)
              , 0      , 0 , - 1               , 0)
         where s = 1 / tan (fov * pi / 360)
+
+-- | 4x4 orthographic projection matrix.
+orthoMat4 :: Float      -- ^ Far
+          -> Float      -- ^ Near
+          -> Float      -- ^ Left
+          -> Float      -- ^ Right
+          -> Float      -- ^ Bottom
+          -> Float      -- ^ Top
+          -> M4
+orthoMat4 f n l r b t =
+        mat4 ( 2 / (r - l) , 0           , 0           , (r + l) / (r - l)
+             , 0           , 2 / (t - b) , 0           , (t + b) / (t - b)
+             , 0           , 0           , 2 / (n - f) , ( f + n) / (n - f)
+             , 0           , 0           , 0           , 1)
 
 -- | 4x4 FPS camera matrix.
 cameraMat4 :: V3        -- ^ Eye

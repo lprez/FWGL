@@ -14,7 +14,6 @@ import Control.Monad
 import Data.Hashable (hash)
 import qualified Data.HashMap.Strict as H
 import Data.Typeable
-import Debug.Trace -- TODO
 import FWGL.Shader.Shader
 import FWGL.Shader.Language ( Expr(..), ShaderType(..), Unknown, Action(..)
                             , ContextVarType(..) )
@@ -190,7 +189,7 @@ decDepth _ = error "decDepth: invalid context"
 
 -- | Calculate the depth of the contexts and pick the smallest context.
 depth :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
-depth aID graph = trace ("depth " ++ show aID) $
+depth aID graph =
         case actionContext act of
                 ShallowContext _ -> error "depth: action must be contextualized"
                 DeepContext ctx -> updateContext $
@@ -214,7 +213,7 @@ depth aID graph = trace ("depth " ++ show aID) $
 -- | Find and build the deep context of this action. Returns a deep context and
 -- a new graph with the deep contexts of this action and of its dependencies.
 deep :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
-deep aID graph = trace ("deep " ++ show aID) $
+deep aID graph =
         case actionContext act of
                 ShallowContext sctx ->
                         let (dctx, graph') = H.foldrWithKey addDepContext

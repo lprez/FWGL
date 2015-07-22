@@ -74,7 +74,9 @@ module FWGL.Shader.Language (
         faceforward,
         reflect,
         refract,
-        matrixCompMult
+        matrixCompMult,
+        position,
+        fragColor
         -- TODO: memoized versions of the functions
 ) where
 
@@ -605,6 +607,14 @@ loop _ _ _ = error "loop: iteration number is not a literal."
 
 texture2D :: Sampler2D -> V2 -> V4
 texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]
+
+-- | The position of the vertex (only works in the vertex shader).
+position :: V4
+position = fromExpr $ Read "gl_Position"
+
+-- | The color of the fragment (only works in the fragment shader).
+fragColor :: V4
+fragColor = fromExpr $ Read "gl_FragColor"
 
 instance Hashable Expr where
         hashWithSalt s e = case e of
