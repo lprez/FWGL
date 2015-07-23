@@ -26,6 +26,24 @@ foreign import javascript unsafe
         \img.onload = function() { return $2(img); };  "
         loadImageRaw :: JSString -> JSFun (JSRef a -> IO ()) -> IO ()
 
+foreign import javascript unsafe
+        "var xhr = new XMLHttpRequest;                  \
+        \xhr.open(\"GET\", $1, true);                   \
+        \xhr.onreadystatechange = function () {         \
+        \        if (xhr.readyState == 4) {             \
+        \               if (xhr.status == 200) {        \
+        \                       $2(xhr.responseText);   \
+        \               } else {                        \
+        \                       $3(xhr.responseText);   \
+        \               }                               \
+        \       }                                       \
+        \};                                             \
+        \xhr.send();                                    "
+         loadTextFileRaw :: JSString
+                         -> JSFun (JSString -> IO ())
+                         -> JSFun (JSString -> IO ())
+                         -> IO ()
+
 foreign import javascript unsafe "document.querySelector($1)"
         query :: JSString -> IO (JSRef a)
 
@@ -47,6 +65,14 @@ instance BackendIO where
                         do (Just w) <- getProp "width" img >>= fromJSRef
                            (Just h) <- getProp "height" img >>= fromJSRef
                            f (img, w, h)
+
+        loadTextFile url f =
+                do fRight <- asyncCallback1 NeverRetain $
+                                f . Right . fromJSString
+                   fLeft <- asyncCallback1 NeverRetain $
+                                f . Left . fromJSString
+                   forkIO $ loadTextFileRaw (toJSString url) fRight fLeft
+                   return ()
 
         setup initState draw customInp sigf =
                 do element <- query $ toJSString "canvas"

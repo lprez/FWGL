@@ -8,4 +8,5 @@ import qualified FWGL.Backend.GLFW.Common as C
 
 instance BackendIO where
         loadImage = C.loadImage
+        loadTextFile = C.loadTextFile
         setup = C.setup C.ClientAPI'OpenGLES 2 0

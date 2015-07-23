@@ -1,4 +1,5 @@
 module FWGL.Backend.GLFW.Common (
+        loadTextFile,
         loadImage,
         setup,
         ClientAPI(..)
@@ -7,6 +8,7 @@ module FWGL.Backend.GLFW.Common (
 import Codec.Picture
 import Codec.Picture.Types (promoteImage)
 import Control.Concurrent
+import Control.Exception.Base (catch)
 import qualified Data.HashMap.Strict as H
 import Data.IORef
 import Data.Vector.Storable (unsafeWith)
@@ -35,6 +37,11 @@ loadImage path c = do eimg <- readImage path
               convert (ImageYA8 img) = promoteImage img
               convert (ImageY8 img) = promoteImage img
               convert _ = error "Unsupported image format."
+
+loadTextFile :: String -> (Either String String -> IO ()) -> IO ()
+loadTextFile fname handler = (>> return ()) . forkIO $
+        catch (fmap (\s -> s `seq` Right s) $ readFile fname)
+              (\e -> return (Left $ show (e :: IOError))) >>= handler
 
 setup :: ClientAPI -> Int -> Int
       -> (Int -> Int -> () -> IO state)

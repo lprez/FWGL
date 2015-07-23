@@ -112,17 +112,17 @@ object m = viewObject m . foldl acc ObjectEmpty
 object1 :: BackendIO => Element -> Object '[Transform3, Texture2] Geometry3
 object1 (Element t m g) = C.globalDraw (undefined :: Transform3) m $
                           C.globalTexture (undefined :: Texture2) t $
-                          C.static g
+                          C.geom g
 
 -- | Like 'object1', but it will only set the transformation matrix.
 object1Trans :: BackendIO => Element -> Object '[Transform3] Geometry3
 object1Trans (Element _ m g) = C.globalDraw (undefined :: Transform3) m $
-                               C.static g
+                               C.geom g
 
 -- | Like 'object1, but it will only set the texture.
 object1Tex :: BackendIO => Element -> Object '[Texture2] Geometry3
 object1Tex (Element t _ g) = C.globalTexture (undefined :: Texture2) t $
-                             C.static g
+                             C.geom g
 
 -- | Create a standard 'Layer' from a list of 'Element's.
 elements :: BackendIO => [Element] -> Layer

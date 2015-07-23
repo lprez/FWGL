@@ -24,6 +24,8 @@ module FWGL (
         draw,
         run,
         run',
+        loadOBJ,
+        loadOBJAsync,
         Output,
         (.>),
         io,
@@ -32,11 +34,14 @@ module FWGL (
         freeProgram
 ) where
 
+import Control.Concurrent
 import Control.Monad.IO.Class
 import FWGL.Audio
 import FWGL.Backend hiding (Texture, Program)
 import FWGL.Input
 import FWGL.Internal.GL (evalGL)
+import FWGL.Geometry (Geometry3)
+import FWGL.Geometry.OBJ
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Types
 import FWGL.Shader.Program (Program)
@@ -88,3 +93,20 @@ run' customInput sigf = setup initState loop customInput sigf
                               drawBegin
                               act
                               drawEnd
+
+-- | Load a model from an OBJ file asynchronously.
+loadOBJAsync :: BackendIO 
+             => FilePath
+             -> (Either String (Geometry Geometry3) -> IO ())
+             -> IO ()
+loadOBJAsync fp k = loadTextFile fp $
+                       \e -> case e of
+                                  Left err -> k $ Left err
+                                  Right str -> k . Right . geometryOBJ
+                                                 . parseOBJ $ str
+
+-- | Load a model from an OBJ file.
+loadOBJ :: BackendIO => FilePath -> IO (Either String (Geometry Geometry3))
+loadOBJ fp = do var <- newEmptyMVar
+                loadOBJAsync fp $ putMVar var
+                takeMVar var

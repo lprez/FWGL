@@ -19,9 +19,6 @@ data OBJModel = OBJModel {
         objFaces :: [[(Int, Int, Int)]]
 } deriving (Show)
 
-loadOBJ :: FilePath -> IO OBJModel
-loadOBJ = fmap parseOBJ . readFile -- TODO: substitute with ajax
-
 parseOBJ :: String -> OBJModel
 parseOBJ file = runST $
         do vs <- new

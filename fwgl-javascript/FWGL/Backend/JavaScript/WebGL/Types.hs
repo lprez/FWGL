@@ -74,6 +74,9 @@ type RenderBuffer = JSRef RenderBuffer_
 data Texture_
 type Texture = JSRef Texture_
 
+instance Eq Texture where
+        (==) = eqRef
+
 data UniformLocation_
 type UniformLocation = JSRef UniformLocation_
 

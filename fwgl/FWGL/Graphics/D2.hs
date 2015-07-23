@@ -125,7 +125,7 @@ object1 (Element d t m g) = C.globalTexture (undefined :: Image) t $
 -- object1ImageTrans, object1DepthTrans
                             C.global (undefined :: Depth) d $
                             C.globalDraw (undefined :: Transform2) m $
-                            C.static g
+                            C.geom g
 
 -- | Create a standard 'Layer' from a list of 'Element's.
 elements :: BackendIO => [Element] -> Layer
