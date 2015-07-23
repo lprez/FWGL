@@ -9,7 +9,6 @@ module FWGL.Graphics.Types (
         TextureImage(..),
         LoadedTexture(..),
         Geometry(..),
-        Mesh(..),
         Object(..),
         Layer(..),
         SubLayerType(..)
@@ -58,13 +57,6 @@ data TextureImage = TexturePixels [Color] GLSize GLSize Int
 
 data LoadedTexture = LoadedTexture GLSize GLSize GL.Texture
 
--- | A static or dinamic geometry.
-data Mesh is where
-        Empty :: Mesh '[]
-        Cube :: Mesh Geometry3
-        StaticGeom :: Geometry is -> Mesh is
-        DynamicGeom :: Geometry is -> Geometry is -> Mesh is
-
 -- | An object is a set of geometries associated with some uniforms. For
 -- example, if you want to draw a rotating cube, its vertices, normals, etc.
 -- would be the 'Geometry', the combination of the geometry and the value of the
@@ -75,7 +67,7 @@ data Mesh is where
 -- and they are ultimately converted to them.
 data Object (gs :: [*]) (is :: [*]) where
         ObjectEmpty :: Object gs is
-        ObjectMesh :: Mesh is -> Object gs is
+        ObjectMesh :: Geometry is -> Object gs is
         ObjectGlobal :: (Typeable g, UniformCPU c g) => g -> Draw c
                      -> Object gs is -> Object gs' is 
         ObjectAppend :: Object gs is -> Object gs' is' -> Object gs'' is''

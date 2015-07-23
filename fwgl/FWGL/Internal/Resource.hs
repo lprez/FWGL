@@ -26,7 +26,7 @@ data ResStatus r = Loaded r | Unloaded | Loading | Error String
 class (Eq i, Applicative m, MonadIO m) =>
       Resource i r m | i -> r m where
         loadResource :: i -> (Either String r -> m ()) -> m ()
-        unloadResource :: i -> r -> m ()
+        unloadResource :: Maybe i -> r -> m ()
 
 newResMap :: Hashable i => Resource i r m => ResMap i r
 newResMap = ResMap H.empty
@@ -59,7 +59,7 @@ removeResource :: (Resource i r m, Hashable i)
 removeResource i rmap@(ResMap map) = 
         do status <- checkResource i rmap
            case status of
-                Loaded r -> unloadResource i r
+                Loaded r -> unloadResource (Just i) r
                 Loading -> return () --- XXX
                 _ -> return ()
            return . ResMap $ H.delete i map

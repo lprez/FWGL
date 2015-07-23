@@ -27,15 +27,19 @@ module FWGL (
         Output,
         (.>),
         io,
+        freeGeometry,
+        freeTexture,
+        freeProgram
 ) where
 
 import Control.Monad.IO.Class
 import FWGL.Audio
-import FWGL.Backend
+import FWGL.Backend hiding (Texture, Program)
 import FWGL.Input
 import FWGL.Internal.GL (evalGL)
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Types
+import FWGL.Shader.Program (Program)
 import FWGL.Utils
 import FRP.Yampa
 
@@ -53,6 +57,18 @@ draw layers = Output $ mapM_ drawLayer layers
 -- | Perform an IO action.
 io :: IO () -> Output
 io = Output . liftIO
+
+-- | Delete a 'Geometry' from the GPU.
+freeGeometry :: BackendIO => Geometry i -> Output
+freeGeometry = Output . removeGeometry
+
+-- | Delete a 'Texture' from the GPU.
+freeTexture :: BackendIO => Texture -> Output
+freeTexture = Output . removeTexture
+
+-- | Delete a 'Program' from the GPU.
+freeProgram :: BackendIO => Program g i -> Output
+freeProgram = Output . removeProgram
 
 -- | Run a FWGL program.
 run :: BackendIO

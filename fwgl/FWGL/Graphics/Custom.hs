@@ -6,7 +6,7 @@ module FWGL.Graphics.Custom (
         (~~),
         unsafeJoin,
         nothing,
-        static,
+        geom,
 
         Program,
         program,
@@ -55,8 +55,8 @@ nothing :: Object '[] '[]
 nothing = ObjectEmpty
 
 -- | A custom object with a specified 'Geometry'.
-static :: Geometry i -> Object '[] i
-static = ObjectMesh . StaticGeom
+geom :: Geometry i -> Object '[] i
+geom = ObjectMesh
 
 -- | Sets a global variable (uniform) of an object.
 global :: (Typeable g, UniformCPU c g) => g -> c

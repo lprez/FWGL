@@ -9,6 +9,9 @@ module FWGL.Graphics.Draw (
         drawBegin,
         drawLayer,
         drawEnd,
+        removeGeometry,
+        removeTexture,
+        removeProgram,
         textureUniform,
         textureSize,
         setProgram,
@@ -85,6 +88,20 @@ drawBegin = do freeActiveTextures
 drawEnd :: GLES => Draw ()
 drawEnd = return ()
 
+removeGeometry :: GLES => Geometry is -> Draw ()
+removeGeometry = removeDrawResource gl gpuMeshes (\m s -> s { gpuMeshes = m })
+                 . castGeometry
+
+removeTexture :: BackendIO => Texture -> Draw ()
+removeTexture (TextureImage i) = removeDrawResource gl textureImages
+                                        (\m s -> s { textureImages = m }) i
+removeTexture (TextureLoaded l) = gl $ unloadResource
+                                        (Nothing :: Maybe TextureImage) l
+
+removeProgram :: GLES => Program gs is -> Draw ()
+removeProgram = removeDrawResource gl programs (\m s -> s { programs = m })
+                . castProgram
+
 -- | Draw a 'Layer'.
 drawLayer :: (GLES, BackendIO) => Layer -> Draw ()
 drawLayer (Layer prg obj) = setProgram prg >> drawObject obj
@@ -107,17 +124,10 @@ drawLayer (SubLayer stype w' h' sub sup) =
 
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
 drawObject ObjectEmpty = return ()
-drawObject (ObjectMesh m) = drawMesh m
+drawObject (ObjectMesh g) = withRes_ (getGPUGeometry $ castGeometry g)
+                                   drawGPUGeometry
 drawObject (ObjectGlobal g c o) = c >>= uniform g >> drawObject o
 drawObject (ObjectAppend o o') = drawObject o >> drawObject o'
-
-drawMesh :: GLES => Mesh is -> Draw ()
-drawMesh Empty = return ()
-drawMesh Cube = drawMesh (StaticGeom cubeGeometry)
-drawMesh (StaticGeom g) = withRes_ (getGPUGeometry $ castGeometry g)
-                                   drawGPUGeometry
-drawMesh (DynamicGeom _ _) = error "drawMesh DynamicGeom: unsupported"
--- drawMesh (DynamicGeom d g) = delete {- removeResource -} d >> drawMesh (StaticGeom g)
 
 uniform :: (GLES, Typeable g, UniformCPU c g) => g -> c -> Draw ()
 uniform g c = withRes_ (getUniform g)
@@ -236,6 +246,18 @@ getDrawResource lft mg ms i = do
         (r, map) <- lft . getResource i $ mg s
         Draw . put $ ms map s
         return r
+
+removeDrawResource :: (Resource i r m, Hashable i)
+                   => (m (ResMap i r) -> Draw (ResMap i r))
+                   -> (DrawState -> ResMap i r)
+                   -> (ResMap i r -> DrawState -> DrawState)
+                   -> i
+                   -> Draw ()
+removeDrawResource lft mg ms i = do
+        s <- Draw get
+        map <- lft . removeResource i $ mg s
+        Draw . put $ ms map s
+        return ()
 
 drawGPUGeometry :: GLES => GPUGeometry -> Draw ()
 drawGPUGeometry (GPUGeometry abs eb ec) =
