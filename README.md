@@ -21,21 +21,20 @@ in ~/.ghcjs/CURRENT_VERSION/ghcjs/shims/src.
 Examples
 --------
 
-**[Demo](http://ziocroc.github.io/FWGL/demo)**  
-Various.
-
-**[Recursive signals](http://ziocroc.github.io/FWGL/recur)**  
-2D graphics and interaction.
-
 **[Avoid the obstacles](http://ziocroc.github.io/FWGL/avoid)**  
-A simple game.
+A simple 3D game.
+
+**[Demo](http://ziocroc.github.io/FWGL/demo)**  
+3D graphics, OBJ loading.
+
+**[Rectangles](http://ziocroc.github.io/FWGL/recur)**  
+2D graphics and recursive signals.
 
 **[Distortion](http://ziocroc.github.io/FWGL/distortion)**  
-Demonstrates the use of custom shaders.
-
+Custom shaders.
 
 **[TCP](https://github.com/ziocroc/FWGL/tree/master/examples/io) (GLFW only)**  
-Demonstrates the use of custom inputs and IO effects.
+Custom inputs.
 
 
 Documentation
@@ -50,13 +49,11 @@ Project
 
 **Features that will be implemented:**  
 
-  * Separate packages (fwgl-core, fwgl-yampa, fwgl-javascript, ecc.) 
   * Window/canvas customization
-  * Sharing, conditionals and loops in the shaders (WIP on **actions** branch)
-  * AJAX/Local file OBJ loading
-  * Audio
   * Inspectable sublayers
-  * Lots of examples and better documentation
+  * Separate packages (fwgl-core, fwgl-yampa, fwgl-javascript, ecc.) 
+  * Audio
+  * Lots of examples
 
 **Features that may be implemented:**  
 These can be implemented with the already existing features:
@@ -67,6 +64,6 @@ These can be implemented with the already existing features:
   * Bump mapping (^)
   * Network (WebSocket) (with custom inputs and outputs)  
  
-**Other:**  
+**Other ideas:**  
   * Android backend
   * Physics

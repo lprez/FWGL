@@ -2,8 +2,7 @@
 
 module Main where
 
-import MonkeyOBJ
-
+import Data.IORef
 import Data.Fixed (mod')
 import Data.List (unfoldr)
 import FRP.Yampa
@@ -12,12 +11,64 @@ import FWGL.Graphics.D3
 
 #ifdef __GHCJS__
 import FWGL.Backend.JavaScript
+import GHCJS.Foreign
+import GHCJS.Types
 #else
 import FWGL.Backend.GLFW.GL20
 #endif
 
-mouseCount :: Num a => a -> MouseButton -> SF (Input ()) a
-mouseCount i mb = mouse mb >>> accumHoldBy (\c _ -> c + 1) i
+mainSF :: SF (Input (Maybe (Geometry Geometry3))) Output
+mainSF = proc inp -> do tm <- time >>> arr realToFrac -< inp
+                        monkey <- monkey -< inp
+                        cubes <- parB [ rotatingCube 0 gradRedYellow
+                                      , rotatingCube (pi / 2) gradGreenBlue
+                                      , rotatingCube pi gradRedYellow
+                                      , rotatingCube (pi * 3 / 2) gradGreenBlue ]
+                              -< inp
+ 
+                        viewMatrix <- perspective4 10000 0.12 100 -< inp
+                        returnA -< draw [ view viewMatrix $ monkey : cubes ]
+
+        where gradRedYellow = gradient red yellow
+              gradGreenBlue = gradient green blue
+
+rotatingCube :: Float -> Texture -> SF (Input a) Element
+rotatingCube angleOff tex =
+        proc inp -> do tm <- time >>> arr realToFrac -< inp
+
+                       let angle factor = mod' (tm / factor + angleOff) $ pi * 2
+
+                       returnA -< ( pos (
+                                            V3 (sin (angle 800) / 6)
+                                               (sin (angle 800) / 6)
+                                               (cos (angle 800) / 5 - 1)) $
+                                    rotX (angle 200) $
+                                    rotY (angle 400) $
+                                    scale 0.02 $
+                                    cube tex )
+
+monkey :: SF (Input (Maybe (Geometry Geometry3))) Element
+monkey = proc inp -> do (x, y) <- pointer -< inp
+                        scaleFact <- mouseScale -< inp
+                        maybeGeometry <- custom -< inp
+
+                        let geometry = case maybeGeometry of
+                                            Just g -> g
+                                            Nothing -> emptyGeometry
+
+                        returnA -< ( pos (V3 0 0 (- 1)) $
+                                     rotY (2 - fromIntegral x / 160) $
+                                     rotX (2 - fromIntegral y / 120) $
+                                     scale scaleFact $
+                                     geom (textureURL monkeyTex) geometry )
+        where emptyGeometry = mkGeometry3 [] [] [] []
+
+mouseScale :: SF (Input a) Float
+mouseScale = proc inp -> do leftCount <- mouseCount 4 MouseLeft -< inp
+                            rightCount <- mouseCount 0 MouseRight -< inp
+
+                            returnA -< (leftCount - rightCount) / 100
+        where mouseCount i mb = mouse mb >>> accumHoldBy (\c _ -> c + 1) i
 
 monkeyTex :: String
 monkeyTex = "monkeyTex.png"
@@ -36,41 +87,21 @@ gradient c1 c2 = mkTexture (floor w) (floor w) $ unfoldr f (0, 0)
                                             , (x + 1, y) )
               w = 256 :: Num a => a
 
-mainSF :: SF (Input ()) Output
-mainSF = proc inp -> do (x, y) <- pointer -< inp
-
-                        tm <- time >>> arr realToFrac -< inp
-                        leftCount <- mouseCount 4 MouseLeft -< inp
-                        rightCount <- mouseCount 0 MouseRight -< inp
-
-                        let scaleFact = (leftCount - rightCount) / 100
-                            timeAng o f = mod' (tm / f + o) $ pi * 2
-                            transformedMonkey =
-                                    pos (V3 0 0 (- 1)) $
-                                    rotY (fromIntegral x / 160 - 1) $
-                                    rotX (fromIntegral y / 120 - 1) $
-                                    scale scaleFact $
-                                    geom (textureURL monkeyTex) monkeyOBJ
-                            transformedCube o tex =
-                                    pos (
-                                            V3 (sin (timeAng o 800) / 6)
-                                               (sin (timeAng o 800) / 6)
-                                               (cos (timeAng o 800) / 5 - 1)) $
-                                    rotX (timeAng o 200) $
-                                    rotY (timeAng o 400) $
-                                    scale 0.02 $
-                                    cube tex
-                                               
-
-                        viewMatrix <- perspective4 10000 0.12 100 -< inp
-                        returnA -< draw . return . view viewMatrix
-                                        $ [ transformedCube 0 gradRedYellow
-                                          , transformedCube (pi / 2) gradGreenBlue
-                                          , transformedCube pi gradRedYellow
-                                          , transformedCube (pi * 3 / 2) gradGreenBlue
-                                          , transformedMonkey ]
-        where gradRedYellow = gradient red yellow
-              gradGreenBlue = gradient green blue
-
 main :: IO ()
-main = run mainSF
+main = do monkeyOBJ <- newIORef Nothing
+#ifdef __GHCJS__
+          loadDiv $ toJSString "<b>Loading monkey.obj...</b>"
+#endif
+          loadOBJAsync "monkey.obj" $ \egeom ->
+                  case egeom of
+                       Left err -> putStrLn err
+                       Right geom -> do writeIORef monkeyOBJ . Just $! geom
+#ifdef __GHCJS__
+                                        loadDiv $ toJSString ""
+#endif
+          run' (readIORef monkeyOBJ) mainSF
+
+#ifdef __GHCJS__
+foreign import javascript unsafe "document.getElementById('load').innerHTML = $1;"
+        loadDiv :: JSString -> IO ()
+#endif
