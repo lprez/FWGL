@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, RebindableSyntax, DeriveDataTypeable,
+{-# LANGUAGE DataKinds, RebindableSyntax, DeriveDataTypeable, FlexibleContexts,
              GeneralizedNewtypeDeriving, GADTs #-}
 
 module Program (
