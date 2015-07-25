@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeFamilies, MultiParamTypeClasses, FlexibleContexts #-}
+{-# LANGUAGE NullaryTypeClasses, TypeFamilies, MultiParamTypeClasses,
+             FlexibleContexts #-}
 
 module FWGL.Backend.GLES where
 
