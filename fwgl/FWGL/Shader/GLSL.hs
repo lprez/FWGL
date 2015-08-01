@@ -98,19 +98,14 @@ data ActionInfo = ActionInfo {
         actionContext :: ActionContext
 }
 
-instance Show ActionInfo where
-        show (ActionInfo gen deps ctx) = "{{ \"" ++ gen "CHILDREN;" ++ "\", " ++ show (H.keys deps) ++ ", " ++ show ctx ++ "}}"
-
 type ActionGenerator = String -> String
 
 -- | The context is where an action should be put. Only for-loops are considered
--- contexts, because there is no reason to put some action inside another block.
+-- contexts, because there is no reason to put an action inside another block.
 -- Of course, an action could have many contexts (e.g. for(..) { for (..) {
 -- act; } }), but only one is actually needed to compile the action.
 data ActionContext = ShallowContext ActionSet       -- ^ The contexts of the expressions used in the action.
                    | DeepContext ActionSet          -- ^ All the contexts (including those of the dependencies).
-                   | NoContext                      -- ^ Root action.
-                   | LeastContext Int ActionID      -- ^ Depth and smallest context.
                    deriving (Show)
 
 type ActionGraph = H.HashMap ActionID ActionInfo
@@ -118,7 +113,7 @@ type ActionGraph = H.HashMap ActionID ActionInfo
 -- | Compile a list of 'Expr', sharing their actions.
 compile :: [Expr] -> (String, [String])
 compile exprs = let (strs, deps, _) = unzip3 $ map compileExpr exprs
-                    depGraph = buildHierarchicalGraph $ H.unions deps
+                    depGraph = contextAll deep . buildActionGraph $ H.unions deps
                     sorted = sortActions depGraph
                 in (sorted >>= uncurry generate, strs)
 
@@ -144,29 +139,27 @@ sortActions fullGraph = visitLoop (H.empty, [], fullGraph)
                                         (childrenMap, sortedIDs, graph)
                                         deps
                       in case actionContext ai of
-                              LeastContext _ parentID ->
-                                      let ai' = ai { actionContext =
-                                                      decDepth $ actionContext ai }
-                                          cmap' = H.insertWith H.union
-                                                               parentID
-                                                               (H.singleton aID ai')
-                                                               childrenMap'
-                                      in (cmap', sortedIDs', H.delete aID graph')
-                              NoContext ->
+                              DeepContext ctx | H.null ctx ||
+                                                ctx == H.singleton aID () ->
                                          ( childrenMap', sortedIDs' ++ [aID]
                                          , H.delete aID graph' )
+
+                              DeepContext ctx ->
+                                      let smap = H.map (\_ -> H.singleton aID ai
+                                                       ) ctx
+                                          cmap' = H.unionWith H.union smap
+                                                              childrenMap'
+                                      in (cmap', sortedIDs', H.delete aID graph')
 
               makePair childrenMap graph aID = 
                       ( actionGenerator $ graph H.! aID
                       , case H.lookup aID childrenMap of
-                             Just g -> g
+                             Just g -> H.map (delDeep aID) g
                              Nothing -> H.empty )
 
--- | Build an action graph with full contexts. It is both a graph (with
--- dependencies as edges) and a tree (with contexts).
-buildHierarchicalGraph :: ActionMap -> ActionGraph
-buildHierarchicalGraph =
-        contextAll depth . contextAll deep . buildActionGraph
+              delDeep k ai = let (DeepContext ctx) = actionContext ai
+                             in ai { actionContext = DeepContext $
+                                                        H.delete k ctx }
 
 -- | Build an action graph with shallow contexts.
 buildActionGraph :: ActionMap -> ActionGraph
@@ -181,35 +174,6 @@ contextAll :: (ActionID -> ActionGraph -> (ActionContext, ActionGraph))
            -> ActionGraph -> ActionGraph
 contextAll f g = H.foldrWithKey (\aID _ graph -> snd $ f aID graph) g g
 
-decDepth :: ActionContext -> ActionContext
-decDepth NoContext = NoContext
-decDepth (LeastContext 1 _) = NoContext
-decDepth (LeastContext n p) = LeastContext (n - 1) p
-decDepth _ = error "decDepth: invalid context"
-
--- | Calculate the depth of the contexts and pick the smallest context.
-depth :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
-depth aID graph =
-        case actionContext act of
-                ShallowContext _ -> error "depth: action must be contextualized"
-                DeepContext ctx -> updateContext $
-                        H.foldrWithKey accumDepth (NoContext, graph) ctx
-                ctx -> (ctx, graph)
-        where act = graph H.! aID
-              updateContext (ctx, graph) =
-                      (ctx, H.insert aID (act { actionContext = ctx }) graph)
-
-              depthNum NoContext = 0
-              depthNum (LeastContext n _) = n
-
-              accumDepth aID' act' (ctx, graph) =
-                      let dep = depthNum ctx
-                          (ctx', graph') = depth aID' graph
-                          dep' = depthNum ctx'
-                      in if dep <= dep'
-                             then (LeastContext (dep' + 1) aID', graph')
-                             else (ctx, graph')
-
 -- | Find and build the deep context of this action. Returns a deep context and
 -- a new graph with the deep contexts of this action and of its dependencies.
 deep :: ActionID -> ActionGraph -> (ActionContext, ActionGraph)
@@ -219,14 +183,14 @@ deep aID graph =
                         let (dctx, graph') = H.foldrWithKey addDepContext
                                                             (sctx, graph)
                                                             (actionDeps act)
-                            ctx' = DeepContext $ H.delete aID dctx
+                            ctx' = DeepContext dctx
                         in (ctx', H.insert
                                       aID (act { actionContext = ctx' }) graph')
                 ctx -> (ctx, graph)
         where act = graph H.! aID
               addDepContext depID depInfo (ctx, graph) = 
                       let (DeepContext dCtx, graph') = deep depID graph 
-                      in (H.union ctx dCtx, graph')
+                      in (H.union ctx (H.delete depID dCtx), graph')
 
 -- | Compile an 'Expr'. Returns the compiled expression, the map of dependencies
 -- and the context.
@@ -296,8 +260,7 @@ compileAction aID (For iters ty initVal body) =
                                       , "if(", sStr, "){break;}"
                                       , valueName, "=", nStr, ";}" ])
                         (H.map (const ()) deps)
-                        (ShallowContext . H.delete aID $
-                                H.unions [iCtxs, nCtxs, sCtxs])
+                        (ShallowContext $ H.unions [iCtxs, nCtxs, sCtxs])
            , deps )
 
 actionName :: ActionID -> String

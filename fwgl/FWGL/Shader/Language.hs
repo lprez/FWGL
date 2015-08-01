@@ -100,7 +100,7 @@ data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
           | ContextVar CInt ContextVarType
           deriving Eq
 
--- | Expressions that have to be compiled to a statement.
+-- | Expressions that are transformed to statements.
 data Action = Store String Expr | If Expr String Expr Expr
             | For CInt String Expr (Expr -> Expr -> (Expr, Expr))
 
@@ -586,7 +586,7 @@ true = Bool $ Literal "true"
 false :: Bool
 false = Bool $ Literal "false"
 
--- | Rebinded if.
+-- | Rebounded if.
 ifThenElse :: ShaderType a => Bool -> a -> a -> a
 ifThenElse b t f = fromExpr . Action $ If (toExpr b) (typeName t)
                                           (toExpr t) (toExpr f)
