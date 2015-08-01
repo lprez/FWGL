@@ -226,7 +226,6 @@ renderTexture internalFormat format pixelType attachment w h layer = do
                 bindFramebuffer gl_FRAMEBUFFER fb
                 framebufferTexture2D gl_FRAMEBUFFER attachment
                                      gl_TEXTURE_2D t 0
-                -- viewport ?
 
         gl $ resize (fromIntegral w) (fromIntegral h)
         drawBegin

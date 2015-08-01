@@ -452,8 +452,8 @@ x > y = fromExpr $ Op2 ">" (toExpr x) (toExpr y)
 
 -- TODO: not
 
-negate :: Float -> Float
-negate (Float e) = Float $ Op1 "-" e
+negate :: GenType a => a -> a
+negate v = fromExpr $ Op1 "-" (toExpr v)
 
 fromInteger :: Prelude.Integer -> Float -- Integer
 fromInteger = fromRational . Prelude.fromIntegral
