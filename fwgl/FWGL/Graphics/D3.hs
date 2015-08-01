@@ -66,6 +66,7 @@ module FWGL.Graphics.D3 (
         perspectiveMat4,
         orthoMat4,
         cameraMat4,
+        lookAtMat4,
         -- ** Transformation matrices
         idMat4,
         transMat4,

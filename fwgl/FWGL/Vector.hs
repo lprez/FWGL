@@ -8,7 +8,10 @@ module FWGL.Vector (
         vec2,
         vec3,
         vec4,
+        dot3,
         dot4,
+        cross3,
+        normalize3,
         mat2,
         mat3,
         mul3,
@@ -25,7 +28,7 @@ module FWGL.Vector (
         orthoMat4,
         perspectiveMat4,
         cameraMat4,
-        -- lookAtMat4,
+        lookAtMat4,
         idMat3,
         transMat3,
         rotMat3,
@@ -108,6 +111,17 @@ dot3 (V3 x y z) (V3 x' y' z') = x * x' + y * y' + z * z'
 -- | 4D vector dot product.
 dot4 :: V4 -> V4 -> Float
 dot4 (V4 x y z w) (V4 x' y' z' w') = x * x' + y * y' + z * z' + w * w'
+
+-- | 3D vector cross product.
+cross3 :: V3 -> V3 -> V3
+cross3 (V3 ax ay az) (V3 bx by bz) = V3 (ay * bz - az * by)
+                                        (ax * bz - bx * az)
+                                        (ax * by - ay * bx)
+
+-- | 3D vector normalization.
+normalize3 :: V3 -> V3
+normalize3 (V3 x y z) = let rl = 1 / sqrt (x * x + y * y + z * z)
+                        in V3 (x * rl) (y * rl) (z * rl)
 
 -- | Create a 2x2 matrix.
 mat2 :: ( Float, Float
@@ -307,6 +321,19 @@ cameraMat4 eye pitch yaw =
                                     cosYaw * sinPitch
               zv@(V3 zx zy zz) = V3 (sinYaw * cosPitch) (-sinPitch) $
                                     cosPitch * cosYaw
+
+-- | 4x4 "look at" camera matrix.
+lookAtMat4 :: V3 -> V3 -> V3 -> M4
+lookAtMat4 eye target up =
+        mat4 ( xx, yx, zx, 0
+             , xy, yy, zy, 0
+             , xz, yz, zz, 0
+             , - dot3 xv eye, - dot3 yv eye, - dot3 zv eye, 1)
+        where diff (V3 ax ay az) (V3 bx by bz) = V3 (ax - bx) (ay - by)
+                                                    (az - bz)
+              zv@(V3 zx zy zz) = normalize3 $ diff eye target
+              xv@(V3 xx xy xz) = normalize3 $ cross3 up zv
+              yv@(V3 yx yy yz) = cross3 zv xv
 
 -- | Quaternion to 4x4 matrix.
 quatToMat4 :: V4 -> M4
