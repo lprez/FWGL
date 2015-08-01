@@ -78,6 +78,7 @@ instance BackendIO where
                 do element <- query $ toJSString "canvas"
                    eventSrc <- source handledEvents element
                    ctx <- JS.getCtx element
+                   JS.getExtension ctx $ toJSString "WEBGL_depth_texture"
                    (Just w) <- getProp "clientWidth" element >>= fromJSRef
                    (Just h) <- getProp "clientHeight" element >>= fromJSRef
                    focus element -- ... no

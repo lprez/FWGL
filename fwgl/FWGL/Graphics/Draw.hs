@@ -61,7 +61,8 @@ drawInit w h = do enable gl_DEPTH_TEST
                                    , uniforms = newGLResMap
                                    , textureImages = newGLResMap
                                    , activeTextures =
-                                           V.replicate maxTexs Nothing }
+                                           V.replicate maxTexs Nothing
+                                   , viewportSize = (w, h) }
         where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
 
@@ -119,7 +120,7 @@ drawLayer (SubLayer stype w' h' sub sup) =
                                                , gl_COLOR_ATTACHMENT0 )
                               DepthSubLayer -> ( fromIntegral gl_DEPTH_COMPONENT
                                                , gl_DEPTH_COMPONENT
-                                               , gl_FLOAT
+                                               , gl_UNSIGNED_SHORT
                                                , gl_DEPTH_ATTACHMENT )
 
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
@@ -215,6 +216,7 @@ renderTexture :: (GLES, BackendIO) => GLInt -> GLEnum -> GLEnum
 renderTexture internalFormat format pixelType attachment w h layer = do
         fb <- gl createFramebuffer
         t <- gl emptyTexture
+        (sw, sh) <- viewportSize <$> Draw get
 
         gl $ do arr <- liftIO $ noArray
                 bindTexture gl_TEXTURE_2D t
@@ -226,9 +228,11 @@ renderTexture internalFormat format pixelType attachment w h layer = do
                                      gl_TEXTURE_2D t 0
                 -- viewport ?
 
+        gl $ resize (fromIntegral w) (fromIntegral h)
         drawBegin
         drawLayer layer
         drawEnd
+        gl $ resize sw sh
 
         gl $ deleteFramebuffer fb
 

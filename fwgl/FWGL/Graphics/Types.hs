@@ -40,7 +40,8 @@ data DrawState = DrawState {
         uniforms :: ResMap (LoadedProgram, String) UniformLocation,
         gpuMeshes :: ResMap (Geometry '[]) GPUGeometry,
         textureImages :: ResMap TextureImage LoadedTexture,
-        activeTextures :: Vector (Maybe Texture)
+        activeTextures :: Vector (Maybe Texture),
+        viewportSize :: (Int, Int)
 }
 
 -- | A monad that represents OpenGL actions with some state ('DrawState').
