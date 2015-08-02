@@ -56,18 +56,20 @@ Project
 
   * Window/canvas customization
   * Inspectable sublayers
-  * Separate packages (fwgl-core, fwgl-yampa, ecc.) 
+  * Split packages (fwgl, fwgl-yampa, ecc.) 
   * Audio
 
-**Features that may be implemented:**  
-These can be implemented with the already existing features:
-  * 3D picking (with sublayers)
-  * Skeletal animations (with the EDSL)
-  * Lighting (^)
-  * Shadow mapping (^)
-  * Bump mapping (^)
-  * Network/WebSocket (with custom inputs and outputs)  
- 
 **Other ideas:**  
+  * Network/WebSocket (with custom inputs and outputs)  
   * Android backend
+  * Skeletal animations
+
+**Features that are unlikely to be implemented:**  
+  * 3D picking (soon it will be possible to easily implement it with sublayers, but FWGL won't directly provide this sort of stuff)
+  * Collisions
   * Physics
+
+These can be implemented with the already existing features (shader EDSL and sublayers):  
+  * Lighting
+  * Shadow mapping
+  * Bump mapping
