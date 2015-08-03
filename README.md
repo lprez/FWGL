@@ -62,7 +62,7 @@ Project
 **Other ideas:**  
   * Network/WebSocket (with custom inputs and outputs)  
   * Android backend
-  * Skeletal animations
+  * Partial support for skeletal animations (note that FWGL won't include anything that can be already done with the shader EDSL).
 
 **Features that are unlikely to be implemented:**  
   * 3D picking (soon it will be possible to easily implement it with sublayers, but FWGL won't directly provide this sort of stuff)

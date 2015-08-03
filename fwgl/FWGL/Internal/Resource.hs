@@ -55,11 +55,11 @@ getResource i rmap@(ResMap map) =
                    _ -> return (status, rmap)
 
 removeResource :: (Resource i r m, Hashable i)
-               => i -> ResMap i r -> m (ResMap i r)
+               => i -> ResMap i r -> m (Bool, ResMap i r)
 removeResource i rmap@(ResMap map) = 
         do status <- checkResource i rmap
-           case status of
-                Loaded r -> unloadResource (Just i) r
-                Loading -> return () --- XXX
-                _ -> return ()
-           return . ResMap $ H.delete i map
+           res <- case status of
+                       Loaded r -> unloadResource (Just i) r >> return True
+                       Loading -> return False
+                       _ -> return True
+           return (res, ResMap $ H.delete i map)

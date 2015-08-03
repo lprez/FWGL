@@ -26,7 +26,6 @@ instance GLES => AttributeCPU CPU.Float GPU.Float where
         encodeAttribute _ a = liftIO $ encodeFloats a
         setAttribute _ i = attr i 1
 
--- TODO
 instance GLES => UniformCPU CPU.ActiveTexture GPU.Sampler2D where
         setUniform l _ (CPU.ActiveTexture v) = uniform1i l $ fromIntegral v
 

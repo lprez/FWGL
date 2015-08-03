@@ -102,14 +102,14 @@ colorTex c = mkTexture 1 1 [ c ]
 subLayer :: Int                         -- ^ Texture width.
          -> Int                         -- ^ Texture height.
          -> Layer                       -- ^ Layer to draw on a 'Texture'.
-         -> (Texture -> [Layer])        -- ^ Layer to draw on the screen.
+         -> (Texture -> [Layer])        -- ^ Layers using the texture.
          -> Layer
 subLayer = SubLayer ColorSubLayer
 
--- | Use the depth 'Layer' as a 'Texture' on another.
+-- | Use a 'Layer' as a depth 'Texture' on another.
 depthSubLayer :: Int                         -- ^ Texture width.
               -> Int                         -- ^ Texture height.
-              -> Layer                       -- ^ Layer to draw on a 'Texture'.
-              -> (Texture -> [Layer])        -- ^ Layer to draw on the screen.
+              -> Layer                       -- ^ Layer to draw on a depth 'Texture'.
+              -> (Texture -> [Layer])        -- ^ Layers using the texture.
               -> Layer
 depthSubLayer = SubLayer DepthSubLayer

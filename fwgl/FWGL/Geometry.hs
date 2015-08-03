@@ -40,7 +40,6 @@ data AttrList (is :: [*]) where
         AttrListNil :: AttrList '[]
         AttrListCons :: (H.Hashable c, AttributeCPU c g)
                      => g -> [c] -> AttrList gs -> AttrList (g ': gs)
-        -- TODO: storable vectors?
 
 -- | A set of attributes and indices.
 data Geometry (is :: [*]) = Geometry (AttrList is) [Word16] Int

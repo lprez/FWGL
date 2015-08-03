@@ -323,7 +323,10 @@ cameraMat4 eye pitch yaw =
                                     cosPitch * cosYaw
 
 -- | 4x4 "look at" camera matrix.
-lookAtMat4 :: V3 -> V3 -> V3 -> M4
+lookAtMat4 :: V3        -- ^ Eye
+           -> V3        -- ^ Target
+           -> V3        -- ^ Up
+           -> M4
 lookAtMat4 eye target up =
         mat4 ( xx, yx, zx, 0
              , xy, yy, zy, 0

@@ -51,7 +51,7 @@ vertexShader (Transform3 modelMatrix :- View3 view :- LightView3 lightView :- N)
                                 (V4  0    0    0    1 )
                  viewPos = view * worldPos
                  spos = scaleBias * lightView * worldPos
-                 (V4 nx' ny' nz' _) = modelMatrix * V4 nx ny nz 0
+                 V4 nx' ny' nz' _ = modelMatrix * V4 nx ny nz 0
              in Vertex viewPos :- Position3 (V3 wx wy wz) :- uv :-
                 Normal3 (V3 nx' ny' nz') :- ShadowCoord spos :- N
 
@@ -68,14 +68,13 @@ fragmentShader (Texture2 tex :- ShadowMap shadowMap :-
                     ambCol = V3 0.3 0.3 0.1
                     lightVec = store $ wpos - lightPos
                     dist = store $ length lightVec
-                    lightDir@(V3 lx ly lz) = store $ normalize lightVec
-                    diffFac = 0.7 * dot (normalize norm)
-                                        (V3 (- lx) (- ly) (- lz))
+                    lightDir = store $ normalize lightVec
+                    diffFac = store $ 0.7 * dot (normalize norm) (- lightDir)
                     diffCol = if diffFac > 0
                               then V3 diffFac diffFac diffFac
                               else V3 0 0 0
                     attenuation = 1 + 0.004 * dist + 0.0001 * dist * dist
-                    (V3 lcr lcg lcb) = store $ (ambCol + diffCol) / attenuation
+                    V3 lcr lcg lcb = store $ (ambCol + diffCol) / attenuation
                     lightCol = V4 lcr lcg lcb 1
                     
                     -- Shadow mapping
