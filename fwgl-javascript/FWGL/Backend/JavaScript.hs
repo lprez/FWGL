@@ -1,8 +1,13 @@
 {-# LANGUAGE NullaryTypeClasses, TypeFamilies, UndecidableInstances #-}
 
 {-| The GHCJS/WebGL backend. This just exports the instances for 'BackendIO'
-    and 'GLES'. -}
-module FWGL.Backend.JavaScript () where
+    and 'GLES'.
+           
+    'createCanvas' doesn't really create new canvases, but uses the first <canvas> that it finds. Use createCanvas' to choose another <canvas>. -}
+module FWGL.Backend.JavaScript (
+        querySelector,
+        createCanvas'
+)
 
 import Control.Applicative
 import Control.Concurrent
@@ -45,7 +50,7 @@ foreign import javascript unsafe
                          -> IO ()
 
 foreign import javascript unsafe "document.querySelector($1)"
-        query :: JSString -> IO (JSRef a)
+        querySelector :: JSString -> IO (JSRef a)
 
 foreign import javascript unsafe "$2.getAttribute($1)"
         getAttributeRaw :: JSString -> JSRef a -> IO JSString
@@ -58,7 +63,26 @@ foreign import javascript unsafe "window.requestAnimationFrame($1)"
 
 foreign import javascript unsafe "$1.focus()" focus :: JSRef a -> IO ()
 
+data Canvas = Canvas (JSRef ())
+                     Source
+                     (IORef JS.Ctx)
+                     (IORef (Int -> Int -> IO ())
+                     (IORef (IO ()))
+
+createCanvas' :: JSRef a -- | Canvas element (you can use 'querySelector').
+              -> IO Canvas
+createCanvas' element = 
+                do eventSrc <- source handledEvents element
+                   ctx <- newIORef $ JS.getCtx element
+                   return $ Canvas element eventSrc ctx
+                                   (\_ _ -> return ())
+                                   (return ())
+
+-- TODO: handle context lost
+
 instance BackendIO where
+        type Canvas = JSRef ()
+
         loadImage url f = asyncCallback1 NeverRetain callback
                           >>= loadImageRaw (toJSString url) 
                 where callback img =
@@ -74,14 +98,14 @@ instance BackendIO where
                    forkIO $ loadTextFileRaw (toJSString url) fRight fLeft
                    return ()
 
+        initBackend = return ()
+
+        createCanvas = querySelector (toJSString "canvas") >>= createCanvas'
+
         setup initState draw customInp sigf =
-                do element <- query $ toJSString "canvas"
-                   eventSrc <- source handledEvents element
-                   ctx <- JS.getCtx element
-                   (Just w) <- getProp "clientWidth" element >>= fromJSRef
+                do (Just w) <- getProp "clientWidth" element >>= fromJSRef
                    (Just h) <- getProp "clientHeight" element >>= fromJSRef
                    focus element -- ... no
-                   drawStateRef <- initState w h ctx >>= newIORef
                    initCustom <- customInp
                    reactStateRef <- reactInit (return $ initInput w h initCustom)
                                               (\ _ _ -> actuate ctx drawStateRef)

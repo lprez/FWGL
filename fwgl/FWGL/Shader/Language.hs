@@ -586,7 +586,7 @@ true = Bool $ Literal "true"
 false :: Bool
 false = Bool $ Literal "false"
 
--- | Rebinded if.
+-- | Rebound if.
 ifThenElse :: ShaderType a => Bool -> a -> a -> a
 ifThenElse b t f = fromExpr . Action $ If (toExpr b) (typeName t)
                                           (toExpr t) (toExpr f)

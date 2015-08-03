@@ -21,17 +21,21 @@ module FWGL (
         module FWGL.Input,
         module FWGL.Utils,
         module FRP.Yampa,
-        draw,
+        -- * Running
         run,
         run',
-        loadOBJ,
-        loadOBJAsync,
+        -- * Effects
         Output,
         (.>),
+        draw,
         io,
         freeGeometry,
         freeTexture,
-        freeProgram
+        freeProgram,
+        -- * OBJ loading
+        loadOBJ,
+        loadOBJAsync,
+        -- TODO: resize, title ...
 ) where
 
 import Control.Concurrent

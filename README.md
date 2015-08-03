@@ -49,11 +49,9 @@ Project
 
 **Features that will be implemented:**  
 
-  * Window/canvas customization
   * Inspectable sublayers
-  * Separate packages (fwgl-core, fwgl-yampa, fwgl-javascript, ecc.) 
+  * Separate yampa integration package
   * Audio
-  * Lots of examples
 
 **Features that may be implemented:**  
 These can be implemented with the already existing features:

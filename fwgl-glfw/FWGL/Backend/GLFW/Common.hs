@@ -43,37 +43,99 @@ loadTextFile fname handler = (>> return ()) . forkIO $
         catch (fmap (\s -> s `seq` Right s) $ readFile fname)
               (\e -> return (Left $ show (e :: IOError))) >>= handler
 
-setup :: ClientAPI -> Int -> Int
-      -> (Int -> Int -> () -> IO state)
+data Canvas = Canvas GLFW.Window
+                     (MVar (H.HashMap InputEvent [EventData]))
+                     (IORef (Int -> Int -> IO ())
+                     (IORef (IO ()))
+
+initBackend :: IO ()
+initBackend = GLFW.init >> setTime 0
+
+createCanvas :: ClientAPI -> Int -> Int -> IO Canvas
+createCanvas clientAPI maj min =
+        do windowHint $ WindowHint'ClientAPI clientAPI
+           windowHint $ WindowHint'ContextVersionMajor maj
+           windowHint $ WindowHint'ContextVersionMinor min
+           Just win <- createWindow w h "" Nothing Nothing
+
+           resizeRef <- newIORef $ \_ _ -> return ()
+           refreshRef <- newIORef $ return ()
+           eventsRef <- newMVar $ H.singleton Resize [
+                                        emptyEventData {
+                                            dataFramebufferSize = Just (w, h)
+                                        }]
+
+
+           setKeyCallback win . Just . const $ keyCallback eventsRef
+           setMouseButtonCallback win . Just $ mouseCallback eventsRef
+           setCursorPosCallback win . Just . const $ cursorCallback eventsRef
+           setWindowRefreshCallback win . Just $
+                   refreshCallback refreshRef
+           setFramebufferSizeCallback win . Just . const $
+                   resizeCallback eventsRef resizeRef
+
+           return $ Canvas win eventsRef resizeRef refreshRef
+
+        where (w, h) = (640, 480)
+        
+              keyCallback events key _ keyState _ = modifyEvents events $
+                      case keyState of
+                              KeyState'Pressed -> insertEvent KeyDown keyData
+                              KeyState'Released -> insertEvent KeyUp keyData
+                              _ -> id
+                where keyData = emptyEventData {
+                                        dataKey = Just $ toKey key
+                                }
+
+              mouseCallback events win mb mbState _ = do
+                      pos <- fmap convertCursorPos $ getCursorPos win
+                      modifyEvents events $
+                        case mbState of
+                                MouseButtonState'Pressed ->
+                                        insertEvent MouseDown $ keyData pos
+                                MouseButtonState'Released ->
+                                        insertEvent MouseUp $ keyData pos
+                where keyData p = emptyEventData {
+                                        dataButton = Just $ toMouseButton mb,
+                                        dataPointer = Just p
+                                }
+
+              cursorCallback events x y = modifyEvents events $
+                      insertEvent MouseMove $ emptyEventData {
+                                dataPointer = Just $ convertCursorPos (x, y)
+                        }
+
+              resizeCallback events resizeRef x y =
+                      do callback <- readIORef resizeRef
+                         callback x y
+                         modifyEvents events $
+                                insertEvent Resize $ emptyEventData {
+                                        dataFramebufferSize = Just $ (x, y)
+                                }
+
+              refreshCallback refreshRef win =
+                      do makeContextCurrent $ Just win
+                         join $ readIORef refreshRef
+
+
+              convertCursorPos (x, y) = (floor x, floor y)
+
+              insertEvent e = H.insertWith (flip (++)) e . return
+
+              modifyEvents m f = modifyMVar_ m $ return . f
+
+              emptyEventData = EventData {
+                                dataFramebufferSize = Nothing,
+                                dataPointer = Nothing,
+                                dataButton = Nothing,
+                                dataKey = Nothing }
+
+setup :: 
       -> (out -> () -> state -> IO state)
       -> IO inp
       -> SF (Input inp) out
       -> IO ()
-setup clientAPI maj min initState draw customInp sigf =
-        do GLFW.init -- TODO: checks
-           windowHint $ WindowHint'ClientAPI clientAPI
-           windowHint $ WindowHint'ContextVersionMajor maj
-           windowHint $ WindowHint'ContextVersionMinor min
-           Just win <- createWindow 640 480 "" Nothing Nothing -- TODO: custom size, title
-           makeContextCurrent $ Just win
-           (w, h) <- getFramebufferSize win
-
-           eventsRef <- newMVar H.empty
-           drawStateRef <- initState w h () >>= newIORef
-           initCustom <- customInp
-           reactStateRef <- reactInit (return $ initInput w h initCustom)
-                                      (\_ _ -> actuate win drawStateRef)
-                                      sigf
-           setTime 0
-
-           setKeyCallback win $ Just . const $ addKeyEvent eventsRef
-           setMouseButtonCallback win . Just $ addMouseEvent eventsRef
-           setCursorPosCallback win $ Just . const $ addCursorPos eventsRef
-
-           setFramebufferSizeCallback win $ Just . const $
-                   addFramebufferResize eventsRef
-           setWindowRefreshCallback win $ Just . const $
-                   refresh eventsRef reactStateRef
+setup initState draw customInp sigf =
 
            let loop = do pollEvents
                          refresh eventsRef reactStateRef
@@ -97,55 +159,8 @@ setup clientAPI maj min initState draw customInp sigf =
                                             writeIORef stateRef newState
                                             return False
 
-              addKeyEvent events key _ keyState _ = modifyEvents events $
-                      case keyState of
-                              KeyState'Pressed -> insertEvent KeyDown keyData
-                              KeyState'Released -> insertEvent KeyUp keyData
-                              _ -> id
-                where keyData = emptyEventData {
-                                        dataKey = Just $ toKey key
-                                }
 
-              addMouseEvent events win mb mbState _ = do
-                      pos <- fmap convertCursorPos $ getCursorPos win
-                      modifyEvents events $
-                        case mbState of
-                                MouseButtonState'Pressed ->
-                                        insertEvent MouseDown $ keyData pos
-                                MouseButtonState'Released ->
-                                        insertEvent MouseUp $ keyData pos
-                where keyData p = emptyEventData {
-                                        dataButton = Just $ toMouseButton mb,
-                                        dataPointer = Just p
-                                }
-
-              addCursorPos events x y = modifyEvents events $
-                      insertEvent MouseMove $ emptyEventData {
-                                dataPointer = Just $ convertCursorPos (x, y)
-                        }
-
-              addFramebufferResize events x y = modifyEvents events $
-                      insertEvent Resize $ emptyEventData {
-                                dataFramebufferSize = Just $ (x, y)
-                        }
-                      -- TODO: viewport
-
-              convertCursorPos (x, y) = (floor x, floor y)
-
-              initInput w h = Input $ H.singleton Resize [
-                        emptyEventData {
-                                dataFramebufferSize = Just (w, h)
-                        }]
-
-              insertEvent e = H.insertWith (flip (++)) e . return
-
-              modifyEvents m f = modifyMVar_ m $ return . f
-
-              emptyEventData = EventData {
-                                dataFramebufferSize = Nothing,
-                                dataPointer = Nothing,
-                                dataButton = Nothing,
-                                dataKey = Nothing }
+              initInput w h = 
 
 toMouseButton :: GLFW.MouseButton -> Input.MouseButton
 toMouseButton MouseButton'1 = MouseLeft

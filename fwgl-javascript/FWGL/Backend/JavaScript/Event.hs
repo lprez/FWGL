@@ -1,4 +1,4 @@
--- TODO: rewrite everything
+-- old code
 
 module FWGL.Backend.JavaScript.Event (
         InputEvent(..),
