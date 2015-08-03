@@ -100,7 +100,7 @@ data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
           | ContextVar CInt ContextVarType
           deriving Eq
 
--- | Expressions that have to be compiled to a statement.
+-- | Expressions that are transformed to statements.
 data Action = Store String Expr | If Expr String Expr Expr
             | For CInt String Expr (Expr -> Expr -> (Expr, Expr))
 
@@ -452,8 +452,8 @@ x > y = fromExpr $ Op2 ">" (toExpr x) (toExpr y)
 
 -- TODO: not
 
-negate :: Float -> Float
-negate (Float e) = Float $ Op1 "-" e
+negate :: GenType a => a -> a
+negate v = fromExpr $ Op1 "-" (toExpr v)
 
 fromInteger :: Prelude.Integer -> Float -- Integer
 fromInteger = fromRational . Prelude.fromIntegral
@@ -586,7 +586,7 @@ true = Bool $ Literal "true"
 false :: Bool
 false = Bool $ Literal "false"
 
--- | Rebound if.
+-- | Rebounded if.
 ifThenElse :: ShaderType a => Bool -> a -> a -> a
 ifThenElse b t f = fromExpr . Action $ If (toExpr b) (typeName t)
                                           (toExpr t) (toExpr f)

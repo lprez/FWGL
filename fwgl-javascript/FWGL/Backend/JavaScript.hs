@@ -74,6 +74,7 @@ createCanvas' :: JSRef a -- | Canvas element (you can use 'querySelector').
 createCanvas' element = 
                 do eventSrc <- source handledEvents element
                    ctx <- newIORef $ JS.getCtx element
+                   JS.getExtension ctx $ toJSString "WEBGL_depth_texture"
                    return $ Canvas element eventSrc ctx
                                    (\_ _ -> return ())
                                    (return ())

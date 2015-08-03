@@ -39,6 +39,7 @@ module FWGL (
 ) where
 
 import Control.Concurrent
+import Control.Monad (void)
 import Control.Monad.IO.Class
 import FWGL.Audio
 import FWGL.Backend hiding (Texture, Program)
@@ -69,15 +70,15 @@ io = Output . liftIO
 
 -- | Delete a 'Geometry' from the GPU.
 freeGeometry :: BackendIO => Geometry i -> Output
-freeGeometry = Output . removeGeometry
+freeGeometry = Output . void . removeGeometry
 
 -- | Delete a 'Texture' from the GPU.
 freeTexture :: BackendIO => Texture -> Output
-freeTexture = Output . removeTexture
+freeTexture = Output . void . removeTexture
 
 -- | Delete a 'Program' from the GPU.
 freeProgram :: BackendIO => Program g i -> Output
-freeProgram = Output . removeProgram
+freeProgram = Output . void . removeProgram
 
 -- | Run a FWGL program.
 run :: BackendIO

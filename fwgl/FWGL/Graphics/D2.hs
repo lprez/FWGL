@@ -45,6 +45,12 @@ module FWGL.Graphics.D2 (
         Object,
         object,
         object1,
+        object1Image,
+        object1Depth,
+        object1Trans,
+        object1ImageDepth,
+        object1ImageTrans,
+        object1DepthTrans,
         (C.~~),
         -- ** Globals
         C.global,
@@ -120,12 +126,46 @@ object m = viewObject m . foldl acc ObjectEmpty
 -- the default 2D shader), you have to set it with 'viewObject'.
 object1 :: BackendIO => Element -> Object '[Image, Depth, Transform2] Geometry2
 object1 (Element d t m g) = C.globalTexture (undefined :: Image) t $
-
--- TODO: object1Image, object1Depth, object1Trans, object1ImageDepth,
--- object1ImageTrans, object1DepthTrans
                             C.global (undefined :: Depth) d $
                             C.globalDraw (undefined :: Transform2) m $
                             C.geom g
+
+-- | Like 'object1', but it will only set the image.
+object1Image :: BackendIO => Element -> Object '[Image] Geometry2
+object1Image (Element _ t _ g) = C.globalTexture (undefined :: Image) t $
+                                 C.geom g
+
+-- | Like 'object1', but it will only set the depth.
+object1Depth :: BackendIO => Element -> Object '[Depth] Geometry2
+object1Depth (Element d _ _ g) = C.global (undefined :: Depth) d $
+                                 C.geom g
+
+-- | Like 'object1', but it will only set the transformation matrix.
+object1Trans :: BackendIO => Element -> Object '[Transform2] Geometry2
+object1Trans (Element _ _ m g) = C.globalDraw (undefined :: Transform2) m $
+                                 C.geom g
+
+-- | Like 'object1', but it will only set the image and the depth.
+object1ImageDepth :: BackendIO => Element -> Object '[Image, Depth] Geometry2
+object1ImageDepth (Element d t _ g) = C.globalTexture (undefined :: Image) t $
+                                      C.global (undefined :: Depth) d $
+                                      C.geom g
+
+-- | Like 'object1', but it will only set the image and the transformation
+-- matrix.
+object1ImageTrans :: BackendIO => Element 
+                  -> Object '[Image, Transform2] Geometry2
+object1ImageTrans (Element _ t m g) = C.globalTexture (undefined :: Image) t $
+                                      C.globalDraw (undefined :: Transform2) m $
+                                      C.geom g
+
+-- | Like 'object1', but it will only set the depth and the transformation
+-- matrix.
+object1DepthTrans :: BackendIO => Element
+                  -> Object '[Depth, Transform2] Geometry2
+object1DepthTrans (Element d _ m g) = C.global (undefined :: Depth) d $
+                                      C.globalDraw (undefined :: Transform2) m $
+                                      C.geom g
 
 -- | Create a standard 'Layer' from a list of 'Element's.
 elements :: BackendIO => [Element] -> Layer

@@ -512,3 +512,6 @@ foreign import javascript unsafe "$1.vertexAttribPointer($2, $3, $4, $5, $6, $7)
 
 foreign import javascript unsafe "$1.viewport($2, $3, $4, $5)"
         glViewport :: Ctx -> Int -> Int -> Int -> Int -> IO ()
+
+foreign import javascript unsafe "$1.getExtension($2)"
+        getExtension :: Ctx -> JSString -> IO (JSRef a)

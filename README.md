@@ -1,6 +1,8 @@
 FWGL
 ====
 
+![FWGL](http://i.imgur.com/kWUvBCE.png)
+
 Installing
 ----------
 
@@ -24,17 +26,20 @@ Examples
 **[Avoid the obstacles](http://ziocroc.github.io/FWGL/avoid)**  
 A simple 3D game.
 
+**[Shadow mapping](http://ziocroc.github.io/FWGL/shadow)**  
+Shadow mapping, point light (the example in the screenshot).
+
 **[Demo](http://ziocroc.github.io/FWGL/demo)**  
-3D graphics, OBJ loading.
+3D graphics, IO output.
 
 **[Rectangles](http://ziocroc.github.io/FWGL/recur)**  
-2D graphics and recursive signals.
+2D graphics.
 
 **[Distortion](http://ziocroc.github.io/FWGL/distortion)**  
-Custom shaders.
+Custom geometry.
 
 **[TCP](https://github.com/ziocroc/FWGL/tree/master/examples/io) (GLFW only)**  
-Custom inputs.
+Custom inputs, IO output.
 
 
 Documentation
@@ -50,18 +55,25 @@ Project
 **Features that will be implemented:**  
 
   * Inspectable sublayers
-  * Separate yampa integration package
+  * Split packages (fwgl, fwgl-yampa, ecc.) 
   * Audio
 
-**Features that may be implemented:**  
-These can be implemented with the already existing features:
-  * 3D picking (with sublayers)
-  * Skeletal animations (with the EDSL)
-  * Lighting (^)
-  * Shadow mapping (^)
-  * Bump mapping (^)
-  * Network (WebSocket) (with custom inputs and outputs)  
- 
 **Other ideas:**  
+  * Network/WebSocket (with custom inputs and outputs)  
   * Android backend
+  * Audio
+
+**Other ideas:**  
+  * Network/WebSocket (with custom inputs and outputs)  
+  * Android backend
+  * Partial support for skeletal animations (note that FWGL won't include anything that can be already done with the shader EDSL).
+
+**Features that are unlikely to be implemented:**  
+  * 3D picking (soon it will be possible to easily implement it with sublayers, but FWGL won't directly provide this sort of stuff)
+  * Collisions
   * Physics
+
+These can be implemented with the already existing features (shader EDSL and sublayers):  
+  * Lighting
+  * Shadow mapping
+  * Bump mapping

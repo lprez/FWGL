@@ -61,7 +61,8 @@ drawInit w h = do enable gl_DEPTH_TEST
                                    , uniforms = newGLResMap
                                    , textureImages = newGLResMap
                                    , activeTextures =
-                                           V.replicate maxTexs Nothing }
+                                           V.replicate maxTexs Nothing
+                                   , viewportSize = (w, h) }
         where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
 
@@ -88,17 +89,18 @@ drawBegin = do freeActiveTextures
 drawEnd :: GLES => Draw ()
 drawEnd = return ()
 
-removeGeometry :: GLES => Geometry is -> Draw ()
+removeGeometry :: GLES => Geometry is -> Draw Bool
 removeGeometry = removeDrawResource gl gpuMeshes (\m s -> s { gpuMeshes = m })
                  . castGeometry
 
-removeTexture :: BackendIO => Texture -> Draw ()
+removeTexture :: BackendIO => Texture -> Draw Bool
 removeTexture (TextureImage i) = removeDrawResource gl textureImages
                                         (\m s -> s { textureImages = m }) i
-removeTexture (TextureLoaded l) = gl $ unloadResource
-                                        (Nothing :: Maybe TextureImage) l
+removeTexture (TextureLoaded l) = do gl $ unloadResource
+                                          (Nothing :: Maybe TextureImage) l
+                                     return True
 
-removeProgram :: GLES => Program gs is -> Draw ()
+removeProgram :: GLES => Program gs is -> Draw Bool
 removeProgram = removeDrawResource gl programs (\m s -> s { programs = m })
                 . castProgram
 
@@ -119,7 +121,7 @@ drawLayer (SubLayer stype w' h' sub sup) =
                                                , gl_COLOR_ATTACHMENT0 )
                               DepthSubLayer -> ( fromIntegral gl_DEPTH_COMPONENT
                                                , gl_DEPTH_COMPONENT
-                                               , gl_FLOAT
+                                               , gl_UNSIGNED_SHORT
                                                , gl_DEPTH_ATTACHMENT )
 
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
@@ -202,7 +204,8 @@ makeActive t = do ats <- activeTextures <$> Draw get
                                 Nothing ->
                                         case V.elemIndex Nothing ats of
                                              Just n -> ActiveTexture $ fi n
-                                             Nothing -> ActiveTexture 0 -- XXX
+                                             -- TODO: Draw () error reporting
+                                             Nothing -> ActiveTexture 0
                   gl . activeTexture $ gl_TEXTURE0 + fi atn
                   Draw . modify $ \ds ->
                           ds { activeTextures = ats V.// [(fi atn, Just t)] }
@@ -215,6 +218,7 @@ renderTexture :: (GLES, BackendIO) => GLInt -> GLEnum -> GLEnum
 renderTexture internalFormat format pixelType attachment w h layer = do
         fb <- gl createFramebuffer
         t <- gl emptyTexture
+        (sw, sh) <- viewportSize <$> Draw get
 
         gl $ do arr <- liftIO $ noArray
                 bindTexture gl_TEXTURE_2D t
@@ -224,11 +228,12 @@ renderTexture internalFormat format pixelType attachment w h layer = do
                 bindFramebuffer gl_FRAMEBUFFER fb
                 framebufferTexture2D gl_FRAMEBUFFER attachment
                                      gl_TEXTURE_2D t 0
-                -- viewport ?
 
+        gl $ resize (fromIntegral w) (fromIntegral h)
         drawBegin
         drawLayer layer
         drawEnd
+        gl $ resize sw sh
 
         gl $ deleteFramebuffer fb
 
@@ -248,16 +253,16 @@ getDrawResource lft mg ms i = do
         return r
 
 removeDrawResource :: (Resource i r m, Hashable i)
-                   => (m (ResMap i r) -> Draw (ResMap i r))
+                   => (m (Bool, ResMap i r) -> Draw (Bool, ResMap i r))
                    -> (DrawState -> ResMap i r)
                    -> (ResMap i r -> DrawState -> DrawState)
                    -> i
-                   -> Draw ()
+                   -> Draw Bool
 removeDrawResource lft mg ms i = do
         s <- Draw get
-        map <- lft . removeResource i $ mg s
+        (removed, map) <- lft . removeResource i $ mg s
         Draw . put $ ms map s
-        return ()
+        return removed
 
 drawGPUGeometry :: GLES => GPUGeometry -> Draw ()
 drawGPUGeometry (GPUGeometry abs eb ec) =
