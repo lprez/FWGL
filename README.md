@@ -52,28 +52,25 @@ Project
 -------
 
 
-**Features that will be implemented:**  
-
-  * Inspectable sublayers
-  * Split packages (fwgl, fwgl-yampa, ecc.) 
+**Features that will be implemented soon:**  
+  * Fullscreen windows
+  * Shader arrays
   * Audio
+  * HTTP requests
+  * Network/WebSocket
 
 **Other ideas:**  
-  * Network/WebSocket (with custom inputs and outputs)  
   * Android backend
-  * Audio
+  * Partial shaders
 
-**Other ideas:**  
-  * Network/WebSocket (with custom inputs and outputs)  
-  * Android backend
-  * Partial support for skeletal animations (note that FWGL won't include anything that can be already done with the shader EDSL).
-
-**Features that are unlikely to be implemented:**  
-  * 3D picking (soon it will be possible to easily implement it with sublayers, but FWGL won't directly provide this sort of stuff)
-  * Collisions
-  * Physics
-
-These can be implemented with the already existing features (shader EDSL and sublayers):  
+Note that FWGL won't include anything that can be already done with the shader EDSL. For this reason, these features are unlikely to be implemented unless I find a decent way to implement partial shaders (I will provide examples anyway):  
   * Lighting
   * Shadow mapping
   * Bump mapping
+  * Skyboxes
+  * 3D picking (soon it will be possible to easily implement it with sublayers, but FWGL won't directly provide this sort of stuff)
+  * Skeletal animations (support for animated model formats may be added).
+
+Also, FWGL is not meant to be a complete game engine, but just a rendering engine with canvas management. The name "FWGL" is actually both a pun on GLFW, and the acronym for Functional WebGL. These features will never be added:  
+  * Collisions
+  * Physics

@@ -7,14 +7,14 @@
 module FWGL.Backend.JavaScript (
         querySelector,
         createCanvas'
-)
+) where
 
 import Control.Applicative
 import Control.Concurrent
 import qualified Data.HashMap.Strict as H
 import Data.IORef
 import Data.Word
-import FRP.Yampa
+import FRP.Yampa hiding (now)
 import FWGL.Backend
 import FWGL.Backend.JavaScript.Event
 import qualified FWGL.Backend.JavaScript.WebGL as JS
@@ -55,8 +55,17 @@ foreign import javascript unsafe "document.querySelector($1)"
 foreign import javascript unsafe "$2.getAttribute($1)"
         getAttributeRaw :: JSString -> JSRef a -> IO JSString
 
+foreign import javascript unsafe "$3.setAttribute($1, $2)"
+        setAttributeRaw :: JSString -> JSString -> JSRef a -> IO ()
+
+foreign import javascript unsafe "performance.now()"
+        now :: IO Double
+
 getAttribute :: String -> JSRef a -> IO String
 getAttribute attr e = fromJSString <$> getAttributeRaw (toJSString attr) e
+
+setAttribute :: String -> String -> JSRef a -> IO ()
+setAttribute name val = setAttributeRaw (toJSString name) (toJSString val)
 
 foreign import javascript unsafe "window.requestAnimationFrame($1)"
         requestAnimationFrame :: JSFun (JSRef Double -> IO ()) -> IO ()
@@ -66,23 +75,31 @@ foreign import javascript unsafe "$1.focus()" focus :: JSRef a -> IO ()
 data Canvas = Canvas (JSRef ())
                      Source
                      (IORef JS.Ctx)
-                     (IORef (Int -> Int -> IO ())
+                     (IORef (Int -> Int -> IO ()))
                      (IORef (IO ()))
 
 createCanvas' :: JSRef a -- | Canvas element (you can use 'querySelector').
-              -> IO Canvas
+              -> IO (FWGL.Backend.JavaScript.Canvas, Int, Int)
 createCanvas' element = 
                 do eventSrc <- source handledEvents element
-                   ctx <- newIORef $ JS.getCtx element
+                   ctx <- JS.getCtx element
+                   ctxRef <- newIORef ctx
+                   resizeCb <- newIORef $ \_ _ -> return ()
+                   refreshCb <- newIORef $ return ()
                    JS.getExtension ctx $ toJSString "WEBGL_depth_texture"
-                   return $ Canvas element eventSrc ctx
-                                   (\_ _ -> return ())
-                                   (return ())
+                   (Just w) <- getProp "clientWidth" element >>= fromJSRef
+                   (Just h) <- getProp "clientHeight" element >>= fromJSRef
+                   focus element
+                   return (Canvas (castRef element) eventSrc ctxRef
+                                  resizeCb refreshCb, w, h)
+
+        where handledEvents = [ MouseUp, MouseDown, MouseMove
+                              , KeyUp, KeyDown, Resize ]
 
 -- TODO: handle context lost
 
 instance BackendIO where
-        type Canvas = JSRef ()
+        type Canvas = FWGL.Backend.JavaScript.Canvas
 
         loadImage url f = asyncCallback1 NeverRetain callback
                           >>= loadImageRaw (toJSString url) 
@@ -103,46 +120,35 @@ instance BackendIO where
 
         createCanvas = querySelector (toJSString "canvas") >>= createCanvas'
 
-        setup initState draw customInp sigf =
-                do (Just w) <- getProp "clientWidth" element >>= fromJSRef
-                   (Just h) <- getProp "clientHeight" element >>= fromJSRef
-                   focus element -- ... no
-                   initCustom <- customInp
-                   reactStateRef <- reactInit (return $ initInput w h initCustom)
-                                              (\ _ _ -> actuate ctx drawStateRef)
-                                              sigf
-                   onFrame $ frame reactStateRef eventSrc Nothing
-                where frame rsf src last crf =
-                        do events <- clear src
-                           custom <- customInp
-                           (Just cur) <- fromJSRef crf
-                           let tm = case last of
-                                         Just l -> cur - l
-                                         Nothing -> 0
-                           react rsf (tm, Just $ Input events custom)
-                           onFrame $ frame rsf src (Just cur)
-        
-                      onFrame handler = asyncCallback1 NeverRetain handler
+        setCanvasSize w h (Canvas e _ _ _ _) =
+                do setAttribute "width" (show w) e
+                   setAttribute "height" (show h) e
+
+        setCanvasTitle _ _ = return ()
+
+        setCanvasResizeCallback cb (Canvas _ _ _ ref _) =
+                writeIORef ref cb
+
+        setCanvasRefreshCallback cb (Canvas _ _ _ _ ref) =
+                writeIORef ref cb
+
+        popInput c (Canvas _ src _ _ _) = flip Input c <$> clear src
+
+        getInput c (Canvas _ src _ _ _) = flip Input c <$> events src
+
+        drawCanvas act _ (Canvas _ _ ctxRef _ _) = readIORef ctxRef >>= act
+
+        updateCanvas _ = return False
+
+        refreshLoop t c@(Canvas _ _ _ _ refreshRef) =
+                do refresh <- readIORef refreshRef
+                   onFrame $ \_ -> refresh >> refreshLoop t c
+                where onFrame handler = asyncCallback1 NeverRetain handler
                                         >>= requestAnimationFrame
 
-                      initInput w h = Input $ H.singleton Resize [
-                                EventData {
-                                        dataFramebufferSize = Just (w, h),
-                                        dataPointer = Nothing,
-                                        dataButton = Nothing,
-                                        dataKey = Nothing
-                                }]
-                                     
-                      actuate ctx ref out = readIORef ref >>=
-                                            draw out ctx >>=
-                                         -- execDraw (drawBegin >> drawScene s) >>=
-                                            writeIORef ref >> return False
-                      handledEvents = [ MouseUp
-                                      , MouseDown
-                                      , MouseMove
-                                      , KeyUp
-                                      , KeyDown
-                                      , Resize ]
+        getTime = now
+
+        terminateBackend = return ()
 
 instance GLES where
         type Ctx = JS.Ctx

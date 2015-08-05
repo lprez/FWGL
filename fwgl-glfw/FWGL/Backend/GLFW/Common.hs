@@ -1,13 +1,27 @@
 module FWGL.Backend.GLFW.Common (
         loadTextFile,
         loadImage,
-        setup,
+        initBackend,
+        createCanvas,
+        setCanvasSize,
+        setCanvasTitle,
+        setCanvasResizeCallback,
+        setCanvasRefreshCallback,
+        popInput,
+        getInput,
+        drawCanvas,
+        updateCanvas,
+        refreshLoop,
+        FWGL.Backend.GLFW.Common.getTime,
+        terminateBackend,
+        Canvas,
         ClientAPI(..)
 ) where
 
 import Codec.Picture
 import Codec.Picture.Types (promoteImage)
 import Control.Concurrent
+import Control.Monad
 import Control.Exception.Base (catch)
 import qualified Data.HashMap.Strict as H
 import Data.IORef
@@ -44,23 +58,24 @@ loadTextFile fname handler = (>> return ()) . forkIO $
               (\e -> return (Left $ show (e :: IOError))) >>= handler
 
 data Canvas = Canvas GLFW.Window
-                     (MVar (H.HashMap InputEvent [EventData]))
-                     (IORef (Int -> Int -> IO ())
+                     (IORef (H.HashMap InputEvent [EventData]))
+                     (IORef (Int -> Int -> IO ()))
                      (IORef (IO ()))
 
 initBackend :: IO ()
 initBackend = GLFW.init >> setTime 0
 
-createCanvas :: ClientAPI -> Int -> Int -> IO Canvas
-createCanvas clientAPI maj min =
+createCanvas :: ClientAPI -> Int -> Int
+             -> String -> Int -> Int -> IO (Canvas, Int, Int)
+createCanvas clientAPI maj min title w h =
         do windowHint $ WindowHint'ClientAPI clientAPI
            windowHint $ WindowHint'ContextVersionMajor maj
            windowHint $ WindowHint'ContextVersionMinor min
-           Just win <- createWindow w h "" Nothing Nothing
+           Just win <- createWindow w h title Nothing Nothing
 
            resizeRef <- newIORef $ \_ _ -> return ()
            refreshRef <- newIORef $ return ()
-           eventsRef <- newMVar $ H.singleton Resize [
+           eventsRef <- newIORef $ H.singleton Resize [
                                         emptyEventData {
                                             dataFramebufferSize = Just (w, h)
                                         }]
@@ -74,11 +89,9 @@ createCanvas clientAPI maj min =
            setFramebufferSizeCallback win . Just . const $
                    resizeCallback eventsRef resizeRef
 
-           return $ Canvas win eventsRef resizeRef refreshRef
+           return (Canvas win eventsRef resizeRef refreshRef, w, h)
 
-        where (w, h) = (640, 480)
-        
-              keyCallback events key _ keyState _ = modifyEvents events $
+        where keyCallback events key _ keyState _ = modifyIORef' events $
                       case keyState of
                               KeyState'Pressed -> insertEvent KeyDown keyData
                               KeyState'Released -> insertEvent KeyUp keyData
@@ -89,7 +102,7 @@ createCanvas clientAPI maj min =
 
               mouseCallback events win mb mbState _ = do
                       pos <- fmap convertCursorPos $ getCursorPos win
-                      modifyEvents events $
+                      modifyIORef' events $
                         case mbState of
                                 MouseButtonState'Pressed ->
                                         insertEvent MouseDown $ keyData pos
@@ -100,7 +113,7 @@ createCanvas clientAPI maj min =
                                         dataPointer = Just p
                                 }
 
-              cursorCallback events x y = modifyEvents events $
+              cursorCallback events x y = modifyIORef' events $
                       insertEvent MouseMove $ emptyEventData {
                                 dataPointer = Just $ convertCursorPos (x, y)
                         }
@@ -108,7 +121,7 @@ createCanvas clientAPI maj min =
               resizeCallback events resizeRef x y =
                       do callback <- readIORef resizeRef
                          callback x y
-                         modifyEvents events $
+                         modifyIORef' events $
                                 insertEvent Resize $ emptyEventData {
                                         dataFramebufferSize = Just $ (x, y)
                                 }
@@ -122,45 +135,57 @@ createCanvas clientAPI maj min =
 
               insertEvent e = H.insertWith (flip (++)) e . return
 
-              modifyEvents m f = modifyMVar_ m $ return . f
-
               emptyEventData = EventData {
                                 dataFramebufferSize = Nothing,
                                 dataPointer = Nothing,
                                 dataButton = Nothing,
                                 dataKey = Nothing }
 
-setup :: 
-      -> (out -> () -> state -> IO state)
-      -> IO inp
-      -> SF (Input inp) out
-      -> IO ()
-setup initState draw customInp sigf =
+setCanvasSize :: Int -> Int -> Canvas -> IO ()
+setCanvasSize w h (Canvas win _ _ _) = setWindowSize win w h
 
-           let loop = do pollEvents
-                         refresh eventsRef reactStateRef
-                         close <- windowShouldClose win
-                         if close
-                                then do destroyWindow win
-                                        terminate
-                                else threadDelay 16000 >> loop
-           loop
-        where refresh er rsf = do (Just tm) <- getTime
-                                  custom <- customInp
-                                  modifyMVar_ er $ \inp -> do
-                                        react rsf ( tm * 1000
-                                                  , Just $ Input inp custom)
-                                        return H.empty
-                                  setTime 0
+setCanvasTitle :: String -> Canvas -> IO ()
+setCanvasTitle str (Canvas win _ _ _) = setWindowTitle win str
 
-              actuate win stateRef out = do newState <- readIORef stateRef
-                                                        >>= draw out ()
-                                            swapBuffers win
-                                            writeIORef stateRef newState
-                                            return False
+setCanvasResizeCallback :: (Int -> Int -> IO ()) -> Canvas -> IO ()
+setCanvasResizeCallback callback (Canvas _ _ ref _) = writeIORef ref callback
 
+setCanvasRefreshCallback :: IO () -> Canvas -> IO ()
+setCanvasRefreshCallback callback (Canvas _ _ _ ref) = writeIORef ref callback
 
-              initInput w h = 
+popInput :: a -> Canvas -> IO (Input a)
+popInput c canvas@(Canvas _ events _ _) = do i <- getInput c canvas
+                                             writeIORef events H.empty
+                                             return i
+
+getInput :: a -> Canvas -> IO (Input a)
+getInput c (Canvas _ events _ _) = flip Input c <$> readIORef events
+
+drawCanvas :: (() -> IO a) -> Bool -> Canvas -> IO a
+drawCanvas act shouldSwap (Canvas win _ _ _) = do makeContextCurrent $ Just win
+                                                  r <- act ()
+                                                  when shouldSwap $
+                                                          swapBuffers win
+                                                  return r
+
+updateCanvas :: Canvas -> IO Bool
+updateCanvas (Canvas win _ _ _) = do pollEvents
+                                     close <- windowShouldClose win
+                                     when close $ destroyWindow win
+                                     return close
+
+refreshLoop :: Int -> Canvas -> IO ()
+refreshLoop fps c@(Canvas _ _ _ ref) = do closed <- updateCanvas c
+                                          join $ readIORef ref
+                                          threadDelay $ div 1000000 fps
+                                          unless closed $ refreshLoop fps c
+
+getTime :: IO Double
+getTime = do Just t <- GLFW.getTime
+             return t
+
+terminateBackend :: IO ()
+terminateBackend = terminate
 
 toMouseButton :: GLFW.MouseButton -> Input.MouseButton
 toMouseButton MouseButton'1 = MouseLeft

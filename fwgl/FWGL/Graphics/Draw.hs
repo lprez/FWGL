@@ -53,7 +53,7 @@ drawInit w h = do enable gl_DEPTH_TEST
                   blendFunc gl_SRC_ALPHA gl_ONE_MINUS_SRC_ALPHA
                   clearColor 0.0 0.0 0.0 1.0
                   depthFunc gl_LESS
-                  resize w h
+                  resizeGL w h
                   return DrawState { program = Nothing
                                    , loadedProgram = Nothing
                                    , programs = newGLResMap
@@ -75,11 +75,19 @@ execDraw :: Draw ()             -- ^ Action.
 execDraw (Draw a) = execStateT a
 
 -- | Viewport.
+resizeGL :: GLES
+         => Int   -- ^ Width.
+         -> Int   -- ^ Height.
+         -> GL ()
+resizeGL w h = viewport 0 0 (fromIntegral w) (fromIntegral h)
+
+-- | Viewport.
 resize :: GLES
        => Int   -- ^ Width.
        -> Int   -- ^ Height.
-       -> GL ()
-resize w h = viewport 0 0 (fromIntegral w) (fromIntegral h)
+       -> Draw ()
+resize w h = do gl $ resizeGL w h
+                Draw . modify $ \s -> s { viewportSize = (w, h) }
 
 -- | Clear the buffers.
 drawBegin :: GLES => Draw ()
@@ -229,11 +237,11 @@ renderTexture internalFormat format pixelType attachment w h layer = do
                 framebufferTexture2D gl_FRAMEBUFFER attachment
                                      gl_TEXTURE_2D t 0
 
-        gl $ resize (fromIntegral w) (fromIntegral h)
+        gl $ resizeGL (fromIntegral w) (fromIntegral h)
         drawBegin
         drawLayer layer
         drawEnd
-        gl $ resize sw sh
+        gl $ resizeGL sw sh
 
         gl $ deleteFramebuffer fb
 

@@ -21,24 +21,34 @@ class GLES => BackendIO where
 
         initBackend :: IO ()
 
-        createCanvas :: IO Canvas
+        createCanvas :: IO (Canvas, Int, Int)
 
         setCanvasSize :: Int -- ^ Width
                       -> Int -- ^ Height
-                      -> Canvas -> IO ()
+                      -> Canvas
+                      -> IO ()
 
-        setCanvasTitle :: String -> IO ()
+        setCanvasTitle :: String -> Canvas -> IO ()
 
-        setCanvasResizeCallback :: (Int -> Int -> IO ()) -> IO ()
-        setCanvasRefreshCallback :: IO () -> IO ()
+        setCanvasResizeCallback :: (Int -> Int -> IO ()) -> Canvas -> IO ()
+        setCanvasRefreshCallback :: IO () -> Canvas -> IO ()
 
-        getCanvasContext :: Canvas -> IO Ctx
+        popInput :: a -> Canvas -> IO (Input a)
+        getInput :: a -> Canvas -> IO (Input a)
 
-        popInput :: Canvas -> IO (Input ())
-        getInput :: Canvas -> IO (Input ())
+        drawCanvas :: (Ctx -> IO a)     -- ^ Draw action.
+                   -> Bool              -- ^ Swap buffers.
+                   -> Canvas
+                   -> IO a
 
-        drawCanvas :: (Ctx -> IO ()) -> Canvas -> IO ()
-        updateCanvas :: Canvas -> IO ()
+        -- | Not needed, if you use 'refreshLoop'.
+        updateCanvas :: Canvas -> IO Bool
+
+        refreshLoop :: Int  -- ^ FPS (not necessarily used).
+                    -> Canvas
+                    -> IO ()
 
         -- | In seconds.
         getTime :: IO Double
+
+        terminateBackend :: IO ()

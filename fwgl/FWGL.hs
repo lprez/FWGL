@@ -38,6 +38,8 @@ module FWGL (
         -- TODO: resize, title ...
 ) where
 
+import Data.IORef
+import qualified Data.HashMap.Strict as H
 import Control.Concurrent
 import Control.Monad (void)
 import Control.Monad.IO.Class
@@ -47,7 +49,7 @@ import FWGL.Input
 import FWGL.Internal.GL (evalGL)
 import FWGL.Geometry (Geometry3)
 import FWGL.Geometry.OBJ
-import FWGL.Graphics.Draw
+import FWGL.Graphics.Draw as D
 import FWGL.Graphics.Types
 import FWGL.Shader.Program (Program)
 import FWGL.Utils
@@ -91,13 +93,62 @@ run' :: BackendIO
      => IO inp                -- ^ An IO effect generating the custom inputs.
      -> SF (Input inp) Output
      -> IO ()
-run' customInput sigf = setup initState loop customInput sigf
+run' customInput sigf =
+        do initBackend
+           (canvas, w, h) <- createCanvas
+
+           initCustom <- customInput
+           lastTimeRef <- getTime >>= newIORef
+           drawStateVar <- drawCanvas (initState w h) False canvas >>= newMVar
+           reactStateRef <- reactInit (return $ initInput w h initCustom)
+                                      (\_ _ -> actuate canvas drawStateVar)
+                                      sigf
+
+           setCanvasResizeCallback (resizeCb drawStateVar canvas) canvas
+
+           setCanvasRefreshCallback (refreshCb lastTimeRef reactStateRef canvas)
+                                    canvas
+
+           refreshLoop 60 canvas
+
         where initState w h = evalGL $ drawInit w h
-              loop (Output act) ctx drawState =
-                      flip evalGL ctx . flip execDraw drawState $ do
-                              drawBegin
-                              act
-                              drawEnd
+
+              resizeCb drawStateVar canvas w h =
+                      do drawState <- takeMVar drawStateVar
+                         drawState' <- drawCanvas
+                                        (\ctx -> flip evalGL ctx $
+                                                execDraw (D.resize w h)
+                                                         drawState
+                                        ) False canvas
+                         putMVar drawStateVar drawState'
+
+              refreshCb lastTimeRef reactStateRef canvas =
+                      do tm <- readIORef lastTimeRef
+                         tm' <- getTime
+                         custom <- customInput
+                         inp <- popInput custom canvas
+                         react reactStateRef ((tm' - tm) * 1000, Just inp)
+                         writeIORef lastTimeRef tm'
+
+              actuate canvas drawStateVar (Output act) =
+                        drawCanvas (
+                                \ctx -> modifyMVar_ drawStateVar $ \s ->
+                                        flip evalGL ctx . flip execDraw s $
+                                                do drawBegin
+                                                   act
+                                                   drawEnd
+                        ) True canvas >> return False
+        
+              initInput w h = Input $ H.singleton Resize [
+                        emptyEventData {
+                                dataFramebufferSize = Just (w, h)
+                        }]
+
+              emptyEventData = EventData {
+                                dataFramebufferSize = Nothing,
+                                dataPointer = Nothing,
+                                dataButton = Nothing,
+                                dataKey = Nothing }
 
 -- | Load a model from an OBJ file asynchronously.
 loadOBJAsync :: BackendIO 
