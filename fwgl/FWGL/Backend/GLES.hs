@@ -65,6 +65,9 @@ class ( Integral GLEnum
         encodeUShorts :: [Word16] -> IO Array
         encodeColors :: [Color] -> IO Array
 
+        newByteArray :: Int -> IO Array
+        decodeBytes :: Array -> IO [Word8]
+
         glActiveTexture :: Ctx -> GLEnum -> IO ()
         glAttachShader :: Ctx -> Program -> Shader -> IO ()
         glBindAttribLocation :: Ctx -> Program -> GLUInt -> GLString -> IO ()

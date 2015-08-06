@@ -11,7 +11,7 @@ module FWGL.Graphics.Types (
         Geometry(..),
         Object(..),
         Layer(..),
-        SubLayerType(..)
+        LayerType(..)
 ) where
 
 import Control.Applicative
@@ -20,6 +20,8 @@ import Control.Monad.Trans.State
 import Data.Hashable
 import Data.Vector (Vector)
 import Data.Typeable
+import Data.Word (Word8)
+import FWGL.Backend.IO (Canvas)
 import FWGL.Geometry
 import FWGL.Graphics.Color
 import FWGL.Internal.GL hiding (Program, Texture, UniformLocation)
@@ -41,7 +43,8 @@ data DrawState = DrawState {
         gpuMeshes :: ResMap (Geometry '[]) GPUGeometry,
         textureImages :: ResMap TextureImage LoadedTexture,
         activeTextures :: Vector (Maybe Texture),
-        viewportSize :: (Int, Int)
+        viewportSize :: (Int, Int),
+        currentCanvas :: Canvas
 }
 
 -- | A monad that represents OpenGL actions with some state ('DrawState').
@@ -77,9 +80,11 @@ data Object (gs :: [*]) (is :: [*]) where
 -- another.
 data Layer = forall oi pi og pg. (Subset oi pi, Subset og pg)
                               => Layer (Program pg pi) (Object og oi)
-           | SubLayer SubLayerType Int Int Layer (Texture -> [Layer])
+           | SubLayer [LayerType] Int Int Bool Bool Layer
+                      ([Texture] -> Maybe [Color] -> Maybe [Word8] -> [Layer])
+           | MultiLayer [Layer]
 
-data SubLayerType = ColorSubLayer | DepthSubLayer deriving Eq
+data LayerType = ColorLayer | DepthLayer deriving Eq
 
 instance Hashable TextureImage where
         hashWithSalt salt tex = hashWithSalt salt $ textureHash tex

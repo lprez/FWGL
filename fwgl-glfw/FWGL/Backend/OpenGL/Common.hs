@@ -36,6 +36,15 @@ vertexAttrib :: (a -> Ptr b -> IO ())
              -> ctx -> a -> (GLsizei, ForeignPtr b) -> IO ()
 vertexAttrib f _ a (_, fp) = withForeignPtr fp $ f a
 
+mkArrayLen :: Int -> IO (GLsizei, ForeignPtr b)
+mkArrayLen len = do arr <- mallocForeignPtrArray (fromIntegral len)
+                           :: IO (ForeignPtr Word8)
+                    return (fromIntegral len, castForeignPtr arr)
+
+arrayToList :: Storable b => (GLsizei, ForeignPtr a) -> IO [b]
+arrayToList (len, fptr) = withForeignPtr (castForeignPtr fptr) $ \ptr ->
+                                peekArray (fromIntegral len) ptr
+
 mkArray :: Storable a => [a] -> IO (GLsizei, ForeignPtr b)
 mkArray xs = do arr <- mallocForeignPtrArray len
                 withForeignPtr arr $ flip pokeArray xs

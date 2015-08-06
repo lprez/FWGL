@@ -16,13 +16,14 @@ module FWGL.Graphics.Draw (
         textureUniform,
         textureSize,
         setProgram,
-        resize,
+        resizeViewport,
         gl,
-        subLayerToTexture,
+        layerToTexture,
         drawState
 ) where
 
 import FWGL.Geometry
+import FWGL.Graphics.Color
 import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
 import FWGL.Graphics.Texture
@@ -40,7 +41,7 @@ import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as H
 import qualified Data.Vector as V
 import Data.Typeable
-import Data.Word (Word)
+import Data.Word (Word, Word8)
 import Control.Applicative
 import Control.Monad (when)
 import Control.Monad.IO.Class
@@ -51,22 +52,25 @@ import Control.Monad.Trans.State
 drawInit :: (BackendIO, GLES)
          => Int         -- ^ Viewport width
          -> Int         -- ^ Viewport height
+         -> Canvas      -- ^ Canvas
          -> GL DrawState
-drawInit w h = do enable gl_DEPTH_TEST
-                  enable gl_BLEND
-                  blendFunc gl_SRC_ALPHA gl_ONE_MINUS_SRC_ALPHA
-                  clearColor 0.0 0.0 0.0 1.0
-                  depthFunc gl_LESS
-                  resizeGL w h
-                  return DrawState { program = Nothing
-                                   , loadedProgram = Nothing
-                                   , programs = newGLResMap
-                                   , gpuMeshes = newGLResMap
-                                   , uniforms = newGLResMap
-                                   , textureImages = newGLResMap
-                                   , activeTextures =
-                                           V.replicate maxTexs Nothing
-                                   , viewportSize = (w, h) }
+drawInit w h canvas =
+        do enable gl_DEPTH_TEST
+           enable gl_BLEND
+           blendFunc gl_SRC_ALPHA gl_ONE_MINUS_SRC_ALPHA
+           clearColor 0.0 0.0 0.0 1.0
+           depthFunc gl_LESS
+           viewport 0 0 (fromIntegral w) (fromIntegral h)
+           return DrawState { program = Nothing
+                            , loadedProgram = Nothing
+                            , programs = newGLResMap
+                            , gpuMeshes = newGLResMap
+                            , uniforms = newGLResMap
+                            , textureImages = newGLResMap
+                            , activeTextures =
+                                    V.replicate maxTexs Nothing
+                            , viewportSize = (w, h)
+                            , currentCanvas = canvas }
         where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
 
@@ -83,19 +87,12 @@ drawState :: Draw DrawState
 drawState = Draw get
 
 -- | Viewport.
-resizeGL :: GLES
-         => Int   -- ^ Width.
-         -> Int   -- ^ Height.
-         -> GL ()
-resizeGL w h = viewport 0 0 (fromIntegral w) (fromIntegral h)
-
--- | Viewport.
-resize :: GLES
+resizeViewport :: GLES
        => Int   -- ^ Width.
        -> Int   -- ^ Height.
        -> Draw ()
-resize w h = do gl $ resizeGL w h
-                Draw . modify $ \s -> s { viewportSize = (w, h) }
+resizeViewport w h = do gl $ viewport 0 0 (fromIntegral w) (fromIntegral h)
+                        Draw . modify $ \s -> s { viewportSize = (w, h) }
 
 -- | Clear the buffers.
 drawBegin :: GLES => Draw ()
@@ -126,13 +123,18 @@ removeProgram = removeDrawResource gl programs (\m s -> s { programs = m })
 -- | Draw a 'Layer'.
 drawLayer :: (GLES, BackendIO) => Layer -> Draw ()
 drawLayer (Layer prg obj) = setProgram prg >> drawObject obj
-drawLayer (SubLayer stype w' h' sub sup) =
-        do t <- subLayerToTexture stype w h sub
-           mapM_ drawLayer $ sup t
-           removeTexture t
+drawLayer (SubLayer stypes w' h' inspCol inspDepth sub sup) =
+        do (ts, mcol, mdepth) <- layerToTexture stypes w h sub
+                                                (mayInspect inspCol)
+                                                (mayInspect inspDepth)
+           mapM_ drawLayer $ sup ts mcol mdepth
+           mapM_ removeTexture ts
            return ()
         where w = fromIntegral w'
               h = fromIntegral h'
+              mayInspect True = Right $ return . Just
+              mayInspect False = Left Nothing
+drawLayer (MultiLayer layers) = mapM_ drawLayer layers
 
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
 drawObject ObjectEmpty = return ()
@@ -223,52 +225,77 @@ makeActive t = do ats <- activeTextures <$> Draw get
         where fi :: (Integral a, Integral b) => a -> b
               fi = fromIntegral
 
-subLayerToTexture :: (GLES, BackendIO, Integral a)
-                  => SubLayerType
-                  -> a -- | Width
-                  -> a -- | Height
-                  -> Layer
-                  -> Draw Texture
-subLayerToTexture stype wp hp layer =
-        TextureLoaded . LoadedTexture w h <$>
-        renderToTexture internalFormat format ptype attachment w h layer
+-- | Draw a 'Layer' on a texture.
+layerToTexture :: (GLES, BackendIO, Integral a)
+               => [LayerType]
+               -> a                             -- ^ Width
+               -> a                             -- ^ Height
+               -> Layer                         -- ^ Layer to draw
+               -> Either b ([Color] -> Draw b)  -- ^ Color inspecting function
+               -> Either c ([Word8] -> Draw c)  -- ^ Depth inspecting function
+               -> Draw ([Texture], b ,c)
+layerToTexture stypes wp hp layer einspc einspd = do
+        (ts, (colRes, depthRes)) <- renderToTexture (map arguments stypes) w h $
+                        do drawLayer layer
+                           colRes <- inspect einspc gl_RGBA wordsToColors
+                           depthRes <- inspect einspd gl_DEPTH_COMPONENT id
+                           return (colRes, depthRes)
+
+        return (map (TextureLoaded . LoadedTexture w h) ts, colRes, depthRes)
+
         where (w, h) = (fromIntegral wp, fromIntegral hp)
-              (internalFormat, format, ptype, attachment) =
+              arguments stype =
                         case stype of
-                              ColorSubLayer -> ( fromIntegral gl_RGBA
-                                               , gl_RGBA
-                                               , gl_UNSIGNED_BYTE
-                                               , gl_COLOR_ATTACHMENT0 )
-                              DepthSubLayer -> ( fromIntegral gl_DEPTH_COMPONENT
-                                               , gl_DEPTH_COMPONENT
-                                               , gl_UNSIGNED_SHORT
-                                               , gl_DEPTH_ATTACHMENT )
+                              ColorLayer -> ( fromIntegral gl_RGBA
+                                            , gl_RGBA
+                                            , gl_UNSIGNED_BYTE
+                                            , gl_COLOR_ATTACHMENT0 )
+                              DepthLayer -> ( fromIntegral gl_DEPTH_COMPONENT
+                                            , gl_DEPTH_COMPONENT
+                                            , gl_UNSIGNED_SHORT
+                                            , gl_DEPTH_ATTACHMENT )
 
-renderToTexture :: (GLES, BackendIO) => GLInt -> GLEnum -> GLEnum
-                -> GLEnum -> GLSize -> GLSize -> Layer -> Draw GL.Texture
-renderToTexture internalFormat format pixelType attachment w h layer = do
-        fb <- gl createFramebuffer
-        t <- gl emptyTexture
+              inspect :: Either c (a -> Draw c) -> GLEnum
+                      -> ([Word8] -> a) -> Draw c
+              inspect (Left r) _ _ = return r
+              inspect (Right insp) format trans =
+                        do arr <- liftIO . newByteArray $
+                                        fromIntegral w * fromIntegral h * 4
+                           gl $ readPixels 0 0 w h format gl_UNSIGNED_BYTE arr
+                           liftIO (decodeBytes arr) >>= insp . trans
+              wordsToColors (r : g : b : a : xs) = Color r g b a :
+                                                   wordsToColors xs
+              wordsToColors _ = []
+
+renderToTexture :: (GLES, BackendIO)
+                => [(GLInt, GLEnum, GLEnum, GLEnum)]
+                -> GLSize -> GLSize -> Draw a -> Draw ([GL.Texture], a)
+renderToTexture infos w h act = do
+        fb <- gl createFramebuffer 
+        gl $ bindFramebuffer gl_FRAMEBUFFER fb
+
+        ts <- gl . flip mapM infos $
+                \(internalFormat, format, pixelType, attachment) ->
+                        do t <- emptyTexture
+                           arr <- liftIO $ noArray
+                           bindTexture gl_TEXTURE_2D t
+                           texImage2DBuffer gl_TEXTURE_2D 0 internalFormat w 
+                                            h 0 format pixelType arr
+                           framebufferTexture2D gl_FRAMEBUFFER attachment
+                                                gl_TEXTURE_2D t 0
+                           return t
+
         (sw, sh) <- viewportSize <$> Draw get
+        resizeViewport (fromIntegral w) (fromIntegral h)
 
-        gl $ do arr <- liftIO $ noArray
-                bindTexture gl_TEXTURE_2D t
-                texImage2DBuffer gl_TEXTURE_2D 0 internalFormat w 
-                                 h 0 format pixelType arr
-
-                bindFramebuffer gl_FRAMEBUFFER fb
-                framebufferTexture2D gl_FRAMEBUFFER attachment
-                                     gl_TEXTURE_2D t 0
-
-        gl $ resizeGL (fromIntegral w) (fromIntegral h)
         drawBegin
-        drawLayer layer
+        ret <- act
         drawEnd
-        gl $ resizeGL sw sh
 
+        resizeViewport sw sh
         gl $ deleteFramebuffer fb
 
-        return t
+        return (ts, ret)
 
 getDrawResource :: (Resource i r m, Hashable i)
                 => (m (ResStatus r, ResMap i r)

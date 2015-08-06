@@ -11,6 +11,7 @@ module FWGL.Backend.JavaScript (
 
 import Control.Applicative
 import Control.Concurrent
+import Data.Maybe
 import qualified Data.HashMap.Strict as H
 import Data.IORef
 import Data.Word
@@ -224,6 +225,11 @@ instance GLES where
                       next (2, xs@(Color _ _ z _ : _)) = Just (z, (3, xs))
                       next (3, Color _ _ _ w : xs) = Just (w, (0, xs))
                       next (_, []) = Nothing
+
+        newByteArray = fmap castRef . JS.uint8ArraySize
+
+        decodeBytes = (>>= mapM (fmap fromJust . fromJSRef))
+                      . fromArray . castRef
 
         glActiveTexture = JS.glActiveTexture
         glAttachShader = JS.glAttachShader

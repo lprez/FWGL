@@ -67,6 +67,9 @@ instance GLES where
         encodeUShorts = mkArray
         encodeColors = mkArray
 
+        newByteArray = mkArrayLen
+        decodeBytes = arrayToList
+
         glActiveTexture = const GL.glActiveTexture
         glAttachShader = const GL.glAttachShader
         glBindAttribLocation _ a b c = withCString c $ GL.glBindAttribLocation a b

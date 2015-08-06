@@ -30,6 +30,7 @@ module FWGL.Graphics.D2 (
         transform,
         -- * Layers
         Layer,
+        C.combineLayers,
         -- ** Element layers
         elements,
         view,
@@ -41,6 +42,10 @@ module FWGL.Graphics.D2 (
         -- ** Sublayers
         C.subLayer,
         C.depthSubLayer,
+        C.colorDepthSubLayer,
+        C.subLayerInspect,
+        C.depthSubLayerInspect,
+        C.colorDepthSubLayerInspect,
         -- * Custom 2D objects
         Object,
         object,

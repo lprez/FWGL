@@ -17,8 +17,13 @@ module FWGL.Graphics.Custom (
 
         Layer,
         layer,
+        combineLayers,
         subLayer,
         depthSubLayer,
+        colorDepthSubLayer,
+        subLayerInspect,
+        depthSubLayerInspect,
+        colorDepthSubLayerInspect,
 
         Geometry,
         AttrList(..),
@@ -37,6 +42,7 @@ module FWGL.Graphics.Custom (
 
 import Control.Applicative
 import Data.Typeable
+import Data.Word (Word8)
 import FRP.Yampa
 import FWGL.Backend (BackendIO, GLES)
 import FWGL.Geometry
@@ -94,6 +100,10 @@ layer :: (Subset oi pi, Subset og pg)
       => Program pg pi -> Object og oi -> Layer
 layer = Layer
 
+-- | Combine some layers.
+combineLayers :: [Layer] -> Layer
+combineLayers = MultiLayer
+
 -- | Generate a 1x1 texture.
 colorTex :: GLES => Color -> Texture
 colorTex c = mkTexture 1 1 [ c ]
@@ -104,7 +114,8 @@ subLayer :: Int                         -- ^ Texture width.
          -> Layer                       -- ^ Layer to draw on a 'Texture'.
          -> (Texture -> [Layer])        -- ^ Layers using the texture.
          -> Layer
-subLayer = SubLayer ColorSubLayer
+subLayer w h l f = SubLayer [ColorLayer] w h False False l $
+                        \[t] _ _ -> f t
 
 -- | Use a 'Layer' as a depth 'Texture' on another.
 depthSubLayer :: Int                         -- ^ Texture width.
@@ -112,4 +123,46 @@ depthSubLayer :: Int                         -- ^ Texture width.
               -> Layer                       -- ^ Layer to draw on a depth 'Texture'.
               -> (Texture -> [Layer])        -- ^ Layers using the texture.
               -> Layer
-depthSubLayer = SubLayer DepthSubLayer
+depthSubLayer w h l f = SubLayer [DepthLayer] w h False False l $
+                                \[t] _ _ -> f t
+
+-- | Combination of 'subLayer' and 'depthSubLayer'.
+colorDepthSubLayer :: Int                               -- ^ Texture width.
+                   -> Int                               -- ^ Texture height.
+                   -> Layer                             -- ^ Layer to draw on a 'Texture'
+                   -> (Texture -> Texture -> [Layer])   -- ^ Color, depth.
+                   -> Layer
+colorDepthSubLayer w h l f = SubLayer [ColorLayer, DepthLayer] w h
+                                      False False l $
+                                \[ct, dt] _ _ -> f ct dt
+
+-- | Use a 'Layer' as a 'Texture' on another, reading the content of the
+-- texture.
+subLayerInspect :: Int                              -- ^ Texture width.
+                -> Int                              -- ^ Texture height.
+                -> Layer                            -- ^ Layer to draw on a 'Texture'.
+                -> (Texture -> [Color] -> [Layer])  -- ^ Layers using the texture.
+                -> Layer
+subLayerInspect w h l f = SubLayer [ColorLayer] w h True False l $
+                        \[t] (Just c) _ -> f t c
+
+-- | Use a 'Layer' as a depth 'Texture' on another, reading the content of the
+-- texture.
+depthSubLayerInspect :: Int                              -- ^ Texture width.
+                     -> Int                              -- ^ Texture height.
+                     -> Layer                            -- ^ Layer to draw on a depth 'Texture'.
+                     -> (Texture -> [Word8] -> [Layer])  -- ^ Layers using the texture.
+                     -> Layer
+depthSubLayerInspect w h l f = SubLayer [DepthLayer] w h False True l $
+                                \[t] _ (Just d) -> f t d
+
+-- | Combination of 'subLayerInspect' and 'depthSubLayerInspect'.
+colorDepthSubLayerInspect :: Int         -- ^ Texture width.
+                          -> Int         -- ^ Texture height.
+                          -> Layer       -- ^ Layer to draw on a 'Texture'
+                          -> (Texture -> Texture -> [Color] -> [Word8] ->
+                              [Layer])   -- ^ Layers using the texture.
+                          -> Layer
+colorDepthSubLayerInspect w h l f = SubLayer [ColorLayer, DepthLayer] w h
+                                      True True l $
+                                \[ct, dt] (Just c) (Just d) -> f ct dt c d

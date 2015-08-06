@@ -23,11 +23,13 @@ class GLES => BackendIO where
 
         createCanvas :: IO (Canvas, Int, Int)
 
+        -- | Set the size of the canvas/window.
         setCanvasSize :: Int -- ^ Width
                       -> Int -- ^ Height
                       -> Canvas
                       -> IO ()
 
+        -- | Set the title of the window.
         setCanvasTitle :: String -> Canvas -> IO ()
 
         setCanvasResizeCallback :: (Int -> Int -> IO ()) -> Canvas -> IO ()
@@ -48,7 +50,7 @@ class GLES => BackendIO where
                     -> Canvas
                     -> IO ()
 
-        -- | In seconds.
+        -- | Time, in milliseconds.
         getTime :: IO Double
 
         terminateBackend :: IO ()

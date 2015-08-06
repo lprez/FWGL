@@ -23,6 +23,8 @@ module FWGL (
         module FWGL.Input,
         module FWGL.Utils,
         module FRP.Yampa,
+        initialize,
+        terminate,
         -- * FRP interface
         run,
         run',
@@ -31,32 +33,45 @@ module FWGL (
         (.>),
         draw,
         io,
+        setSize,
+        setTitle,
         fastStep,
         freeGeometry,
         freeTexture,
         freeProgram,
         drawM,
-        -- TODO: resize, title ...
-        -- * OBJ loading
-        -- loadTextFile
+        -- * File loading
         loadOBJ,
         loadOBJAsync,
+        loadTextFileAsync,
         -- * Draw monad
         Draw,
-        SubLayerType(..),
         drawLayer,
-        subLayerToTexture,
+        -- * Memory functions
         removeGeometry,
         removeTexture,
         removeProgram,
-        gl,
-        liftIO,
-        drawState,
-        execDraw,
+        -- ** Texture functions
         textureUniform,
         textureSize,
         -- textureData
-        -- * IO Interface
+        -- ** Lifting functions
+        gl,
+        liftIO,
+        -- ** Sublayers
+        LayerType(..),
+        layerToTexture,
+        -- ** DrawState
+        DrawState(..),
+        drawState,
+        execDraw,
+        {-
+        -- * Effectful Interface
+        runDraw,
+        setCanvasSize,
+        setCanvasTitle,
+        getTime
+        -}
 ) where
 
 import Data.IORef
@@ -70,7 +85,7 @@ import FWGL.Input
 import FWGL.Internal.GL (evalGL)
 import FWGL.Geometry (Geometry3)
 import FWGL.Geometry.OBJ
-import FWGL.Graphics.Draw as D
+import FWGL.Graphics.Draw
 import FWGL.Graphics.Types
 import FWGL.Shader.Program (Program)
 import FWGL.Utils
@@ -114,7 +129,28 @@ freeTexture = Output False . void . removeTexture
 freeProgram :: BackendIO => Program g i -> Output
 freeProgram = Output False . void . removeProgram
 
--- | Run a FWGL program.
+-- | Set canvas/window size.
+setSize :: BackendIO
+        => Int -- ^ Width
+        -> Int -- ^ Height
+        -> Output
+setSize w h = drawM $ do canvas <- fmap currentCanvas drawState
+                         liftIO $ setCanvasSize w h canvas
+
+-- | Set window title.
+setTitle :: BackendIO => String -> Output
+setTitle title = drawM $ do canvas <- fmap currentCanvas drawState
+                            liftIO $ setCanvasTitle title canvas
+
+-- | Initialize FWGL backend.
+initialize :: BackendIO => IO ()
+initialize = initBackend
+
+-- | Terminate FWGL backend.
+terminate :: BackendIO => IO ()
+terminate = terminateBackend
+
+-- | Run a FWGL program on a new canvas/window.
 run :: BackendIO
     => SF (Input ()) Output  -- ^ Main signal
     -> IO ()
@@ -126,12 +162,12 @@ run' :: BackendIO
      -> SF (Input inp) Output
      -> IO ()
 run' customInput sigf =
-        do initBackend
-           (canvas, w, h) <- createCanvas
+        do (canvas, w, h) <- createCanvas
 
            initCustom <- customInput
            lastTimeRef <- getTime >>= newIORef
-           drawStateVar <- drawCanvas (initState w h) False canvas >>= newMVar
+           drawStateVar <- drawCanvas (initState w h canvas) False canvas
+                           >>= newMVar
            reactStateRef <- reactInit (return $ initInput w h initCustom)
                                       (\reactStateRef _ -> actuate lastTimeRef
                                                                    reactStateRef
@@ -146,13 +182,13 @@ run' customInput sigf =
 
            refreshLoop 60 canvas
 
-        where initState w h = evalGL $ drawInit w h
+        where initState w h canvas = evalGL $ drawInit w h canvas
 
               resizeCb drawStateVar canvas w h =
                       do drawState <- takeMVar drawStateVar
                          drawState' <- drawCanvas
                                         (\ctx -> flip evalGL ctx $
-                                                execDraw (D.resize w h)
+                                                execDraw (resizeViewport w h)
                                                          drawState
                                         ) False canvas
                          putMVar drawStateVar drawState'
@@ -190,8 +226,8 @@ run' customInput sigf =
 
 -- | Load a model from an OBJ file asynchronously.
 loadOBJAsync :: BackendIO 
-             => FilePath
-             -> (Either String (Geometry Geometry3) -> IO ())
+             => FilePath -- ^ Path or URL.
+             -> (Either String (Geometry Geometry3) -> IO ()) -- ^ Callback.
              -> IO ()
 loadOBJAsync fp k = loadTextFile fp $
                        \e -> case e of
@@ -204,3 +240,10 @@ loadOBJ :: BackendIO => FilePath -> IO (Either String (Geometry Geometry3))
 loadOBJ fp = do var <- newEmptyMVar
                 loadOBJAsync fp $ putMVar var
                 takeMVar var
+
+-- | Load a file asynchronously.
+loadTextFileAsync :: BackendIO
+                  => FilePath                           -- ^ Path or URL.
+                  -> (Either String String -> IO ())    -- ^ Callback.
+                  -> IO ()
+loadTextFileAsync = loadTextFile

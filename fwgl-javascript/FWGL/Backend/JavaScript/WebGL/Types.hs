@@ -21,6 +21,7 @@ module FWGL.Backend.JavaScript.WebGL.Types (
         int32Array,
         uint16Array,
         uint8Array,
+        uint8ArraySize,
         float32View,
         int32View,
         uint16View,
@@ -134,6 +135,9 @@ foreign import javascript unsafe "$r = new Uint16Array($1);"
 
 foreign import javascript unsafe "$r = new Uint8Array($1);"
         uint8Array :: JSArray Word8 -> IO Uint8Array
+
+foreign import javascript unsafe "$r = new Uint8Array($1);"
+        uint8ArraySize :: Int -> IO Uint8Array
 
 foreign import javascript unsafe "$r = $1.getContext(\"webgl\");"
         getCtx :: JSRef a -> IO Ctx
