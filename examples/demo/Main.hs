@@ -49,6 +49,7 @@ rotatingCube angleOff tex =
 
 monkey :: SF (Input (Maybe (Geometry Geometry3))) Element
 monkey = proc inp -> do (x, y) <- pointer -< inp
+                        (width, height) <- size -< inp
                         scaleFact <- mouseScale -< inp
                         maybeGeometry <- custom -< inp
 
@@ -57,8 +58,10 @@ monkey = proc inp -> do (x, y) <- pointer -< inp
                                             Nothing -> emptyGeometry
 
                         returnA -< ( pos (V3 0 0 (- 1)) $
-                                     rotY (2 - fromIntegral x / 160) $
-                                     rotX (2 - fromIntegral y / 120) $
+                                     rotY (2 - fromIntegral x * 4 /
+                                           fromIntegral width) $
+                                     rotX (2 - fromIntegral y * 4
+                                           / fromIntegral height) $
                                      scale scaleFact $
                                      geom (textureURL monkeyTex) geometry )
         where emptyGeometry = mkGeometry3 [] [] [] []

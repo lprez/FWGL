@@ -22,9 +22,6 @@ outline c = mkTexture 128 128 [ if x < 5 || y < 5 || x > 123 || y > 123
                                         else c
                               | x <- [ 0 .. 127 ], y <- [ 0 .. 127 ] ]
 
-width :: Num a => a
-width = 640
-
 walls :: RandomGen g => g -> SF (Input ()) [Box]
 walls r = noiseR (- 1.8, 1.8) r >>> sscan (step (0 :: Int)) []
         where step len (b : bs) newX = advance b $ step (len + 1) bs newX
@@ -35,10 +32,11 @@ walls r = noiseR (- 1.8, 1.8) r >>> sscan (step (0 :: Int)) []
                                    else id
 
 car :: SF (Input ()) Box
-car = pointer >>^ \(x, _) -> Box (V3 (fromIntegral (x * 3) / width - 1.5)
-                                     (- 0.8)
-                                     (- 2))
-                                 (V3 0.1 0.1 0.1)
+car = pointer &&& size >>^ \((x, _), (width, _)) ->
+        Box (V3 (fromIntegral (x * 3) / fromIntegral width - 1.5)
+                (- 0.8)
+                (- 2))
+            (V3 0.1 0.1 0.1)
 
 death :: SF (Box, [Box]) Bool
 death = arrPrim $ \(c, ws) -> any (collision c) ws

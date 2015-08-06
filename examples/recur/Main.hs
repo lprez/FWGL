@@ -12,9 +12,6 @@ import FWGL.Backend.JavaScript
 import FWGL.Backend.GLFW.GL20
 #endif
 
-width :: Num a => a
-width = 640
-
 quad :: SF (Float, Input ()) Float
 quad = proc (mx, inp) -> do
         d <- key KeyD >>> arrPrim (tagWith 0.02) -< inp
@@ -27,8 +24,9 @@ quad = proc (mx, inp) -> do
 wall :: SF (Float, Input ()) Float
 wall = proc (mx, inp) -> do
         (px, _) <- pointer -< inp
-        sscan (\ x (mx, px) -> if px - 0.4 > mx then px else x) 1
-                -< (mx, ((fromIntegral px / width) * 2) - 1)
+        (width, _) <- size -< inp
+        sscan (\ x (mx, px) -> if px - 0.4 > mx then px else mx + 0.4) 1
+                -< (mx, ((fromIntegral px / fromIntegral width) * 2) - 1)
 
 mainSF :: SF (Input ()) Output
 mainSF = proc inp -> do
