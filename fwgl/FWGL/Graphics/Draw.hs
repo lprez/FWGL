@@ -8,6 +8,7 @@ module FWGL.Graphics.Draw (
         drawInit,
         drawBegin,
         drawLayer,
+        drawObject,
         drawEnd,
         removeGeometry,
         removeTexture,
@@ -15,7 +16,10 @@ module FWGL.Graphics.Draw (
         textureUniform,
         textureSize,
         setProgram,
-        resize
+        resize,
+        gl,
+        subLayerToTexture,
+        drawState
 ) where
 
 import FWGL.Geometry
@@ -74,6 +78,10 @@ execDraw :: Draw ()             -- ^ Action.
          -> GL DrawState
 execDraw (Draw a) = execStateT a
 
+-- | Get the 'DrawState'.
+drawState :: Draw DrawState
+drawState = Draw get
+
 -- | Viewport.
 resizeGL :: GLES
          => Int   -- ^ Width.
@@ -97,10 +105,12 @@ drawBegin = do freeActiveTextures
 drawEnd :: GLES => Draw ()
 drawEnd = return ()
 
+-- | Delete a 'Geometry' from the GPU.
 removeGeometry :: GLES => Geometry is -> Draw Bool
 removeGeometry = removeDrawResource gl gpuMeshes (\m s -> s { gpuMeshes = m })
                  . castGeometry
 
+-- | Delete a 'Texture' from the GPU.
 removeTexture :: BackendIO => Texture -> Draw Bool
 removeTexture (TextureImage i) = removeDrawResource gl textureImages
                                         (\m s -> s { textureImages = m }) i
@@ -108,6 +118,7 @@ removeTexture (TextureLoaded l) = do gl $ unloadResource
                                           (Nothing :: Maybe TextureImage) l
                                      return True
 
+-- | Delete a 'Program' from the GPU.
 removeProgram :: GLES => Program gs is -> Draw Bool
 removeProgram = removeDrawResource gl programs (\m s -> s { programs = m })
                 . castProgram
@@ -116,21 +127,12 @@ removeProgram = removeDrawResource gl programs (\m s -> s { programs = m })
 drawLayer :: (GLES, BackendIO) => Layer -> Draw ()
 drawLayer (Layer prg obj) = setProgram prg >> drawObject obj
 drawLayer (SubLayer stype w' h' sub sup) =
-        do t <- renderTexture internalFormat format ptype attachment w h sub
-           mapM_ drawLayer $ sup (TextureLoaded $ LoadedTexture w h t)
-           gl $ deleteTexture t
+        do t <- subLayerToTexture stype w h sub
+           mapM_ drawLayer $ sup t
+           removeTexture t
+           return ()
         where w = fromIntegral w'
               h = fromIntegral h'
-              (internalFormat, format, ptype, attachment) =
-                      case stype of
-                              ColorSubLayer -> ( fromIntegral gl_RGBA
-                                               , gl_RGBA
-                                               , gl_UNSIGNED_BYTE
-                                               , gl_COLOR_ATTACHMENT0 )
-                              DepthSubLayer -> ( fromIntegral gl_DEPTH_COMPONENT
-                                               , gl_DEPTH_COMPONENT
-                                               , gl_UNSIGNED_SHORT
-                                               , gl_DEPTH_ATTACHMENT )
 
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
 drawObject ObjectEmpty = return ()
@@ -221,9 +223,30 @@ makeActive t = do ats <- activeTextures <$> Draw get
         where fi :: (Integral a, Integral b) => a -> b
               fi = fromIntegral
 
-renderTexture :: (GLES, BackendIO) => GLInt -> GLEnum -> GLEnum
-              -> GLEnum -> GLSize -> GLSize -> Layer -> Draw GL.Texture
-renderTexture internalFormat format pixelType attachment w h layer = do
+subLayerToTexture :: (GLES, BackendIO, Integral a)
+                  => SubLayerType
+                  -> a -- | Width
+                  -> a -- | Height
+                  -> Layer
+                  -> Draw Texture
+subLayerToTexture stype wp hp layer =
+        TextureLoaded . LoadedTexture w h <$>
+        renderToTexture internalFormat format ptype attachment w h layer
+        where (w, h) = (fromIntegral wp, fromIntegral hp)
+              (internalFormat, format, ptype, attachment) =
+                        case stype of
+                              ColorSubLayer -> ( fromIntegral gl_RGBA
+                                               , gl_RGBA
+                                               , gl_UNSIGNED_BYTE
+                                               , gl_COLOR_ATTACHMENT0 )
+                              DepthSubLayer -> ( fromIntegral gl_DEPTH_COMPONENT
+                                               , gl_DEPTH_COMPONENT
+                                               , gl_UNSIGNED_SHORT
+                                               , gl_DEPTH_ATTACHMENT )
+
+renderToTexture :: (GLES, BackendIO) => GLInt -> GLEnum -> GLEnum
+                -> GLEnum -> GLSize -> GLSize -> Layer -> Draw GL.Texture
+renderToTexture internalFormat format pixelType attachment w h layer = do
         fb <- gl createFramebuffer
         t <- gl emptyTexture
         (sw, sh) <- viewportSize <$> Draw get
@@ -303,5 +326,6 @@ instance GLES => Resource (LoadedProgram, String) UniformLocation GL where
                    f . Right $ UniformLocation loc
         unloadResource _ _ = return ()
 
+-- | Perform a 'GL' action in the 'Draw' monad.
 gl :: GL a -> Draw a
 gl = Draw . lift
