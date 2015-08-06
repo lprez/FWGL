@@ -31,10 +31,11 @@ mainSF change = proc inp ->
                       .> io (event (return ()) change $ fmap show meChanged)
 
 main :: IO ()
-main = do print 0
+main = do initialize
           (out, inp, close) <- createConnection
           run' inp $ mainSF out
           close
+          terminate
 
 createConnection :: IO (String -> IO (), IO String, IO ())
 createConnection =

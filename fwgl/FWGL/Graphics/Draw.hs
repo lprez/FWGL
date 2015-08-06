@@ -33,7 +33,7 @@ import qualified FWGL.Internal.GL as GL
 import FWGL.Internal.Resource
 import FWGL.Shader.CPU
 import FWGL.Shader.GLSL
-import FWGL.Shader.Program hiding (program)
+import FWGL.Shader.Program
 import FWGL.Vector
 
 import Data.Bits ((.|.))
@@ -61,7 +61,7 @@ drawInit w h canvas =
            clearColor 0.0 0.0 0.0 1.0
            depthFunc gl_LESS
            viewport 0 0 (fromIntegral w) (fromIntegral h)
-           return DrawState { program = Nothing
+           return DrawState { currentProgram = Nothing
                             , loadedProgram = Nothing
                             , programs = newGLResMap
                             , gpuMeshes = newGLResMap
@@ -162,12 +162,12 @@ textureSize tex = withRes (getTexture tex) (return (0, 0))
 
 -- | Set the program.
 setProgram :: GLES => Program g i -> Draw ()
-setProgram p = do current <- program <$> Draw get
+setProgram p = do current <- currentProgram <$> Draw get
                   when (current /= Just (castProgram p)) $
                         withRes_ (getProgram $ castProgram p) $
                                 \lp@(LoadedProgram glp _ _) -> do
                                    Draw . modify $ \s -> s {
-                                           program = Just $ castProgram p,
+                                           currentProgram = Just $ castProgram p,
                                            loadedProgram = Just lp
                                    }
                                    gl $ useProgram glp

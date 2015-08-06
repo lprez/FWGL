@@ -36,7 +36,7 @@ newtype UniformLocation = UniformLocation GL.UniformLocation
 
 -- | The state of the 'Draw' monad.
 data DrawState = DrawState {
-        program :: Maybe (Program '[] '[]),
+        currentProgram :: Maybe (Program '[] '[]),
         loadedProgram :: Maybe LoadedProgram,
         programs :: ResMap (Program '[] '[]) LoadedProgram,
         uniforms :: ResMap (LoadedProgram, String) UniformLocation,

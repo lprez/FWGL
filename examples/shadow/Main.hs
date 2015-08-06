@@ -82,5 +82,7 @@ depthProgram :: Program DepthUniforms DepthAttributes
 depthProgram = program depthVertexShader depthFragmentShader
 
 main :: IO ()
-main = do Right o <- loadOBJ "building.obj"
+main = do initialize
+          Right o <- loadOBJ "building.obj"
           run $ mainSF o
+          terminate

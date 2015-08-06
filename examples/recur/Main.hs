@@ -39,4 +39,4 @@ mainSF = proc inp -> do
         returnA -< draw [elements [cubeObj, wallObj]]
 
 main :: IO ()
-main = run mainSF
+main = initialize >> run mainSF >> terminate

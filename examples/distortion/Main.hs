@@ -32,13 +32,15 @@ surface = mkGeometry2 (quads (- 0.5) (- 0.5))
               precision = 20
 
 main :: IO ()
-main = run $ pointer >>^ \(x, y) -> draw [
-                layerPrg distProgram $
-                global (undefined :: Pointer)
-                       (V2 (fromIntegral x / 640 - 0.5)
-                           (- fromIntegral y / 480 + 0.5))
-                       obj
-       ]
+main = do initialize
+          run $ pointer >>^ \(x, y) -> draw [
+                   layerPrg distProgram $
+                   global (undefined :: Pointer)
+                          (V2 (fromIntegral x / 640 - 0.5)
+                              (- fromIntegral y / 480 + 0.5))
+                          obj
+                ]
+          terminate
         where tex = textureFile "tex.png"
               obj = object idMat3 [geom tex surface]
 
