@@ -18,7 +18,7 @@ instance BackendIO where
         loadImage = C.loadImage
         loadTextFile = C.loadTextFile
         initBackend = C.initBackend
-        createCanvas = createCanvas' "" 640 480
+        createCanvas _ = createCanvas' "" 640 480
         setCanvasSize = C.setCanvasSize
         setCanvasTitle = C.setCanvasTitle
         setCanvasResizeCallback = C.setCanvasResizeCallback

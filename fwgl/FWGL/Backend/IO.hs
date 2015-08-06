@@ -21,7 +21,7 @@ class GLES => BackendIO where
 
         initBackend :: IO ()
 
-        createCanvas :: IO (Canvas, Int, Int)
+        createCanvas :: String -> IO (Canvas, Int, Int)
 
         -- | Set the size of the canvas/window.
         setCanvasSize :: Int -- ^ Width

@@ -16,7 +16,7 @@
 
     "FWGL.Shader" contains the EDSL to make custom shaders.
 
-    Import "FWGL.Internal.GL" if you want to use raw GL actions.
+    Import "FWGL.Internal.GL" if you want to use the raw GL commands.
 -}
 module FWGL (
         module FWGL.Audio,
@@ -28,6 +28,7 @@ module FWGL (
         -- * FRP interface
         run,
         run',
+        runTo,
         -- ** Effects
         Output,
         (.>),
@@ -47,7 +48,9 @@ module FWGL (
         -- * Draw monad
         Draw,
         drawLayer,
-        -- * Memory functions
+        drawObject,
+        setProgram,
+        -- ** Memory functions
         removeGeometry,
         removeTexture,
         removeProgram,
@@ -58,13 +61,10 @@ module FWGL (
         -- ** Lifting functions
         gl,
         liftIO,
-        -- ** Sublayers
+        -- ** Other functions
+        resizeViewport,
         LayerType(..),
         layerToTexture,
-        -- ** DrawState
-        DrawState(..),
-        drawState,
-        execDraw,
         {-
         -- * Effectful Interface
         runDraw,
@@ -161,8 +161,17 @@ run' :: BackendIO
      => IO inp                -- ^ An IO effect generating the custom inputs.
      -> SF (Input inp) Output
      -> IO ()
-run' customInput sigf =
-        do (canvas, w, h) <- createCanvas
+run' = runTo "canvas"
+
+-- | Run a FWGL program, using custom inputs and a specified canvas.
+runTo :: BackendIO
+      => String -- ^ Destination canvas (eg. "#myCanvasId"). This only has
+                -- meaning on the JavaScript backend.
+      -> IO inp -- ^ An IO effect generating the custom inputs.
+      -> SF (Input inp) Output
+      -> IO ()
+runTo dest customInput sigf =
+        do (canvas, w, h) <- createCanvas dest
 
            initCustom <- customInput
            lastTimeRef <- getTime >>= newIORef

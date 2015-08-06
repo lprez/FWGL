@@ -47,7 +47,7 @@ data DrawState = DrawState {
         currentCanvas :: Canvas
 }
 
--- | A monad that represents OpenGL actions with some state ('DrawState').
+-- | A state monad on top of 'GL'.
 newtype Draw a = Draw { unDraw :: StateT DrawState GL a }
         deriving (Functor, Applicative, Monad, MonadIO)
 

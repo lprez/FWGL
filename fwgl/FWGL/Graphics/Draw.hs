@@ -136,6 +136,7 @@ drawLayer (SubLayer stypes w' h' inspCol inspDepth sub sup) =
               mayInspect False = Left Nothing
 drawLayer (MultiLayer layers) = mapM_ drawLayer layers
 
+-- | Draw an 'Object'.
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
 drawObject ObjectEmpty = return ()
 drawObject (ObjectMesh g) = withRes_ (getGPUGeometry $ castGeometry g)
@@ -147,6 +148,7 @@ uniform :: (GLES, Typeable g, UniformCPU c g) => g -> c -> Draw ()
 uniform g c = withRes_ (getUniform g)
                        $ \(UniformLocation l) -> gl $ setUniform l g c
 
+-- | This helps you set the uniforms of type 'FWGL.Shader.Sampler2D'.
 textureUniform :: (GLES, BackendIO) => Texture -> Draw ActiveTexture
 textureUniform tex = withRes (getTexture tex) (return $ ActiveTexture 0)
                                  $ \(LoadedTexture _ _ wtex) ->
@@ -225,9 +227,9 @@ makeActive t = do ats <- activeTextures <$> Draw get
         where fi :: (Integral a, Integral b) => a -> b
               fi = fromIntegral
 
--- | Draw a 'Layer' on a texture.
+-- | Draw a 'Layer' on some textures.
 layerToTexture :: (GLES, BackendIO, Integral a)
-               => [LayerType]
+               => [LayerType]                   -- ^ Textures contents.
                -> a                             -- ^ Width
                -> a                             -- ^ Height
                -> Layer                         -- ^ Layer to draw

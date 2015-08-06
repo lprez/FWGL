@@ -119,7 +119,7 @@ instance BackendIO where
 
         initBackend = return ()
 
-        createCanvas = querySelector (toJSString "canvas") >>= createCanvas'
+        createCanvas s = querySelector (toJSString s) >>= createCanvas'
 
         setCanvasSize w h (Canvas e _ _ _ _) =
                 do setAttribute "width" (show w) e
