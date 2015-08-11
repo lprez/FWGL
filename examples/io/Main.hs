@@ -92,6 +92,6 @@ sendAndRecv sock sendVar recvRef =
               -}
 
 drawQuad :: (Int, Int) -> Element
-drawQuad (x, y) = pos (V2 (fromIntegral x - 320)
-                          (- fromIntegral y + 240)) $
-                  rect (V2 10 10) (colorTex red)
+drawQuad (x, y) = pos (Vec2 (fromIntegral x - 320)
+                            (- fromIntegral y + 240)) $
+                  rect (Vec2 10 10) (colorTex red)

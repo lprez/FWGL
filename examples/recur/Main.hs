@@ -32,10 +32,10 @@ mainSF :: SF (Input ()) Output
 mainSF = proc inp -> do
         rec qx <- quad -< (wx, inp)
             wx <- wall -< (qx, inp)
-        let cubeObj = pos (V2 qx 0) $
-                      rect (V2 0.4 0.4) (colorTex red)
-            wallObj = pos (V2 wx 0) $
-                      rect (V2 0.4 2) (colorTex blue)
+        let cubeObj = pos (Vec2 qx 0) $
+                      rect (Vec2 0.4 0.4) (colorTex red)
+            wallObj = pos (Vec2 wx 0) $
+                      rect (Vec2 0.4 2) (colorTex blue)
         returnA -< draw [elements [cubeObj, wallObj]]
 
 main :: IO ()

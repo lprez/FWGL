@@ -26,7 +26,8 @@ surface = mkGeometry2 (quads (- 0.5) (- 0.5))
               quad ix iy qx qy w =
                 let x = ix + qx * w
                     y = iy + qy * w
-                in [ V2 x y, V2 (x + w) y, V2 (x + w) (y + w), V2 x (y + w) ]
+                in [ Vec2 x y, Vec2 (x + w) y
+                   , Vec2 (x + w) (y + w), Vec2 x (y + w) ]
 
               precision :: Num a => a
               precision = 20
@@ -36,13 +37,13 @@ main = do initialize
           run $ pointer >>^ \(x, y) -> draw [
                    layerPrg distProgram $
                    global (undefined :: Pointer)
-                          (V2 (fromIntegral x / 640 - 0.5)
-                              (- fromIntegral y / 480 + 0.5))
+                          (Vec2 (fromIntegral x / 640 - 0.5)
+                                (- fromIntegral y / 480 + 0.5))
                           obj
                 ]
           terminate
         where tex = textureFile "tex.png"
-              obj = object idMat3 [geom tex surface]
+              obj = object idmtx [geom tex surface]
 
 distProgram :: Program Uniforms Attributes
 distProgram = program vertexShader fragmentShader

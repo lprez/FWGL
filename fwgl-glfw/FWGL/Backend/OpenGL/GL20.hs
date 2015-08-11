@@ -3,11 +3,11 @@
 module FWGL.Backend.OpenGL.GL20 () where
         
 import Data.Word
+import Data.Vect.Float
 import Foreign
 import Foreign.C.String
 import FWGL.Backend.OpenGL.Common
 import FWGL.Backend.GLES
-import FWGL.Vector
 import qualified Graphics.GL.Standard20 as GL
 import qualified Graphics.GL.Ext.ARB.FramebufferObject as GL
 import qualified Graphics.GL.Ext.EXT.BlendColor as GL
@@ -45,25 +45,25 @@ instance GLES where
         noArray = fmap ((,) 0) $ newForeignPtr_ nullPtr
 
         -- TODO: move to FWGL.Backend.OpenGL.Common
-        encodeM2 (M2 (V2 a1 a2) (V2 b1 b2)) = mkArray [ a1, a2, b1, b2 ]
+        encodeMat2 (Mat2 (Vec2 a1 a2) (Vec2 b1 b2)) = mkArray [ a1, a2, b1, b2 ]
 
-        encodeM3 (M3 (V3 a1 a2 a3)
-                     (V3 b1 b2 b3)
-                     (V3 c1 c2 c3)) = mkArray [ a1, a2, a3
-                                              , b1, b2, b3
-                                              , c1, c2, c3 ]
-        encodeM4 (M4 (V4 a1 a2 a3 a4)
-                     (V4 b1 b2 b3 b4)
-                     (V4 c1 c2 c3 c4)
-                     (V4 d1 d2 d3 d4) ) = mkArray [ a1, a2, a3, a4
-                                                  , b1, b2, b3, b4
-                                                  , c1, c2, c3, c4
-                                                  , d1, d2, d3, d4 ]
+        encodeMat3 (Mat3 (Vec3 a1 a2 a3)
+                         (Vec3 b1 b2 b3)
+                         (Vec3 c1 c2 c3)) = mkArray [ a1, a2, a3
+                                                    , b1, b2, b3
+                                                    , c1, c2, c3 ]
+        encodeMat4 (Mat4 (Vec4 a1 a2 a3 a4)
+                         (Vec4 b1 b2 b3 b4)
+                         (Vec4 c1 c2 c3 c4)
+                         (Vec4 d1 d2 d3 d4) ) = mkArray [ a1, a2, a3, a4
+                                                        , b1, b2, b3, b4
+                                                        , c1, c2, c3, c4
+                                                        , d1, d2, d3, d4 ]
 
         encodeFloats = mkArray
-        encodeV2s = mkArray
-        encodeV3s = mkArray
-        encodeV4s = mkArray
+        encodeVec2s = mkArray
+        encodeVec3s = mkArray
+        encodeVec4s = mkArray
         encodeUShorts = mkArray
         encodeColors = mkArray
 

@@ -3,11 +3,11 @@
 module FWGL.Backend.OpenGL.GLES20 () where
         
 import Data.Word
+import Data.Vect.Float
 import Foreign
 import Foreign.C.String
 import FWGL.Backend.OpenGL.Common
 import FWGL.Backend.GLES
-import FWGL.Vector
 import qualified Graphics.GL.Embedded20 as ES
 import Graphics.GL.Types as ES
 

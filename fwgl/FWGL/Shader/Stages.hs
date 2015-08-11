@@ -26,7 +26,7 @@ type FragmentShader g i = Shader g i (FragmentShaderOutput ': '[])
 type ValidVertex g i o = (Valid g i o, IsMember VertexShaderOutput o ~ False)
 
 -- | The position of the vertex.
-newtype VertexShaderOutput = Vertex V4 deriving (Typeable, ShaderType)
+newtype VertexShaderOutput = Vertex Vec4 deriving (Typeable, ShaderType)
 
 -- | The RGBA color of the fragment (1.0 = #FF).
-newtype FragmentShaderOutput = Fragment V4 deriving (Typeable, ShaderType)
+newtype FragmentShaderOutput = Fragment Vec4 deriving (Typeable, ShaderType)

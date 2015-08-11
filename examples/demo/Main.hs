@@ -39,9 +39,9 @@ rotatingCube angleOff tex =
                        let angle factor = mod' (tm / factor + angleOff) $ pi * 2
 
                        returnA -< ( pos (
-                                            V3 (sin (angle 800) / 6)
-                                               (sin (angle 800) / 6)
-                                               (cos (angle 800) / 5 - 1)) $
+                                            Vec3 (sin (angle 800) / 6)
+                                                 (sin (angle 800) / 6)
+                                                 (cos (angle 800) / 5 - 1)) $
                                     rotX (angle 200) $
                                     rotY (angle 400) $
                                     scale 0.02 $
@@ -57,7 +57,7 @@ monkey = proc inp -> do (x, y) <- pointer -< inp
                                             Just g -> g
                                             Nothing -> emptyGeometry
 
-                        returnA -< ( pos (V3 0 0 (- 1)) $
+                        returnA -< ( pos (Vec3 0 0 (- 1)) $
                                      rotY (2 - fromIntegral x * 4 /
                                            fromIntegral width) $
                                      rotX (2 - fromIntegral y * 4

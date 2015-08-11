@@ -34,13 +34,13 @@ import FWGL.Internal.Resource
 import FWGL.Shader.CPU
 import FWGL.Shader.GLSL
 import FWGL.Shader.Program
-import FWGL.Vector
 
 import Data.Bits ((.|.))
 import Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as H
 import qualified Data.Vector as V
 import Data.Typeable
+import Data.Vect.Float
 import Data.Word (Word, Word8)
 import Control.Applicative
 import Control.Monad (when)

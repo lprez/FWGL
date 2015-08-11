@@ -23,6 +23,8 @@ import qualified Data.HashMap.Strict as H
 import Data.Foldable (Foldable, forM_)
 import Data.STRef
 import qualified Data.Vector.Storable as V
+import Data.Vect.Float hiding (Normal3)
+import Data.Vect.Float.Instances ()
 import Data.Word (Word16, Word)
 import Unsafe.Coerce
 
@@ -35,7 +37,7 @@ import FWGL.Shader.Default3D (Position3, Normal3)
 import qualified FWGL.Shader.Default2D as D2
 import qualified FWGL.Shader.Default3D as D3
 import FWGL.Shader.GLSL (attributeName)
-import FWGL.Vector
+import FWGL.Transformation
 
 data AttrList (is :: [*]) where
         AttrListNil :: AttrList '[]
@@ -69,9 +71,9 @@ instance Eq (Geometry is) where
 
 -- | Create a 3D 'Geometry'. The first three lists should have the same length.
 mkGeometry3 :: GLES
-            => [V3]     -- ^ List of vertices.
-            -> [V2]     -- ^ List of UV coordinates.
-            -> [V3]     -- ^ List of normals.
+            => [Vec3]   -- ^ List of vertices.
+            -> [Vec2]   -- ^ List of UV coordinates.
+            -> [Vec3]   -- ^ List of normals.
             -> [Word16] -- ^ Triangles expressed as triples of indices to the
                         --   three lists above.
             -> Geometry Geometry3
@@ -82,8 +84,8 @@ mkGeometry3 v u n = mkGeometry (AttrListCons (undefined :: Position3) v $
 
 -- | Create a 2D 'Geometry'. The first two lists should have the same length.
 mkGeometry2 :: GLES
-            => [V2]     -- ^ List of vertices.
-            -> [V2]     -- ^ List of UV coordinates.
+            => [Vec2]     -- ^ List of vertices.
+            -> [Vec2]     -- ^ List of UV coordinates.
             -> [Word16] -- ^ Triangles expressed as triples of indices to the
                         --   two lists above.
             -> Geometry Geometry2
@@ -133,8 +135,9 @@ loadBuffer ty bufData =
            return buffer
 
 
--- TODO: use dlist
-arraysToElements :: Foldable f => f (V3, V2, V3) -> ([V3], [V2], [V3], [Word16])
+arraysToElements :: Foldable f
+                 => f (Vec3, Vec2, Vec3)
+                 -> ([Vec3], [Vec2], [Vec3], [Word16])
 arraysToElements arrays = runST $
         do vs <- newSTRef []
            us <- newSTRef []
@@ -159,8 +162,8 @@ arraysToElements arrays = runST $
                  <*> (reverse <$> readSTRef ns)
                  <*> (reverse <$> readSTRef es)
 
-facesToArrays :: V.Vector V3 -> V.Vector V2 -> V.Vector V3
-              -> [[(Int, Int, Int)]] -> [(V3, V2, V3)]
+facesToArrays :: V.Vector Vec3 -> V.Vector Vec2 -> V.Vector Vec3
+              -> [[(Int, Int, Int)]] -> [(Vec3, Vec2, Vec3)]
 facesToArrays ovs ous ons = (>>= toIndex . triangulate)
         where toIndex = (>>= \(v1, v2, v3) -> [ getVertex v1
                                               , getVertex v2
@@ -174,3 +177,12 @@ triangulate (_ : _ : []) = error "triangulate: can't triangulate an edge"
 triangulate (x : y : z : []) = [(x, y, z)]
 triangulate (x : y : z : w : []) = [(x, y, z), (x, z, w)]
 triangulate _ = error "triangulate: can't triangulate >4 faces"
+
+instance H.Hashable Vec2 where
+        hashWithSalt s (Vec2 x y) = H.hashWithSalt s (x, y)
+
+instance H.Hashable Vec3 where
+        hashWithSalt s (Vec3 x y z) = H.hashWithSalt s (x, y, z)
+
+instance H.Hashable Vec4 where
+        hashWithSalt s (Vec4 x y z w) = H.hashWithSalt s (x, y, z, w)

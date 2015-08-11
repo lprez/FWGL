@@ -19,12 +19,12 @@ module FWGL.Graphics.D3 (
         C.colorTex,
         mkTexture,
         -- * Transformations
-        V3(..),
+        Vec3(..),
         pos,
         rotX,
         rotY,
         rotZ,
-        rotAA,
+        rot,
         scale,
         scaleV,
         transform,
@@ -62,27 +62,24 @@ module FWGL.Graphics.D3 (
         Texture2(..),
         Transform3(..),
         View3(..),
-        -- * 3D matrices
-        V4(..),
-        M4(..),
-        mat4,
-        mul4,
+        -- * Vectors and matrices
+        module Data.Vect.Float,
         -- ** View matrices
         perspectiveMat4,
         orthoMat4,
         cameraMat4,
         lookAtMat4,
         -- ** Transformation matrices
-        idMat4,
         transMat4,
         rotXMat4,
         rotYMat4,
         rotZMat4,
-        rotAAMat4,
+        rotMat4,
         scaleMat4
 ) where
 
 import Control.Applicative
+import Data.Vect.Float
 import FWGL.Backend hiding (Texture, Program)
 import FWGL.Geometry
 import qualified FWGL.Graphics.Custom as C
@@ -94,21 +91,21 @@ import FWGL.Internal.TList
 import FWGL.Shader.Default3D (Texture2, Transform3, View3)
 import FWGL.Shader.Program hiding (program)
 import FWGL.Graphics.Texture
-import FWGL.Vector
+import FWGL.Transformation
 
 -- | A 3D object with a 'Texture' and a transformation.
-data Element = Element Texture (Draw M4) (Geometry Geometry3)
+data Element = Element Texture (Draw Mat4) (Geometry Geometry3)
 
 -- | A cube with a specified 'Texture'.
 cube :: GLES => Texture -> Element
-cube t = Element t (return idMat4) cubeGeometry
+cube t = Element t (return idmtx) cubeGeometry
 
 -- | An element with a specified 'Geometry' and 'Texture'.
 geom :: Texture -> Geometry Geometry3 -> Element
-geom t = Element t $ return idMat4
+geom t = Element t $ return idmtx
 
 -- | Create a graphical 'Object' from a list of 'Element's and a view matrix.
-object :: BackendIO => M4 -> [Element] -> Object DefaultUniforms3D Geometry3
+object :: BackendIO => Mat4 -> [Element] -> Object DefaultUniforms3D Geometry3
 object m = viewObject m . foldl acc ObjectEmpty
         where acc o e = o C.~~ object1 e
 
@@ -132,14 +129,14 @@ object1Tex (Element t _ g) = C.globalTexture (undefined :: Texture2) t $
 
 -- | Create a standard 'Layer' from a list of 'Element's.
 elements :: BackendIO => [Element] -> Layer
-elements = layer . object idMat4
+elements = layer . object idmtx
 
 -- | Create a 'Layer' from a view matrix and a list of 'Element's.
-view :: BackendIO => M4 -> [Element] -> Layer
+view :: BackendIO => Mat4 -> [Element] -> Layer
 view m = layer . object m
 
 -- | Set the value of the view matrix of a 3D 'Object'.
-viewObject :: BackendIO => M4 -> Object gs Geometry3
+viewObject :: BackendIO => Mat4 -> Object gs Geometry3
            -> Object (View3 ': gs) Geometry3
 viewObject = C.global (undefined :: View3)
 
@@ -153,7 +150,7 @@ layerPrg :: (BackendIO, Subset og pg) => Program pg Geometry3
 layerPrg = C.layer
 
 -- | Translate an 'Element'.
-pos :: V3 -> Element -> Element
+pos :: Vec3 -> Element -> Element
 pos v = transform $ transMat4 v
 
 -- | Rotate an 'Element' around the X axis.
@@ -168,18 +165,18 @@ rotY a = transform $ rotYMat4 a
 rotZ :: Float -> Element -> Element
 rotZ a = transform $ rotZMat4 a
 
--- | Rotate an 'Element' around an axis and an angle.
-rotAA :: V3 -> Float -> Element -> Element
-rotAA ax ag = transform $ rotAAMat4 ax ag
+-- | Rotate an 'Element' around a vector.
+rot :: Vec3 -> Float -> Element -> Element
+rot ax ag = transform $ rotMat4 ax ag
 
 -- | Scale an 'Element'.
 scale :: Float -> Element -> Element
-scale f = transform $ scaleMat4 (V3 f f f)
+scale f = transform $ scaleMat4 (Vec3 f f f)
 
 -- | Scale an 'Element' in three dimensions.
-scaleV :: V3 -> Element -> Element
+scaleV :: Vec3 -> Element -> Element
 scaleV v = transform $ scaleMat4 v
 
 -- | Transform an 'Element'.
-transform :: M4 -> Element -> Element
-transform m' (Element t m g) = Element t (mul4 <$> m <*> pure m') g
+transform :: Mat4 -> Element -> Element
+transform m' (Element t m g) = Element t (flip (.*.) m' <$> m) g

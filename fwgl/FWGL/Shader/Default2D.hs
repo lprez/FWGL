@@ -18,26 +18,26 @@ newtype Depth = Depth Float
 
 -- | An uniform that represents the transformation matrix used in the default
 -- 2D shader.
-newtype Transform2 = Transform2 M3
-        deriving (Typeable, ShaderType, UniformCPU CM3)
+newtype Transform2 = Transform2 Mat3
+        deriving (Typeable, ShaderType, UniformCPU CMat3)
 
 -- | An uniform that represents the view matrix used in the default 2D shader.
-newtype View2 = View2 M3
-        deriving (Typeable, ShaderType, UniformCPU CM3)
+newtype View2 = View2 Mat3
+        deriving (Typeable, ShaderType, UniformCPU CMat3)
 
-newtype Position2 = Position2 V2
-        deriving (Typeable, ShaderType, AttributeCPU CV2)
+newtype Position2 = Position2 Vec2
+        deriving (Typeable, ShaderType, AttributeCPU CVec2)
 
-newtype UV = UV V2
-        deriving (Typeable, ShaderType, AttributeCPU CV2)
+newtype UV = UV Vec2
+        deriving (Typeable, ShaderType, AttributeCPU CVec2)
 
 vertexShader :: VertexShader '[Transform2, View2, Depth]
                              '[Position2, UV] '[UV]
 vertexShader (Transform2 trans :- View2 view :- Depth z :- N)
-             (Position2 (V2 x y) :- uv@(UV _) :- N) =
-                let V3 x' y' _ = view * trans * V3 x y 1
-                in Vertex (V4 x' y' z 1) :- uv :- N
+             (Position2 (Vec2 x y) :- uv@(UV _) :- N) =
+                let Vec3 x' y' _ = view * trans * Vec3 x y 1
+                in Vertex (Vec4 x' y' z 1) :- uv :- N
 
 fragmentShader :: FragmentShader '[Image] '[UV]
-fragmentShader (Image sampler :- N) (UV (V2 s t) :- N) =
-                Fragment (texture2D sampler (V2 s $ 1 - t)) :- N
+fragmentShader (Image sampler :- N) (UV (Vec2 s t) :- N) =
+                Fragment (texture2D sampler (Vec2 s $ 1 - t)) :- N

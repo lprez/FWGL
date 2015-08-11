@@ -4,13 +4,13 @@
 An example of shader variable:
 
 @
-        newtype Transform2 = Transform2 M3
-                deriving (Typeable,-- This have a name in the shader.
+        newtype Transform2 = Transform2 Mat3
+                deriving (Typeable,
                           ShaderType, -- This is a type in the GPU (3x3 matrix).
-                          UniformCPU CM3) -- This can be used as an uniform
-                                             and you can set it using a CPU
-                                             3x3 matrix
-                                             (FWGL.Vector.'FWGL.Vector.M3').
+                          UniformCPU CMat3) -- This can be used as an uniform
+                                            -- and you can set it using a CPU
+                                            -- 3x3 matrix
+                                            -- (FWGL.Vector.'FWGL.Vector.Mat3')
 @
 
 An example of vertex shader:
@@ -27,11 +27,11 @@ An example of vertex shader:
         -- Set of uniforms:
                      (Transform2 trans :- View2 view :- Depth z :- N)
         -- Set of attributes:
-                     (Position2 (V2 x y) :- uv@(UV _) :- N) =
+                     (Position2 (Vec2 x y) :- uv@(UV _) :- N) =
         -- Matrix and vector multiplication:
-                        let V3 x' y' _ = view * trans * V3 x y 1
+                        let Vec3 x' y' _ = view * trans * Vec3 x y 1
         -- Set of outputs:
-                        in Vertex (V4 x' y' z 1) -- Vertex position.
+                        in Vertex (Vec4 x' y' z 1) -- Vertex position.
                            :- uv :- N
 @
 
@@ -57,20 +57,20 @@ module FWGL.Shader (
         AttributeCPU,
         Float,
         Sampler2D,
-        V2(..),
-        V3(..),
-        V4(..),
-        M2(..),
-        M3(..),
-        M4(..),
+        Vec2(..),
+        Vec3(..),
+        Vec4(..),
+        Mat2(..),
+        Mat3(..),
+        Mat4(..),
         CFloat,
         CSampler2D,
-        CV2,
-        CV3,
-        CV4,
-        CM2,
-        CM3,
-        CM4,
+        CVec2,
+        CVec3,
+        CVec4,
+        CMat2,
+        CMat3,
+        CMat4,
         negate,
         fromInteger,
         fromRational,
@@ -141,12 +141,12 @@ module FWGL.Shader (
 ) where
 
 import Data.Typeable (Typeable)
+import qualified Data.Vect.Float as CPU
 import qualified FWGL.Internal.GL as CPU
 import FWGL.Shader.CPU (UniformCPU, AttributeCPU)
 import FWGL.Shader.Language
 import FWGL.Shader.Shader
 import FWGL.Shader.Stages
-import qualified FWGL.Vector as CPU
 import Prelude ((.), id, const, flip, ($))
 import qualified Prelude as CPU
 
@@ -157,19 +157,19 @@ type CFloat = CPU.Float
 type CSampler2D = CPU.ActiveTexture
 
 -- | 2D vectors in the CPU.
-type CV2 = CPU.V2
+type CVec2 = CPU.Vec2
 
 -- | 3D vectors in the CPU.
-type CV3 = CPU.V3
+type CVec3 = CPU.Vec3
 
 -- | 4D vectors in the CPU.
-type CV4 = CPU.V4
+type CVec4 = CPU.Vec4
 
 -- | 2x2 matrices in the CPU.
-type CM2 = CPU.M2
+type CMat2 = CPU.Mat2
 
 -- | 3x3 matrices in the CPU.
-type CM3 = CPU.M3
+type CMat3 = CPU.Mat3
 
 -- | 4x4 matrices in the CPU.
-type CM4 = CPU.M4
+type CMat4 = CPU.Mat4

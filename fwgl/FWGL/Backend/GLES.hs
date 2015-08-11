@@ -4,9 +4,9 @@
 module FWGL.Backend.GLES where
 
 import Data.Bits (Bits)
+import Data.Vect.Float
 import Data.Word
 import FWGL.Graphics.Color
-import FWGL.Vector
 
 class ( Integral GLEnum
       , Integral GLUInt
@@ -55,13 +55,13 @@ class ( Integral GLEnum
         noBuffer :: Buffer
         noTexture :: Texture
         noArray :: IO Array
-        encodeM2 :: M2 -> IO Float32Array
-        encodeM3 :: M3 -> IO Float32Array
-        encodeM4 :: M4 -> IO Float32Array
+        encodeMat2 :: Mat2 -> IO Float32Array
+        encodeMat3 :: Mat3 -> IO Float32Array
+        encodeMat4 :: Mat4 -> IO Float32Array
         encodeFloats :: [Float] -> IO Array
-        encodeV2s :: [V2] -> IO Array
-        encodeV3s :: [V3] -> IO Array
-        encodeV4s :: [V4] -> IO Array
+        encodeVec2s :: [Vec2] -> IO Array
+        encodeVec3s :: [Vec3] -> IO Array
+        encodeVec4s :: [Vec4] -> IO Array
         encodeUShorts :: [Word16] -> IO Array
         encodeColors :: [Color] -> IO Array
 

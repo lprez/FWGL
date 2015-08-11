@@ -18,6 +18,7 @@ import Control.Applicative
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State
 import Data.Hashable
+import Data.Vect.Float hiding (Vector)
 import Data.Vector (Vector)
 import Data.Typeable
 import Data.Word (Word8)
@@ -30,7 +31,6 @@ import FWGL.Internal.TList
 import FWGL.Internal.Resource
 import FWGL.Shader.CPU
 import FWGL.Shader.Program
-import FWGL.Vector
 
 newtype UniformLocation = UniformLocation GL.UniformLocation
 

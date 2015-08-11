@@ -10,12 +10,12 @@ module FWGL.Shader.Language (
         Float(..),
         Unknown(..),
         Sampler2D(..),
-        V2(..),
-        V3(..),
-        V4(..),
-        M2(..),
-        M3(..),
-        M4(..),
+        Vec2(..),
+        Vec3(..),
+        Vec4(..),
+        Mat2(..),
+        Mat3(..),
+        Mat4(..),
         fromRational,
         fromInteger,
         negate,
@@ -119,23 +119,23 @@ newtype Sampler2D = Sampler2D Expr deriving Typeable
 newtype Unknown = Unknown Expr
 
 -- | A GPU 2D vector.
--- NB: This is a different type from FWGL.Vector.'FWGL.Vector.V2'.
-data V2 = V2 Float Float deriving (Typeable)
+-- NB: This is a different type from Data.Vect.Float.'Data.Vect.Float.Vec2'.
+data Vec2 = Vec2 Float Float deriving (Typeable)
 
 -- | A GPU 3D vector.
-data V3 = V3 Float Float Float deriving (Typeable)
+data Vec3 = Vec3 Float Float Float deriving (Typeable)
 
 -- | A GPU 4D vector.
-data V4 = V4 Float Float Float Float deriving (Typeable)
+data Vec4 = Vec4 Float Float Float Float deriving (Typeable)
 
 -- | A GPU 2x2 matrix.
-data M2 = M2 V2 V2 deriving (Typeable)
+data Mat2 = Mat2 Vec2 Vec2 deriving (Typeable)
 
 -- | A GPU 3x3 matrix.
-data M3 = M3 V3 V3 V3 deriving (Typeable)
+data Mat3 = Mat3 Vec3 Vec3 Vec3 deriving (Typeable)
 
 -- | A GPU 4x4 matrix.
-data M4 = M4 V4 V4 V4 V4 deriving (Typeable)
+data Mat4 = Mat4 Vec4 Vec4 Vec4 Vec4 deriving (Typeable)
 
 -- | CPU equality.
 infix 4 =!
@@ -199,193 +199,193 @@ instance ShaderType Sampler2D where
 
         size _ = 1
 
-instance ShaderType V2 where
-        zero = V2 zero zero
+instance ShaderType Vec2 where
+        zero = Vec2 zero zero
 
-        toExpr (V2 (Float (X v)) (Float (Y v'))) | v =! v' = Apply "vec2" [v]
-        toExpr (V2 (Float x) (Float y)) = Apply "vec2" [x, y]
+        toExpr (Vec2 (Float (X v)) (Float (Y v'))) | v =! v' = Apply "vec2" [v]
+        toExpr (Vec2 (Float x) (Float y)) = Apply "vec2" [x, y]
 
-        fromExpr v = V2 (Float (X v)) (Float (Y v))
+        fromExpr v = Vec2 (Float (X v)) (Float (Y v))
 
         typeName _ = "vec2"
 
         size _ = 1
 
-instance ShaderType V3 where
-        zero = V3 zero zero zero
+instance ShaderType Vec3 where
+        zero = Vec3 zero zero zero
 
-        toExpr (V3 (Float (X v)) (Float (Y v')) (Float (Z v'')))
+        toExpr (Vec3 (Float (X v)) (Float (Y v')) (Float (Z v'')))
                | v =! v' &&! v' =! v'' = Apply "vec3" [v]
-        toExpr (V3 (Float x) (Float y) (Float z)) = Apply "vec3" [x, y, z]
+        toExpr (Vec3 (Float x) (Float y) (Float z)) = Apply "vec3" [x, y, z]
 
-        fromExpr v = V3 (Float (X v)) (Float (Y v)) (Float (Z v))
+        fromExpr v = Vec3 (Float (X v)) (Float (Y v)) (Float (Z v))
 
         typeName _ = "vec3"
 
         size _ = 1
 
-instance ShaderType V4 where
-        zero = V4 zero zero zero zero
+instance ShaderType Vec4 where
+        zero = Vec4 zero zero zero zero
 
-        toExpr (V4 (Float (X v)) (Float (Y v1)) (Float (Z v2)) (Float (W v3)))
+        toExpr (Vec4 (Float (X v)) (Float (Y v1)) (Float (Z v2)) (Float (W v3)))
                | v =! v1 &&! v1 =! v2 &&! v2 =! v3 = Apply "vec4" [v]
-        toExpr (V4 (Float x) (Float y) (Float z) (Float w)) =
+        toExpr (Vec4 (Float x) (Float y) (Float z) (Float w)) =
                 Apply "vec4" [x, y, z, w]
 
-        fromExpr v = V4 (Float (X v)) (Float (Y v)) (Float (Z v)) (Float (W v))
+        fromExpr v = Vec4 (Float (X v)) (Float (Y v)) (Float (Z v)) (Float (W v))
 
         typeName _ = "vec4"
 
         size _ = 1
 
-instance ShaderType M2 where
-        zero = M2 zero zero
+instance ShaderType Mat2 where
+        zero = Mat2 zero zero
 
-        toExpr (M2 (V2 (Float (X (X m))) (Float (X (Y m1))))
-                   (V2 (Float (Y (X m2))) (Float (Y (Y m3)))))
+        toExpr (Mat2 (Vec2 (Float (X (X m))) (Float (X (Y m1))))
+                     (Vec2 (Float (Y (X m2))) (Float (Y (Y m3)))))
                | m =! m1 &&! m1 =! m2 &&! m2 =! m3 = Apply "mat2" [m]
-        toExpr (M2 (V2 (Float xx) (Float xy))
-                   (V2 (Float yx) (Float yy)))
+        toExpr (Mat2 (Vec2 (Float xx) (Float xy))
+                     (Vec2 (Float yx) (Float yy)))
                = Apply "mat2" [xx, yx, xy, yy]
 
-        fromExpr m = M2 (V2 (Float (X (X m))) (Float (Y (X m))))
-                        (V2 (Float (Y (X m))) (Float (Y (Y m))))
+        fromExpr m = Mat2 (Vec2 (Float (X (X m))) (Float (Y (X m))))
+                          (Vec2 (Float (Y (X m))) (Float (Y (Y m))))
 
         typeName _ = "mat2"
 
         size _ = 2
 
-instance ShaderType M3 where
-        zero = M3 zero zero zero
+instance ShaderType Mat3 where
+        zero = Mat3 zero zero zero
 
-        toExpr (M3 (V3 (Float (X (X m)))
-                       (Float (X (Y m1)))
-                       (Float (X (Z m2))))
-                   (V3 (Float (Y (X m3)))
-                       (Float (Y (Y m4)))
-                       (Float (Y (Z m5))))
-                   (V3 (Float (Z (X m6)))
-                       (Float (Z (Y m7)))
-                       (Float (Z (Z m8)))))
+        toExpr (Mat3 (Vec3 (Float (X (X m)))
+                           (Float (X (Y m1)))
+                           (Float (X (Z m2))))
+                     (Vec3 (Float (Y (X m3)))
+                           (Float (Y (Y m4)))
+                           (Float (Y (Z m5))))
+                     (Vec3 (Float (Z (X m6)))
+                           (Float (Z (Y m7)))
+                           (Float (Z (Z m8)))))
                | m =! m1 &&! m1 =! m2 &&! m2 =! m3 &&! m3 =! m4 &&!
                  m4 =! m5 &&! m5 =! m6 &&! m6 =! m7 &&! m7 =! m8 =
                          Apply "mat3" [m]
-        toExpr (M3 (V3 (Float xx) (Float xy) (Float xz))
-                   (V3 (Float yx) (Float yy) (Float yz))
-                   (V3 (Float zx) (Float zy) (Float zz)))
+        toExpr (Mat3 (Vec3 (Float xx) (Float xy) (Float xz))
+                     (Vec3 (Float yx) (Float yy) (Float yz))
+                     (Vec3 (Float zx) (Float zy) (Float zz)))
                = Apply "mat3" [xx, yx, zx, xy, yy, zy, xz, yz, zz]
 
-        fromExpr m = M3 (V3 (Float (X (X m)))
-                            (Float (X (Y m)))
-                            (Float (X (Z m))))
-                        (V3 (Float (Y (X m)))
-                            (Float (Y (Y m)))
-                            (Float (Y (Z m))))
-                        (V3 (Float (Z (X m)))
-                            (Float (Z (Y m)))
-                            (Float (Z (Z m))))
+        fromExpr m = Mat3 (Vec3 (Float (X (X m)))
+                                (Float (X (Y m)))
+                                (Float (X (Z m))))
+                          (Vec3 (Float (Y (X m)))
+                                (Float (Y (Y m)))
+                                (Float (Y (Z m))))
+                          (Vec3 (Float (Z (X m)))
+                                (Float (Z (Y m)))
+                                (Float (Z (Z m))))
 
         typeName _ = "mat3"
 
         size _ = 3
 
-instance ShaderType M4 where
-        zero = M4 zero zero zero zero
+instance ShaderType Mat4 where
+        zero = Mat4 zero zero zero zero
 
-        toExpr (M4 (V4 (Float (X (X m)))
-                       (Float (X (Y m1)))
-                       (Float (X (Z m2)))
-                       (Float (X (W m3))))
-                   (V4 (Float (Y (X m4)))
-                       (Float (Y (Y m5)))
-                       (Float (Y (Z m6)))
-                       (Float (Y (W m7))))
-                   (V4 (Float (Z (X m8)))
-                       (Float (Z (Y m9)))
-                       (Float (Z (Z m10)))
-                       (Float (Z (W m11))))
-                   (V4 (Float (W (X m12)))
-                       (Float (W (Y m13)))
-                       (Float (W (Z m14)))
-                       (Float (W (W m15)))))
+        toExpr (Mat4 (Vec4 (Float (X (X m)))
+                           (Float (X (Y m1)))
+                           (Float (X (Z m2)))
+                           (Float (X (W m3))))
+                     (Vec4 (Float (Y (X m4)))
+                           (Float (Y (Y m5)))
+                           (Float (Y (Z m6)))
+                           (Float (Y (W m7))))
+                     (Vec4 (Float (Z (X m8)))
+                           (Float (Z (Y m9)))
+                           (Float (Z (Z m10)))
+                           (Float (Z (W m11))))
+                     (Vec4 (Float (W (X m12)))
+                           (Float (W (Y m13)))
+                           (Float (W (Z m14)))
+                           (Float (W (W m15)))))
                | m =! m1 &&! m1 =! m2 &&! m2 =! m3 &&! m3 =! m4 &&!
                  m4 =! m5 &&! m5 =! m6 &&! m6 =! m7 &&! m7 =! m8 &&!
                  m8 =! m9 &&! m9 =! m10 &&! m10 =! m11 &&! m11 =! m12 &&!
                  m12 =! m13 &&! m13 =! m14 &&! m14 =! m15 = Apply "mat4" [m]
-        toExpr (M4 (V4 (Float xx) (Float xy) (Float xz) (Float xw))
-                   (V4 (Float yx) (Float yy) (Float yz) (Float yw))
-                   (V4 (Float zx) (Float zy) (Float zz) (Float zw))
-                   (V4 (Float wx) (Float wy) (Float wz) (Float ww)))
+        toExpr (Mat4 (Vec4 (Float xx) (Float xy) (Float xz) (Float xw))
+                     (Vec4 (Float yx) (Float yy) (Float yz) (Float yw))
+                     (Vec4 (Float zx) (Float zy) (Float zz) (Float zw))
+                     (Vec4 (Float wx) (Float wy) (Float wz) (Float ww)))
                = Apply "mat4" [ xx, yx, zx, wx
                               , xy, yy, zy, wy
                               , xz, yz, zz, wz
                               , xw, yw, zw, ww ]
 
-        fromExpr m = M4 (V4 (Float (X (X m)))
-                            (Float (X (Y m)))
-                            (Float (X (Z m)))
-                            (Float (X (W m))))
-                        (V4 (Float (Y (X m)))
-                            (Float (Y (Y m)))
-                            (Float (Y (Z m)))
-                            (Float (Y (W m))))
-                        (V4 (Float (Z (X m)))
-                            (Float (Z (Y m)))
-                            (Float (Z (Z m)))
-                            (Float (Z (W m))))
-                        (V4 (Float (W (X m)))
-                            (Float (W (Y m)))
-                            (Float (W (Z m)))
-                            (Float (W (W m))))
+        fromExpr m = Mat4 (Vec4 (Float (X (X m)))
+                                (Float (X (Y m)))
+                                (Float (X (Z m)))
+                                (Float (X (W m))))
+                          (Vec4 (Float (Y (X m)))
+                                (Float (Y (Y m)))
+                                (Float (Y (Z m)))
+                                (Float (Y (W m))))
+                          (Vec4 (Float (Z (X m)))
+                                (Float (Z (Y m)))
+                                (Float (Z (Z m)))
+                                (Float (Z (W m))))
+                          (Vec4 (Float (W (X m)))
+                                (Float (W (Y m)))
+                                (Float (W (Z m)))
+                                (Float (W (W m))))
 
         typeName _ = "mat4"
 
         size _ = 4
 
 class ShaderType a => Vector a
-instance Vector V2
-instance Vector V3
-instance Vector V4
+instance Vector Vec2
+instance Vector Vec3
+instance Vector Vec4
 
 class ShaderType a => Matrix a
-instance Matrix M2
-instance Matrix M3
-instance Matrix M4
+instance Matrix Mat2
+instance Matrix Mat3
+instance Matrix Mat4
 
 -- | Types that can be multiplied.
 class Mul a b c | a b -> c
 instance Mul Float Float Float
-instance Mul V2 V2 V2
-instance Mul V3 V3 V3
-instance Mul V4 V4 V4
-instance Mul V2 Float V2
-instance Mul V3 Float V3
-instance Mul V4 Float V4
-instance Mul Float V2 V2
-instance Mul Float V3 V3
-instance Mul Float V4 V4
-instance Mul M2 M2 M2
-instance Mul M3 M3 M3
-instance Mul M4 M4 M4
-instance Mul M2 Float M2
-instance Mul M3 Float M3
-instance Mul M4 Float M4
-instance Mul Float M2 M2
-instance Mul Float M3 M3
-instance Mul Float M4 M4
-instance Mul M2 V2 V2
-instance Mul M3 V3 V3
-instance Mul M4 V4 V4
-instance Mul V2 M2 V2
-instance Mul V3 M3 V3
-instance Mul V4 M4 V4
+instance Mul Vec2 Vec2 Vec2
+instance Mul Vec3 Vec3 Vec3
+instance Mul Vec4 Vec4 Vec4
+instance Mul Vec2 Float Vec2
+instance Mul Vec3 Float Vec3
+instance Mul Vec4 Float Vec4
+instance Mul Float Vec2 Vec2
+instance Mul Float Vec3 Vec3
+instance Mul Float Vec4 Vec4
+instance Mul Mat2 Mat2 Mat2
+instance Mul Mat3 Mat3 Mat3
+instance Mul Mat4 Mat4 Mat4
+instance Mul Mat2 Float Mat2
+instance Mul Mat3 Float Mat3
+instance Mul Mat4 Float Mat4
+instance Mul Float Mat2 Mat2
+instance Mul Float Mat3 Mat3
+instance Mul Float Mat4 Mat4
+instance Mul Mat2 Vec2 Vec2
+instance Mul Mat3 Vec3 Vec3
+instance Mul Mat4 Vec4 Vec4
+instance Mul Vec2 Mat2 Vec2
+instance Mul Vec3 Mat3 Vec3
+instance Mul Vec4 Mat4 Vec4
 
 -- | Floats or vectors.
 class ShaderType a => GenType a
 instance GenType Float
-instance GenType V2
-instance GenType V3
-instance GenType V4
+instance GenType Vec2
+instance GenType Vec3
+instance GenType Vec4
 
 infixl 7 *
 (*) :: (Mul a b c, ShaderType a, ShaderType b, ShaderType c) => a -> b -> c
@@ -398,12 +398,12 @@ x / y = fromExpr $ Op2 "/" (toExpr x) (toExpr y)
 -- | Types that can be added.
 class Sum a
 instance Sum Float
-instance Sum V2
-instance Sum V3
-instance Sum V4
-instance Sum M2
-instance Sum M3
-instance Sum M4
+instance Sum Vec2
+instance Sum Vec3
+instance Sum Vec4
+instance Sum Mat2
+instance Sum Mat3
+instance Sum Mat4
 
 infixl 6 +
 (+) :: (Sum a, ShaderType a) => a -> a -> a
@@ -553,7 +553,7 @@ distance x y = fromExpr $ Apply "distance" [toExpr x, toExpr y]
 dot :: GenType a => a -> a -> Float
 dot x y = fromExpr $ Apply "dot" [toExpr x, toExpr y]
 
-cross :: V3 -> V3 -> V3
+cross :: Vec3 -> Vec3 -> Vec3
 cross x y = fromExpr $ Apply "cross" [toExpr x, toExpr y]
 
 normalize :: GenType a => a -> a
@@ -605,15 +605,15 @@ loop (Float (Literal iters)) iv f =
                                in (toExpr next, toExpr stop))
 loop _ _ _ = error "loop: iteration number is not a literal."
 
-texture2D :: Sampler2D -> V2 -> V4
+texture2D :: Sampler2D -> Vec2 -> Vec4
 texture2D (Sampler2D s) v = fromExpr $ Apply "texture2D" [s, toExpr v]
 
 -- | The position of the vertex (only works in the vertex shader).
-position :: V4
+position :: Vec4
 position = fromExpr $ Read "gl_Position"
 
 -- | The color of the fragment (only works in the fragment shader).
-fragColor :: V4
+fragColor :: Vec4
 fragColor = fromExpr $ Read "gl_FragColor"
 
 instance Hashable Expr where

@@ -37,11 +37,12 @@ module FWGL.Graphics.Custom (
         Color(..),
         colorTex,
 
-        module FWGL.Vector
+        module Data.Vect.Float
 ) where
 
 import Control.Applicative
 import Data.Typeable
+import Data.Vect.Float
 import Data.Word (Word8)
 import FRP.Yampa
 import FWGL.Backend (BackendIO, GLES)
@@ -54,7 +55,6 @@ import FWGL.Internal.TList
 import FWGL.Shader.CPU
 import FWGL.Shader.Program
 import FWGL.Graphics.Texture
-import FWGL.Vector
 
 -- | An empty custom object.
 nothing :: Object '[] '[]

@@ -22,7 +22,7 @@ module FWGL.Graphics.D2 (
         C.colorTex,
         mkTexture,
         -- * Transformations
-        V2(..),
+        Vec2(..),
         pos,
         rot,
         scale,
@@ -67,19 +67,16 @@ module FWGL.Graphics.D2 (
         Depth(..),
         Transform2(..),
         View2(..),
-        -- * 3D matrices
-        V3(..),
-        M3(..),
-        mat3,
-        mul3,
+        -- * Vectors and matrices
+        module Data.Vect.Float,
         -- ** Transformation matrices
-        idMat3,
         transMat3,
         rotMat3,
         scaleMat3
 ) where
 
 import Control.Applicative
+import Data.Vect.Float
 import FWGL.Backend hiding (Texture, Image, Program)
 import FWGL.Geometry
 import qualified FWGL.Graphics.Custom as C
@@ -91,25 +88,26 @@ import FWGL.Graphics.Texture
 import FWGL.Internal.TList
 import FWGL.Shader.Default2D (Image, Depth, Transform2, View2)
 import FWGL.Shader.Program
-import FWGL.Vector
+import FWGL.Transformation
 
 -- | A 2D object with a 'Texture', a depth and a transformation.
-data Element = Element Float Texture (Draw M3) (Geometry Geometry2)
+data Element = Element Float Texture (Draw Mat3) (Geometry Geometry2)
 
 -- | A rectangle with a specified 'Texture' and size.
-rect :: GLES => V2 -> Texture -> Element
-rect v t = Element 0 t (return idMat3) $ rectGeometry v
+rect :: GLES => Vec2 -> Texture -> Element
+rect v t = Element 0 t (return idmtx) $ rectGeometry v
 
 -- | An element with a specified 'Geometry' and 'Texture'.
 geom :: Texture -> Geometry Geometry2 -> Element
-geom t = Element 0 t $ return idMat3
+geom t = Element 0 t $ return idmtx
 
 -- | A rectangle with the aspect ratio adapted to its texture.
 image :: BackendIO
       => Float          -- ^ Width.
       -> Texture -> Element
-image s t = Element 0 t ((\(w, h) -> scaleMat3 (V2 1 $ h /w)) <$> textureSize t)
-                        (rectGeometry $ V2 s s)
+image s t = Element 0 t ((\(w, h) -> scaleMat3 (Vec2 1 $ h /w)) <$>
+                                     textureSize t)
+                        (rectGeometry $ Vec2 s s)
 
 -- | Set the depth of an element.
 depth :: Float -> Element -> Element
@@ -118,11 +116,11 @@ depth d (Element _ t m g) = Element d t m g
 -- | A rectangle with the size and aspect ratio adapted to the screen. You
 -- have to use the 'FWGL.Utils.screenScale' view matrix.
 sprite :: BackendIO => Texture -> Element
-sprite t = Element 0 t ((\(w, h) -> scaleMat3 $ V2 w h) <$> textureSize t)
-                       (rectGeometry $ V2 1 1)
+sprite t = Element 0 t ((\(w, h) -> scaleMat3 $ Vec2 w h) <$> textureSize t)
+                       (rectGeometry $ Vec2 1 1)
 
 -- | Create a graphical 'Object' from a list of 'Element's and a view matrix.
-object :: BackendIO => M3 -> [Element] -> Object DefaultUniforms2D Geometry2
+object :: BackendIO => Mat3 -> [Element] -> Object DefaultUniforms2D Geometry2
 object m = viewObject m . foldl acc ObjectEmpty
         where acc o e = o C.~~ object1 e
 
@@ -174,14 +172,14 @@ object1DepthTrans (Element d _ m g) = C.global (undefined :: Depth) d $
 
 -- | Create a standard 'Layer' from a list of 'Element's.
 elements :: BackendIO => [Element] -> Layer
-elements = layer . object idMat3
+elements = layer . object idmtx
 
 -- | Create a 'Layer' from a view matrix and a list of 'Element's.
-view :: BackendIO => M3 -> [Element] -> Layer
+view :: BackendIO => Mat3 -> [Element] -> Layer
 view m = layer . object m
 
 -- | Set the value of the view matrix of a 2D 'Object'.
-viewObject :: BackendIO => M3 -> Object gs Geometry2
+viewObject :: BackendIO => Mat3 -> Object gs Geometry2
            -> Object (View2 ': gs) Geometry2
 viewObject = C.global (undefined :: View2)
 
@@ -195,7 +193,7 @@ layerPrg :: (BackendIO, Subset og pg) => Program pg Geometry2
 layerPrg = C.layer
 
 -- | Translate an 'Element'.
-pos :: V2 -> Element -> Element
+pos :: Vec2 -> Element -> Element
 pos v = transform $ transMat3 v
 
 -- | Rotate an 'Element'.
@@ -204,12 +202,12 @@ rot a = transform $ rotMat3 a
 
 -- | Scale an 'Element'.
 scale :: Float -> Element -> Element
-scale f = transform $ scaleMat3 (V2 f f)
+scale f = transform $ scaleMat3 (Vec2 f f)
 
 -- | Scale an 'Element' in two dimensions.
-scaleV :: V2 -> Element -> Element
+scaleV :: Vec2 -> Element -> Element
 scaleV v = transform $ scaleMat3 v
 
 -- | Transform an 'Element'.
-transform :: M3 -> Element -> Element
-transform m' (Element d t m g) = Element d t (mul3 <$> m <*> pure m') g
+transform :: Mat3 -> Element -> Element
+transform m' (Element d t m g) = Element d t (flip (.*.) m' <$> m) g

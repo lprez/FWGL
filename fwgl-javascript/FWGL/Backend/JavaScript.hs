@@ -14,6 +14,7 @@ import Control.Concurrent
 import Data.Maybe
 import qualified Data.HashMap.Strict as H
 import Data.IORef
+import Data.Vect.Float
 import Data.Word
 import FRP.Yampa hiding (now)
 import FWGL.Backend
@@ -21,7 +22,6 @@ import FWGL.Backend.JavaScript.Event
 import qualified FWGL.Backend.JavaScript.WebGL as JS
 import FWGL.Graphics.Color
 import FWGL.Input
-import FWGL.Vector
 import GHCJS.Foreign
 import GHCJS.Types
 import GHCJS.Marshal
@@ -191,39 +191,40 @@ instance GLES where
         noTexture = JS.noTexture
         noArray = JS.noArray
 
-        encodeM2 (M2 (V2 a1 a2) (V2 b1 b2)) = JS.listToJSArray [ a1, a2, b1, b2]
-                                              >>= JS.float32Array
+        encodeMat2 (Mat2 (Vec2 a1 a2) (Vec2 b1 b2)) =
+                JS.listToJSArray [ a1, a2, b1, b2] >>= JS.float32Array
 
-        encodeM3 (M3 (V3 a1 a2 a3)
-                     (V3 b1 b2 b3)
-                     (V3 c1 c2 c3)) = JS.listToJSArray [ a1, a2, a3
-                                                       , b1, b2, b3
-                                                       , c1, c2, c3]
-                                      >>= JS.float32Array
-        encodeM4 (M4 (V4 a1 a2 a3 a4)
-                     (V4 b1 b2 b3 b4)
-                     (V4 c1 c2 c3 c4)
-                     (V4 d1 d2 d3 d4) ) = JS.listToJSArray [ a1, a2, a3, a4
-                                                           , b1, b2, b3, b4
-                                                           , c1, c2, c3, c4
-                                                           , d1, d2, d3, d4 ]
-                                          >>= JS.float32Array
+        encodeMat3 (Mat3 (Vec3 a1 a2 a3)
+                         (Vec3 b1 b2 b3)
+                         (Vec3 c1 c2 c3)) = JS.listToJSArray [ a1, a2, a3
+                                                             , b1, b2, b3
+                                                             , c1, c2, c3]
+                                            >>= JS.float32Array
+        encodeMat4 (Mat4 (Vec4 a1 a2 a3 a4)
+                         (Vec4 b1 b2 b3 b4)
+                         (Vec4 c1 c2 c3 c4)
+                         (Vec4 d1 d2 d3 d4) ) =
+                                 JS.listToJSArray [ a1, a2, a3, a4
+                                                  , b1, b2, b3, b4
+                                                  , c1, c2, c3, c4
+                                                  , d1, d2, d3, d4 ]
+                                 >>= JS.float32Array
         encodeFloats v = JS.listToJSArray v >>= JS.float32View
 
         -- TODO: decent implementation
-        encodeV2s v = JS.toJSArray next (False, v) >>= JS.float32View
-                where next (False, xs@(V2 x _ : _)) = Just (x, (True, xs))
-                      next (True, V2 _ y : xs) = Just (y, (False, xs))
+        encodeVec2s v = JS.toJSArray next (False, v) >>= JS.float32View
+                where next (False, xs@(Vec2 x _ : _)) = Just (x, (True, xs))
+                      next (True, Vec2 _ y : xs) = Just (y, (False, xs))
                       next (_, []) = Nothing
 
-        encodeV3s v = JS.toJSArray next (0, v) >>= JS.float32View
-                where next (0, xs@(V3 x _ _ : _)) = Just (x, (1, xs))
-                      next (1, xs@(V3 _ y _ : _)) = Just (y, (2, xs))
-                      next (2, V3 _ _ z : xs) = Just (z, (0, xs))
+        encodeVec3s v = JS.toJSArray next (0, v) >>= JS.float32View
+                where next (0, xs@(Vec3 x _ _ : _)) = Just (x, (1, xs))
+                      next (1, xs@(Vec3 _ y _ : _)) = Just (y, (2, xs))
+                      next (2, Vec3 _ _ z : xs) = Just (z, (0, xs))
                       next (_, []) = Nothing
 
         -- TODO
-        encodeV4s = error "encodeV4s: TODO"
+        encodeVec4s = error "encodeVec4s: TODO"
 
         encodeUShorts v = JS.listToJSArray v >>= JS.uint16View
 

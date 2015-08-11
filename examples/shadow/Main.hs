@@ -36,33 +36,33 @@ mainSF buildingGeom =
                                                            , light
                                                            , building ]
                                         {- , elements [depthCube shadowMap] -} ]
-        where floor = scaleV (V3 20 0.2 20) . cube . colorTex $
-                                                        visible 240 230 180
-              building = pos (V3 12 0.2 0) . scale 0.5 $
+        where floor = scaleV (Vec3 20 0.2 20) . cube . colorTex $
+                                visible 240 230 180
+              building = pos (Vec3 12 0.2 0) . scale 0.5 $
                                 geom (colorTex white) buildingGeom
-              depthCube map = pos (V3 0.7 0.7 0) . scale 0.2 $ cube map
-              cameraView = fpsMovingCamera (V3 (- 3) 1.3 (- 10)) 0.3 >>^
+              depthCube map = pos (Vec3 0.7 0.7 0) . scale 0.2 $ cube map
+              cameraView = fpsMovingCamera (Vec3 (- 3) 1.3 (- 10)) 0.3 >>^
                                 \(pos, (pitch, yaw)) -> cameraMat4 pos pitch yaw
               cameraViewProj = identity &&& cameraView >>>
                                perspectiveView 100000 0.5 100
-              lightCube = lightPos >>^ \(V3 x y z) ->
-                                pos (V3 (x - 0.2) y z) . scale 0.1 $
+              lightCube = lightPos >>^ \(Vec3 x y z) ->
+                                pos (Vec3 (x - 0.2) y z) . scale 0.1 $
                                         cube (colorTex yellow)
 
-lightPos :: SF a V3
+lightPos :: SF a Vec3
 lightPos = time >>^ \t -> let tmod = realToFrac $ mod' t 3000 / 500
                               offset = if tmod < 3 then tmod else 6 - tmod
-                          in V3 (- 3.1) 5 (1.5 - offset)
+                          in Vec3 (- 3.1) 5 (1.5 - offset)
 
 lightViewProj :: SF (Input ()) M4
 lightViewProj = identity &&& (lightPos >>^ view)
                 >>> perspectiveView 10 0.53 90
-        where view pos = lookAtMat4 pos (V3 100 1 0) (V3 0 (- 1) 0)
+        where view pos = lookAtMat4 pos (Vec3 100 1 0) (Vec3 0 (- 1) 0)
 
-fpsMovingCamera :: V3 -> Float -> SF (Input ()) (V3, (Float, Float))
+fpsMovingCamera :: Vec3 -> Float -> SF (Input ()) (Vec3, (Float, Float))
 fpsMovingCamera ipos sp = key KeyW &&& key KeyA &&& key KeyS &&& key KeyD &&&
                           pointer &&& size >>> flip sscan (ipos, (pi, 0)) update
-        where update (V3 x y z, (pitch, yaw))
+        where update (Vec3 x y z, (pitch, yaw))
                      (kw, (ka, (ks, (kd, ((ptrX, ptrY), ((w, h))))))) =
                         let par = (if isEvent kw then - sp else 0) +
                                   (if isEvent ks then sp else 0)
@@ -73,7 +73,7 @@ fpsMovingCamera ipos sp = key KeyW &&& key KeyA &&& key KeyS &&& key KeyD &&&
                             fi = fromIntegral :: Int -> Float
                             newYaw = - 2 * pi * fi ptrX / fi w
                             newPitch = - 2 * pi * fi ptrY / fi h + pi
-                        in (V3 (x + offX) y (z + offZ), (newPitch, newYaw))
+                        in (Vec3 (x + offX) y (z + offZ), (newPitch, newYaw))
 
 sceneProgram :: Program Uniforms Attributes
 sceneProgram = program vertexShader fragmentShader

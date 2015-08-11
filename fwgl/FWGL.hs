@@ -22,7 +22,7 @@ module FWGL (
         module FWGL.Audio,
         module FWGL.Input,
         module FWGL.Utils,
-        module FRP.Yampa,
+        module Data.Vect.Float,
         initialize,
         terminate,
         -- * FRP interface
@@ -79,6 +79,7 @@ import qualified Data.HashMap.Strict as H
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Vect.Float
 import FWGL.Audio
 import FWGL.Backend hiding (Texture, Program)
 import FWGL.Input
