@@ -26,6 +26,7 @@ import qualified Data.Vector.Storable as V
 import Data.Word (Word16, Word)
 import Unsafe.Coerce
 
+import FWGL.Backend (BackendIO)
 import FWGL.Internal.GL
 import FWGL.Internal.Resource
 import FWGL.Shader.CPU
@@ -97,12 +98,13 @@ mkGeometry al e = Geometry al e $ H.hash al
 castGeometry :: Geometry is -> Geometry is'
 castGeometry = unsafeCoerce
 
-instance GLES => Resource (Geometry i) GPUGeometry GL where
+instance (GLES, BackendIO) => Resource (Geometry i) GPUGeometry GL where
         -- TODO: err check
         loadResource i f = loadGeometry i $ f . Right
         unloadResource _ = deleteGPUGeometry
 
-loadGeometry :: GLES => Geometry i -> (GPUGeometry -> GL ()) -> GL ()
+loadGeometry :: (GLES, BackendIO) 
+             => Geometry i -> (GPUGeometry -> GL ()) -> GL ()
 loadGeometry (Geometry al es _) = asyncGL $
         GPUGeometry <$> loadAttrList al
                     <*> (liftIO (encodeUShorts es) >>=

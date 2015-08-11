@@ -2,6 +2,7 @@
 
 module FWGL.Backend.IO where
 
+import Control.Concurrent (ThreadId)
 import FRP.Yampa
 import FWGL.Backend.GLES
 import FWGL.Input
@@ -43,8 +44,7 @@ class GLES => BackendIO where
                    -> Canvas
                    -> IO a
 
-        -- | Not needed, if you use 'refreshLoop'.
-        updateCanvas :: Canvas -> IO Bool
+        forkWithContext :: IO () -> IO ThreadId
 
         refreshLoop :: Int  -- ^ FPS (not necessarily used).
                     -> Canvas

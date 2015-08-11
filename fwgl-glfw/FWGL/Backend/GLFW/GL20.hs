@@ -26,7 +26,7 @@ instance BackendIO where
         popInput = C.popInput
         getInput = C.getInput
         drawCanvas = C.drawCanvas
+        forkWithContext = C.forkWithContext
         refreshLoop = C.refreshLoop
-        updateCanvas = C.updateCanvas
         getTime = C.getTime
         terminateBackend = C.terminateBackend

@@ -136,6 +136,7 @@ import Control.Concurrent
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State
 import Data.Word
+import FWGL.Backend.IO (BackendIO, forkWithContext)
 import FWGL.Backend.GLES
         
 -- TODO: context loss
@@ -147,10 +148,10 @@ newtype ActiveTexture = ActiveTexture Word
 evalGL :: GL a -> Ctx -> IO a
 evalGL (GL m) = evalStateT m
 
-forkGL :: GLES => GL () -> GL ThreadId
-forkGL a = getCtx >>= \ctx -> liftIO . forkIO $ evalGL a ctx
+forkGL :: (GLES, BackendIO) => GL () -> GL ThreadId
+forkGL a = getCtx >>= \ctx -> liftIO . forkWithContext $ evalGL a ctx
 
-asyncGL :: GLES => GL a -> (a -> GL ()) -> GL ()
+asyncGL :: (GLES, BackendIO) => GL a -> (a -> GL ()) -> GL ()
 asyncGL r f = forkGL (r >>= f) >> return ()
 
 getCtx :: GLES => GL Ctx

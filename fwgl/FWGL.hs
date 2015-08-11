@@ -194,13 +194,12 @@ runTo dest customInput sigf =
         where initState w h canvas = evalGL $ drawInit w h canvas
 
               resizeCb drawStateVar canvas w h =
-                      do drawState <- takeMVar drawStateVar
-                         drawState' <- drawCanvas
-                                        (\ctx -> flip evalGL ctx $
+                      drawCanvas (\ctx -> modifyMVar_ drawStateVar
+                        $ \drawState -> flip evalGL ctx $
                                                 execDraw (resizeViewport w h)
                                                          drawState
-                                        ) False canvas
-                         putMVar drawStateVar drawState'
+                                            
+                                  ) False canvas
 
               refreshCb lastTimeRef reactStateRef canvas =
                       do tm <- readIORef lastTimeRef
@@ -217,7 +216,7 @@ runTo dest customInput sigf =
                          return False
                       where drawTo ctx =
                               modifyMVar_ drawStateVar $ \s ->
-                                        flip evalGL ctx . flip execDraw s $
+                                     flip evalGL ctx . flip execDraw s $
                                                 do unless re drawBegin
                                                    drawAct
                                                    unless re drawEnd

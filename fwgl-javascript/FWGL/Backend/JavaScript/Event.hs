@@ -4,6 +4,7 @@ module FWGL.Backend.JavaScript.Event (
         InputEvent(..),
         Source,
         source,
+        pushEvent,
         addEvent,
         addEvents,
         events,
@@ -35,6 +36,10 @@ source es j = do
         addEvents es s
         return s
 
+pushEvent :: Event -> EventData -> Source -> IO ()
+pushEvent e eventData (Source _ map) =
+        modifyIORef map $ H.insertWith (flip (++)) e [ eventData ]
+
 events :: Source -> IO (H.HashMap Event [EventData])
 events (Source _ c) = readIORef c
 
@@ -45,8 +50,8 @@ addEvents :: [Event] -> Source -> IO ()
 addEvents es s = mapM_ (flip addEvent s) es
 
 addEvent :: Event -> Source -> IO ()
-addEvent e (Source j c) = asyncCallback1 NeverRetain handler >>=
-                          addHandler j (toJSString $ eventName e)
+addEvent e s@(Source j _) = asyncCallback1 NeverRetain handler >>=
+                            addHandler j (toJSString $ eventName e)
         where 
                 prop p d =  getProp p d >>= fromJSRef
                 handler d = do
@@ -56,10 +61,15 @@ addEvent e (Source j c) = asyncCallback1 NeverRetain handler >>=
                                                 return $ (,) <$> w <*> h)
                                         <*> (do x <- prop "clientX" d
                                                 y <- prop "clientY" d
-                                                return $ (,) <$> x <*> y)
+                                                l <- prop "offsetLeft" j
+                                                t <- prop "offsetTop" j
+                                                return $
+                                                        (,) <$> (liftA2 (-) x l)
+                                                            <*> (liftA2 (-) y t)
+                                             )
                                         <*> ((getButton <$>) <$> prop "button" d)
                                         <*> ((getKey <$>) <$> prop "keyCode" d)
-                        modifyIORef c $ H.insertWith (flip (++)) e [ eventData ]
+                        pushEvent e eventData s
 
 eventName :: Event -> String
 -- eventName (Other s) = s

@@ -103,7 +103,7 @@ drawEnd :: GLES => Draw ()
 drawEnd = return ()
 
 -- | Delete a 'Geometry' from the GPU.
-removeGeometry :: GLES => Geometry is -> Draw Bool
+removeGeometry :: (GLES, BackendIO) => Geometry is -> Draw Bool
 removeGeometry = removeDrawResource gl gpuMeshes (\m s -> s { gpuMeshes = m })
                  . castGeometry
 
@@ -116,7 +116,7 @@ removeTexture (TextureLoaded l) = do gl $ unloadResource
                                      return True
 
 -- | Delete a 'Program' from the GPU.
-removeProgram :: GLES => Program gs is -> Draw Bool
+removeProgram :: (GLES, BackendIO) => Program gs is -> Draw Bool
 removeProgram = removeDrawResource gl programs (\m s -> s { programs = m })
                 . castProgram
 
@@ -163,7 +163,7 @@ textureSize tex = withRes (getTexture tex) (return (0, 0))
                                                              , fromIntegral h)
 
 -- | Set the program.
-setProgram :: GLES => Program g i -> Draw ()
+setProgram :: (GLES, BackendIO) => Program g i -> Draw ()
 setProgram p = do current <- currentProgram <$> Draw get
                   when (current /= Just (castProgram p)) $
                         withRes_ (getProgram $ castProgram p) $
@@ -191,7 +191,8 @@ getUniform g = do mprg <- loadedProgram <$> Draw get
                                                   (prg, globalName g)
                           Nothing -> return $ Error "No loaded program."
 
-getGPUGeometry :: GLES => Geometry '[] -> Draw (ResStatus GPUGeometry)
+getGPUGeometry :: (GLES, BackendIO)
+               => Geometry '[] -> Draw (ResStatus GPUGeometry)
 getGPUGeometry = getDrawResource gl gpuMeshes (\ m s -> s { gpuMeshes = m })
 
 getTexture :: (GLES, BackendIO) => Texture -> Draw (ResStatus LoadedTexture)
@@ -203,7 +204,8 @@ getTextureImage :: (GLES, BackendIO) => TextureImage
 getTextureImage = getDrawResource gl textureImages
                                      (\ m s -> s { textureImages = m })
 
-getProgram :: GLES => Program '[] '[] -> Draw (ResStatus LoadedProgram)
+getProgram :: (GLES, BackendIO)
+           => Program '[] '[] -> Draw (ResStatus LoadedProgram)
 getProgram = getDrawResource gl programs (\ m s -> s { programs = m })
 
 freeActiveTextures :: Draw ()

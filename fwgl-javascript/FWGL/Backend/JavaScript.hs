@@ -121,9 +121,16 @@ instance BackendIO where
 
         createCanvas s = querySelector (toJSString s) >>= createCanvas'
 
-        setCanvasSize w h (Canvas e _ _ _ _) =
+        setCanvasSize w h (Canvas e src _ ref _) =
                 do setAttribute "width" (show w) e
                    setAttribute "height" (show h) e
+                   cb <- readIORef ref
+                   forkIO $ cb w h
+                   pushEvent Resize EventData {
+                        dataFramebufferSize = Just $ (w, h),
+                        dataPointer = Nothing,
+                        dataButton = Nothing,
+                        dataKey = Nothing } src
 
         setCanvasTitle _ _ = return ()
 
@@ -139,8 +146,9 @@ instance BackendIO where
 
         drawCanvas act _ (Canvas _ _ ctxRef _ _) = readIORef ctxRef >>= act
 
-        updateCanvas _ = return False
+        forkWithContext = forkIO
 
+        -- TODO: block
         refreshLoop t c@(Canvas _ _ _ _ refreshRef) =
                 do refresh <- readIORef refreshRef
                    onFrame $ \_ -> refresh >> refreshLoop t c

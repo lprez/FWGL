@@ -21,6 +21,7 @@ module FWGL.Shader.Program (
 import Data.Hashable
 import qualified Data.HashMap.Strict as H
 import Data.Word (Word)
+import FWGL.Backend (BackendIO)
 import qualified FWGL.Shader.Default2D as Default2D
 import qualified FWGL.Shader.Default3D as Default3D
 import FWGL.Shader.GLSL
@@ -63,7 +64,7 @@ instance Hashable LoadedProgram where
 instance Eq LoadedProgram where
         (LoadedProgram _ _ h) == (LoadedProgram _ _ h') = h == h'
 
-instance GLES => Resource (Program g i) LoadedProgram GL where
+instance (GLES, BackendIO) => Resource (Program g i) LoadedProgram GL where
         -- TODO: err check
         loadResource i f = loadProgram i $ f . Right
         unloadResource _ (LoadedProgram p _ _) = deleteProgram p
@@ -87,7 +88,8 @@ defaultProgram3D = program Default3D.vertexShader Default3D.fragmentShader
 defaultProgram2D :: Program DefaultUniforms2D DefaultAttributes2D
 defaultProgram2D = program Default2D.vertexShader Default2D.fragmentShader
 
-loadProgram :: GLES => Program g i -> (LoadedProgram -> GL ()) -> GL ()
+loadProgram :: (GLES, BackendIO)
+            => Program g i -> (LoadedProgram -> GL ()) -> GL ()
 loadProgram (Program (vss, attrs) fss h) = asyncGL $ do
         glp <- createProgram
 
