@@ -9,11 +9,13 @@ import qualified FWGL.Backend.GLFW.Common as C
 createCanvas' :: String         -- ^ Window title
               -> Int            -- ^ Window width
               -> Int            -- ^ Window height
+              -> BackendState
               -> IO (C.Canvas, Int, Int)
 createCanvas' = C.createCanvas C.ClientAPI'OpenGL 2 0
 
 instance BackendIO where
         type Canvas = C.Canvas
+        type BackendState = C.BackendState
 
         loadImage = C.loadImage
         loadTextFile = C.loadTextFile

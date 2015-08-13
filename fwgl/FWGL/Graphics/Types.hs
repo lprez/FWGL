@@ -50,8 +50,7 @@ data DrawState = DrawState {
         gpuMeshes :: ResMap (Geometry '[]) GPUGeometry,
         textureImages :: ResMap TextureImage LoadedTexture,
         activeTextures :: Vector (Maybe Texture),
-        viewportSize :: (Int, Int),
-        currentCanvas :: Canvas
+        viewportSize :: (Int, Int)
 }
 
 -- | A state monad on top of 'GL'.

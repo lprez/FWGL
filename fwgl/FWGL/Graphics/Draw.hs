@@ -70,8 +70,7 @@ drawInit w h canvas =
                             , textureImages = newGLResMap
                             , activeTextures =
                                     V.replicate maxTexs Nothing
-                            , viewportSize = (w, h)
-                            , currentCanvas = canvas }
+                            , viewportSize = (w, h) }
         where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
 

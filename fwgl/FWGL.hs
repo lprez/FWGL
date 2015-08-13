@@ -1,4 +1,5 @@
-{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
+             GeneralizedNewtypeDeriving #-}
 
 {-|
     The main module. You should also import a backend:
@@ -23,14 +24,15 @@ module FWGL (
         module FWGL.Input,
         module FWGL.Utils,
         module FRP.Yampa,
-        initialize,
-        terminate,
+        FWGL(..),
+        fwgl,
+        mapIO,
         -- * FRP interface
         run,
         run',
         runTo,
         -- ** Effects
-        Output,
+        Output(..),
         (.>),
         draw,
         io,
@@ -79,6 +81,7 @@ import qualified Data.HashMap.Strict as H
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class
+import Control.Monad.Trans.Reader
 import Data.Vect.Float
 import FWGL.Audio
 import FWGL.Backend hiding (Texture, Program)
@@ -93,79 +96,83 @@ import FWGL.Utils
 import FRP.Yampa
 
 -- | The general output.
-data Output = Output Bool (Draw ())
+data Output = Output Bool (Canvas -> BackendState -> Draw ())
 
 -- | Sequence two 'Output' effects.
 (.>) :: Output -> Output -> Output
-Output r d .> Output r' d' = Output (r || r') (d >> d')
+Output r d .> Output r' d' = Output (r || r') (\c b -> d c b >> d' c b)
 
 -- | Draw some layers.
 draw :: BackendIO => [Layer] -> Output
-draw = Output False . mapM_ drawLayer
+draw ls = Output False $ \_ _ -> mapM_ drawLayer ls
 
 -- | Use this when you want the next sample to be performed immediately
 -- (e.g. when you need to produce some computationally expensive effectful input
 -- at the request of the signal function). You can place it anywhere in the
 -- action sequence. You shouldn't draw anything if you use it.
 fastStep :: Output
-fastStep = Output True (return ())
+fastStep = Output True $ \_ _ -> return ()
 
 -- | Perform an IO action.
 io :: IO () -> Output
-io = Output False . liftIO
+io c = Output False $ \_ _ -> liftIO c
 
 -- | Perform a 'Draw' action.
 drawM :: Draw () -> Output
-drawM = Output False
+drawM c = Output False $ \_ _ -> c
 
 -- | Perform an 'Output' action in the Draw monad.
-outDraw :: Output -> Draw ()
-outDraw (Output _ a) = a
+outDraw :: Output -> (Draw () -> Draw ()) -> Output
+outDraw (Output r act) k = Output r $ \canvas -> k . act canvas
 
 -- | Delete a 'Geometry' from the GPU.
 freeGeometry :: BackendIO => Geometry i -> Output
-freeGeometry = Output False . void . removeGeometry
+freeGeometry g = Output False $ \_ _ -> void $ removeGeometry g
 
 -- | Delete a 'Texture' from the GPU.
 freeTexture :: BackendIO => Texture -> Output
-freeTexture = Output False . void . removeTexture
+freeTexture t = Output False $ \_ _ -> void $ removeTexture t
 
 -- | Delete a 'Program' from the GPU.
 freeProgram :: BackendIO => Program g i -> Output
-freeProgram = Output False . void . removeProgram
+freeProgram p = Output False $ \_ _ -> void $ removeProgram p
 
 -- | Set canvas/window size.
 setSize :: BackendIO
         => Int -- ^ Width
         -> Int -- ^ Height
         -> Output
-setSize w h = drawM $ do canvas <- fmap currentCanvas drawState
-                         liftIO $ setCanvasSize w h canvas
+setSize w h = Output False $ \canvas bs -> liftIO $ setCanvasSize w h canvas bs
 
 -- | Set window title.
 setTitle :: BackendIO => String -> Output
-setTitle title = drawM $ do canvas <- fmap currentCanvas drawState
-                            liftIO $ setCanvasTitle title canvas
+setTitle title = Output False $
+        \canvas bs -> liftIO $ setCanvasTitle title canvas bs
 
--- | Initialize FWGL backend.
-initialize :: BackendIO => IO ()
-initialize = initBackend
+newtype FWGL a = FWGL (ReaderT BackendState IO a)
+        deriving (Functor, Applicative, Monad, MonadIO)
 
--- | Terminate FWGL backend.
-terminate :: BackendIO => IO ()
-terminate = terminateBackend
+-- | Initialize the FWGL backend, run the action and terminate it.
+fwgl :: BackendIO => FWGL () -> IO ()
+fwgl (FWGL a) = initBackend >>= \bs -> runReaderT a bs >> terminateBackend bs
+
+-- | Useful for functions like 'forkIO' and 'forkOS'. Note that, while drawing
+-- on an unbound thread blocks drawing on any other thread, bound threads block
+-- only unbound threads.
+mapIO :: (IO a -> IO b) -> FWGL a -> FWGL b
+mapIO f (FWGL a) = FWGL ask >>= liftIO . f . runReaderT a
 
 -- | Run a FWGL program on a new canvas/window.
 run :: BackendIO
     => SF (Input ()) Output  -- ^ Main signal
-    -> IO ()
+    -> FWGL ()
 run = run' $ return ()
 
 -- | Run a FWGL program, using custom inputs.
 run' :: BackendIO
      => IO inp                -- ^ An IO effect generating the custom inputs.
      -> SF (Input inp) Output
-     -> IO ()
+     -> FWGL ()
 run' = runTo "canvas"
 
 -- | Run a FWGL program, using custom inputs and a specified canvas.
@@ -174,56 +181,58 @@ runTo :: BackendIO
                 -- meaning on the JavaScript backend.
       -> IO inp -- ^ An IO effect generating the custom inputs.
       -> SF (Input inp) Output
-      -> IO ()
-runTo dest customInput sigf =
-        do (canvas, w, h) <- createCanvas dest
+      -> FWGL ()
+runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
+        do (canvas, w, h) <- createCanvas dest bs
 
            initCustom <- customInput
-           lastTimeRef <- getTime >>= newIORef
-           drawStateVar <- drawCanvas (initState w h canvas) False canvas
+           lastTimeRef <- getTime bs >>= newIORef
+           drawStateVar <- drawCanvas (initState w h canvas) False canvas bs
                            >>= newMVar
            reactStateRef <- reactInit (return $ initInput w h initCustom)
                                       (\reactStateRef _ -> actuate lastTimeRef
                                                                    reactStateRef
                                                                    canvas
+                                                                   bs
                                                                    drawStateVar)
                                       sigf
 
-           setCanvasResizeCallback (resizeCb drawStateVar canvas) canvas
+           setCanvasResizeCallback (resizeCb drawStateVar canvas bs) canvas bs
 
-           setCanvasRefreshCallback (refreshCb lastTimeRef reactStateRef canvas)
-                                    canvas
+           setCanvasRefreshCallback (refreshCb lastTimeRef reactStateRef
+                                               canvas bs)
+                                    canvas bs
 
-           refreshLoop 60 canvas
+           refreshLoop 60 canvas bs
 
         where initState w h canvas = evalGL $ drawInit w h canvas
 
-              resizeCb drawStateVar canvas w h =
+              resizeCb drawStateVar canvas bs w h =
                       drawCanvas (\ctx -> modifyMVar_ drawStateVar
                         $ \drawState -> flip evalGL ctx $
                                                 execDraw (resizeViewport w h)
                                                          drawState
                                             
-                                  ) False canvas
+                                  ) False canvas bs
 
-              refreshCb lastTimeRef reactStateRef canvas =
+              refreshCb lastTimeRef reactStateRef canvas bs =
                       do tm <- readIORef lastTimeRef
-                         tm' <- getTime
+                         tm' <- getTime bs
                          custom <- customInput
-                         inp <- popInput custom canvas
+                         inp <- popInput custom canvas bs
                          react reactStateRef ((tm' - tm) * 1000, Just inp)
                          writeIORef lastTimeRef tm'
 
-              actuate lastTimeRef reactStateRef canvas drawStateVar
+              actuate lastTimeRef reactStateRef canvas bs drawStateVar
                       (Output re drawAct) =
-                      do drawCanvas drawTo True canvas
-                         when re $ refreshCb lastTimeRef reactStateRef canvas
+                      do drawCanvas drawTo True canvas bs
+                         when re $ refreshCb lastTimeRef reactStateRef canvas bs
                          return False
                       where drawTo ctx =
                               modifyMVar_ drawStateVar $ \s ->
                                      flip evalGL ctx . flip execDraw s $
                                                 do unless re drawBegin
-                                                   drawAct
+                                                   drawAct canvas bs
                                                    unless re drawEnd
         
               initInput w h = Input $ H.singleton Resize [

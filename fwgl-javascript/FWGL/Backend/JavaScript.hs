@@ -101,6 +101,7 @@ createCanvas' element =
 
 instance BackendIO where
         type Canvas = FWGL.Backend.JavaScript.Canvas
+        type BackendState = ()
 
         loadImage url f = asyncCallback1 NeverRetain callback
                           >>= loadImageRaw (toJSString url) 
@@ -119,9 +120,9 @@ instance BackendIO where
 
         initBackend = return ()
 
-        createCanvas s = querySelector (toJSString s) >>= createCanvas'
+        createCanvas s _ = querySelector (toJSString s) >>= createCanvas'
 
-        setCanvasSize w h (Canvas e src _ ref _) =
+        setCanvasSize w h (Canvas e src _ ref _) _ =
                 do setAttribute "width" (show w) e
                    setAttribute "height" (show h) e
                    cb <- readIORef ref
@@ -132,32 +133,32 @@ instance BackendIO where
                         dataButton = Nothing,
                         dataKey = Nothing } src
 
-        setCanvasTitle _ _ = return ()
+        setCanvasTitle _ _ _ = return ()
 
-        setCanvasResizeCallback cb (Canvas _ _ _ ref _) =
+        setCanvasResizeCallback cb (Canvas _ _ _ ref _) _ =
                 writeIORef ref cb
 
-        setCanvasRefreshCallback cb (Canvas _ _ _ _ ref) =
+        setCanvasRefreshCallback cb (Canvas _ _ _ _ ref) _ =
                 writeIORef ref cb
 
-        popInput c (Canvas _ src _ _ _) = flip Input c <$> clear src
+        popInput c (Canvas _ src _ _ _) _ = flip Input c <$> clear src
 
-        getInput c (Canvas _ src _ _ _) = flip Input c <$> events src
+        getInput c (Canvas _ src _ _ _) _ = flip Input c <$> events src
 
-        drawCanvas act _ (Canvas _ _ ctxRef _ _) = readIORef ctxRef >>= act
+        drawCanvas act _ (Canvas _ _ ctxRef _ _) _ = readIORef ctxRef >>= act
 
         forkWithContext = forkIO
 
         -- TODO: block
-        refreshLoop t c@(Canvas _ _ _ _ refreshRef) =
+        refreshLoop t c@(Canvas _ _ _ _ refreshRef) bs =
                 do refresh <- readIORef refreshRef
-                   onFrame $ \_ -> refresh >> refreshLoop t c
+                   onFrame $ \_ -> refresh >> refreshLoop t c bs
                 where onFrame handler = asyncCallback1 NeverRetain handler
                                         >>= requestAnimationFrame
 
-        getTime = (/ 1000) <$> now
+        getTime _ = (/ 1000) <$> now
 
-        terminateBackend = return ()
+        terminateBackend _ = return ()
 
 instance GLES where
         type Ctx = JS.Ctx

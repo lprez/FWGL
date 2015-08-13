@@ -10,6 +10,7 @@ import FWGL.Input
 class GLES => BackendIO where
         -- | Where to draw (e.g. a window, a HTML5 canvas).
         type Canvas
+        type BackendState
 
         -- TODO: loadImage may fail
         loadImage :: FilePath                           -- ^ Path or URL.
@@ -20,37 +21,41 @@ class GLES => BackendIO where
                      -> (Either String String -> IO ()) -- ^ Callback
                      -> IO ()
 
-        initBackend :: IO ()
+        initBackend :: IO BackendState
 
-        createCanvas :: String -> IO (Canvas, Int, Int)
+        createCanvas :: String -> BackendState -> IO (Canvas, Int, Int)
 
         -- | Set the size of the canvas/window.
         setCanvasSize :: Int -- ^ Width
                       -> Int -- ^ Height
                       -> Canvas
+                      -> BackendState
                       -> IO ()
 
         -- | Set the title of the window.
-        setCanvasTitle :: String -> Canvas -> IO ()
+        setCanvasTitle :: String -> Canvas -> BackendState -> IO ()
 
-        setCanvasResizeCallback :: (Int -> Int -> IO ()) -> Canvas -> IO ()
-        setCanvasRefreshCallback :: IO () -> Canvas -> IO ()
+        setCanvasResizeCallback :: (Int -> Int -> IO ()) 
+                                -> Canvas -> BackendState -> IO ()
+        setCanvasRefreshCallback :: IO () -> Canvas -> BackendState -> IO ()
 
-        popInput :: a -> Canvas -> IO (Input a)
-        getInput :: a -> Canvas -> IO (Input a)
+        popInput :: a -> Canvas -> BackendState -> IO (Input a)
+        getInput :: a -> Canvas -> BackendState -> IO (Input a)
 
         drawCanvas :: (Ctx -> IO a)     -- ^ Draw action.
                    -> Bool              -- ^ Swap buffers.
                    -> Canvas
+                   -> BackendState
                    -> IO a
 
         forkWithContext :: IO () -> IO ThreadId
 
         refreshLoop :: Int  -- ^ FPS (not necessarily used).
                     -> Canvas
+                    -> BackendState
                     -> IO ()
 
         -- | Time, in seconds.
-        getTime :: IO Double
+        getTime :: BackendState -> IO Double
 
-        terminateBackend :: IO ()
+        terminateBackend :: BackendState -> IO ()

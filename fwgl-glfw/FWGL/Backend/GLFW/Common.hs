@@ -15,6 +15,7 @@ module FWGL.Backend.GLFW.Common (
         FWGL.Backend.GLFW.Common.getTime,
         terminateBackend,
         Canvas,
+        BackendState,
         ClientAPI(..)
 ) where
 
@@ -24,6 +25,7 @@ import Control.Concurrent
 import Control.Monad
 import Control.Exception.Base (catch)
 import qualified Data.HashMap.Strict as H
+import Data.Hashable
 import Data.IORef
 import Data.Vector.Storable (unsafeWith)
 import Foreign.Ptr
@@ -57,23 +59,32 @@ loadTextFile fname handler = (>> return ()) . forkIO $
         catch (fmap (\s -> s `seq` Right s) $ readFile fname)
               (\e -> return (Left $ show (e :: IOError))) >>= handler
 
+data ThreadType = Bound | Unbound
+
+data BackendState = BackendState {
+        eventThread :: ThreadId,
+        drawingUnboundThread :: MVar (),
+        drawingBoundThreads :: MVar Int
+}
+
 data Canvas = Canvas GLFW.Window
                      (IORef (H.HashMap InputEvent [EventData]))
                      (IORef (Int -> Int -> IO ()))
                      (IORef (IO ()))
                      (MVar ())
 
-initBackend :: IO ()
+initBackend :: IO BackendState
 initBackend = do GLFW.init
-                 -- TODO: kill thread at terminate
                  -- XXX: for some reason, waitEvents makes the windows really slow
-                 _ <- forkIO $ forever pollEvents >> threadDelay 30000
+                 evTid <- forkIO $ forever pollEvents >> threadDelay 30000
                  setTime 0
+                 unbound <- newMVar ()
+                 bound <- newEmptyMVar
+                 return $ BackendState evTid unbound bound
 
--- TODO: multiple windows segfaulting
 createCanvas :: ClientAPI -> Int -> Int
-             -> String -> Int -> Int -> IO (Canvas, Int, Int)
-createCanvas clientAPI maj min title w h =
+             -> String -> Int -> Int -> BackendState -> IO (Canvas, Int, Int)
+createCanvas clientAPI maj min title w h _ =
         do windowHint $ WindowHint'ClientAPI clientAPI
            windowHint $ WindowHint'ContextVersionMajor maj
            windowHint $ WindowHint'ContextVersionMinor min
@@ -152,54 +163,83 @@ createCanvas clientAPI maj min title w h =
                                 dataButton = Nothing,
                                 dataKey = Nothing }
 
-setCanvasSize :: Int -> Int -> Canvas -> IO ()
-setCanvasSize w h (Canvas win _ _ _ _) = setWindowSize win w h
+setCanvasSize :: Int -> Int -> Canvas -> BackendState -> IO ()
+setCanvasSize w h (Canvas win _ _ _ _) _ = setWindowSize win w h
 
-setCanvasTitle :: String -> Canvas -> IO ()
-setCanvasTitle str (Canvas win _ _ _ _) = setWindowTitle win str
+setCanvasTitle :: String -> Canvas -> BackendState -> IO ()
+setCanvasTitle str (Canvas win _ _ _ _) _ = setWindowTitle win str
 
-setCanvasResizeCallback :: (Int -> Int -> IO ()) -> Canvas -> IO ()
-setCanvasResizeCallback callback (Canvas _ _ ref _ _) = writeIORef ref callback
+setCanvasResizeCallback :: (Int -> Int -> IO ()) -> Canvas
+                        -> BackendState -> IO ()
+setCanvasResizeCallback callback (Canvas _ _ ref _ _) _ =
+        writeIORef ref callback
 
-setCanvasRefreshCallback :: IO () -> Canvas -> IO ()
-setCanvasRefreshCallback callback (Canvas _ _ _ ref _) = writeIORef ref callback
+setCanvasRefreshCallback :: IO () -> Canvas -> BackendState -> IO ()
+setCanvasRefreshCallback callback (Canvas _ _ _ ref _) _ =
+        writeIORef ref callback
 
-popInput :: a -> Canvas -> IO (Input a)
-popInput c canvas@(Canvas _ events _ _ _) = do i <- getInput c canvas
-                                               writeIORef events H.empty
-                                               return i
+popInput :: a -> Canvas -> BackendState -> IO (Input a)
+popInput c canvas@(Canvas _ events _ _ _) bs = do i <- getInput c canvas bs
+                                                  writeIORef events H.empty
+                                                  return i
 
-getInput :: a -> Canvas -> IO (Input a)
-getInput c (Canvas _ events _ _ _) = flip Input c <$> readIORef events
+getInput :: a -> Canvas -> BackendState -> IO (Input a)
+getInput c (Canvas _ events _ _ _) _ = flip Input c <$> readIORef events
 
-drawCanvas :: (() -> IO a) -> Bool -> Canvas -> IO a
-drawCanvas act shouldSwap (Canvas win _ _ _ bufferSem) =
-        do () <- takeMVar bufferSem
+drawCanvas :: (() -> IO a) -> Bool -> Canvas -> BackendState -> IO a
+drawCanvas act shouldSwap (Canvas win _ _ _ bufferSem) bs =
+        do bound <- isCurrentThreadBound
+           () <- takeMVar $ drawingUnboundThread bs
+
+           myThreadId >>= putStrLn . ("[" ++) . show
+           if bound
+                then do mnum <- tryTakeMVar $ drawingBoundThreads bs
+                        putMVar (drawingBoundThreads bs) $
+                                case mnum of
+                                     Just num -> num + 1
+                                     Nothing -> 1
+                        putMVar (drawingUnboundThread bs) ()
+                else do putMVar (drawingBoundThreads bs) undefined
+                        _ <- takeMVar $ drawingBoundThreads bs
+                        return ()
+
+           () <- takeMVar bufferSem
+           putStrLn $ "{" ++ show win
            makeContextCurrent $ Just win
            r <- act ()
            when shouldSwap $
                  swapBuffers win
+           putStrLn "}"
            putMVar bufferSem ()
+
+           myThreadId >>= putStrLn . ("|" ++) . show
+           if bound
+                then do mnum <- takeMVar $ drawingBoundThreads bs
+                        when (mnum > 1) $
+                                putMVar (drawingBoundThreads bs) $ mnum - 1
+                else putMVar (drawingUnboundThread bs) ()
+           myThreadId >>= putStrLn . ("]" ++) . show
+
            return r
 
 forkWithContext :: IO () -> IO ThreadId
 forkWithContext a = do mctx <- getCurrentContext
                        forkIO $ makeContextCurrent mctx >> a
 
-refreshLoop :: Int -> Canvas -> IO ()
-refreshLoop fps c@(Canvas win _ _ refreshCallback _) =
+refreshLoop :: Int -> Canvas -> BackendState -> IO ()
+refreshLoop fps c@(Canvas win _ _ refreshCallback _) bs =
         do closed <- windowShouldClose win
            join $ readIORef refreshCallback
            if closed
                 then destroyWindow win
-                else threadDelay (div 1000000 fps) >> refreshLoop fps c
+                else threadDelay (div 1000000 fps) >> refreshLoop fps c bs
 
-getTime :: IO Double
-getTime = do Just t <- GLFW.getTime
-             return t
+getTime :: BackendState -> IO Double
+getTime _ = do Just t <- GLFW.getTime
+               return t
 
-terminateBackend :: IO ()
-terminateBackend = terminate
+terminateBackend :: BackendState -> IO ()
+terminateBackend (BackendState tid _ _) = killThread tid >> terminate
 
 toMouseButton :: GLFW.MouseButton -> Input.MouseButton
 toMouseButton MouseButton'1 = MouseLeft
