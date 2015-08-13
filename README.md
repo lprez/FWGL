@@ -68,9 +68,9 @@ Note that FWGL won't include anything that can be already done with the shader E
   * Shadow mapping
   * Bump mapping
   * Skyboxes
-  * 3D picking (soon it will be possible to easily implement it with sublayers, but FWGL won't directly provide this sort of stuff)
+  * 3D picking
   * Skeletal animations (support for animated model formats may be added).
 
-Also, FWGL is not meant to be a complete game engine, but just a rendering engine with canvas management. The name "FWGL" is actually both a pun on GLFW, and the acronym for Functional WebGL. These features will never be added:  
+Also, FWGL is not meant to be a complete game engine, but just a rendering engine with canvas/window management. The name "FWGL" is actually both a pun on GLFW, and the acronym for Functional WebGL. These features will never be added:  
   * Collisions
   * Physics

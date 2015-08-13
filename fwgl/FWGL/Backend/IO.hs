@@ -50,7 +50,7 @@ class GLES => BackendIO where
                     -> Canvas
                     -> IO ()
 
-        -- | Time, in milliseconds.
+        -- | Time, in seconds.
         getTime :: IO Double
 
         terminateBackend :: IO ()

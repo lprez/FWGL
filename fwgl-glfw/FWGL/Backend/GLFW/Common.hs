@@ -65,15 +65,19 @@ data Canvas = Canvas GLFW.Window
 
 initBackend :: IO ()
 initBackend = do GLFW.init
-                 _ <- forkIO $ forever waitEvents
+                 -- TODO: kill thread at terminate
+                 -- XXX: for some reason, waitEvents makes the windows really slow
+                 _ <- forkIO $ forever pollEvents >> threadDelay 30000
                  setTime 0
 
+-- TODO: multiple windows segfaulting
 createCanvas :: ClientAPI -> Int -> Int
              -> String -> Int -> Int -> IO (Canvas, Int, Int)
 createCanvas clientAPI maj min title w h =
         do windowHint $ WindowHint'ClientAPI clientAPI
            windowHint $ WindowHint'ContextVersionMajor maj
            windowHint $ WindowHint'ContextVersionMinor min
+           -- TODO: context sharing
            Just win <- createWindow w h title Nothing Nothing
            bufferSem <- newMVar ()
 
@@ -88,8 +92,11 @@ createCanvas clientAPI maj min title w h =
            setKeyCallback win . Just . const $ keyCallback eventsRef
            setMouseButtonCallback win . Just $ mouseCallback eventsRef
            setCursorPosCallback win . Just . const $ cursorCallback eventsRef
+           -- XXX: windows that are not using refreshLoop should receive this
+           {-
            setWindowRefreshCallback win . Just . const $
                   refreshCallback bufferSem refreshRef
+           -}
            setFramebufferSizeCallback win . Just . const $
                   resizeCallback eventsRef resizeRef
 

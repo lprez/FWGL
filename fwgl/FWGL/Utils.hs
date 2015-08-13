@@ -33,4 +33,4 @@ perspectiveView :: Float    -- ^ Far
                 -> SF (Input a, Mat4) Mat4
 perspectiveView far near fov  =
         perspective4 far near fov *** identity
-        >>^ \(perspMat, viewMat) -> perspMat .*. viewMat
+        >>^ \(perspMat, viewMat) -> viewMat .*. perspMat

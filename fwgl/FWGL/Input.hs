@@ -10,6 +10,7 @@ module FWGL.Input (
         mouseUp,
         mouse,
         click,
+        mouseMove,
         pointer,
         resize,
         size,
@@ -71,9 +72,13 @@ mouse b = sscan upDown NoEvent <<< mouseUp b &&& mouseDown b
 click :: SF (Input a) (Event (Int, Int))
 click = mouseDown MouseLeft
 
+-- | Mouse move.
+mouseMove :: SF (Input a) (Event (Int, Int))
+mouseMove = evPointer MouseMove (const True)
+
 -- | Pointer location in pixels.
 pointer :: SF (Input a) (Int, Int)
-pointer = evPointer MouseMove (const True) >>> hold (0, 0)
+pointer = mouseMove >>> hold (0, 0)
 
 -- | Window/framebuffer/canvas/etc. resize.
 resize :: SF (Input a) (Event (Int, Int))

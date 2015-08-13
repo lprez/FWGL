@@ -54,7 +54,7 @@ lightPos = time >>^ \t -> let tmod = realToFrac $ mod' t 3000 / 500
                               offset = if tmod < 3 then tmod else 6 - tmod
                           in Vec3 (- 3.1) 5 (1.5 - offset)
 
-lightViewProj :: SF (Input ()) M4
+lightViewProj :: SF (Input ()) Mat4
 lightViewProj = identity &&& (lightPos >>^ view)
                 >>> perspectiveView 10 0.53 90
         where view pos = lookAtMat4 pos (Vec3 100 1 0) (Vec3 0 (- 1) 0)

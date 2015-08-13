@@ -18,6 +18,7 @@ module FWGL.Graphics.Draw (
         setProgram,
         resizeViewport,
         gl,
+        renderLayer,
         layerToTexture,
         drawState
 ) where
@@ -123,17 +124,10 @@ removeProgram = removeDrawResource gl programs (\m s -> s { programs = m })
 -- | Draw a 'Layer'.
 drawLayer :: (GLES, BackendIO) => Layer -> Draw ()
 drawLayer (Layer prg obj) = setProgram prg >> drawObject obj
-drawLayer (SubLayer stypes w' h' inspCol inspDepth sub sup) =
-        do (ts, mcol, mdepth) <- layerToTexture stypes w h sub
-                                                (mayInspect inspCol)
-                                                (mayInspect inspDepth)
-           mapM_ drawLayer $ sup ts mcol mdepth
-           mapM_ removeTexture ts
-           return ()
-        where w = fromIntegral w'
-              h = fromIntegral h'
-              mayInspect True = Right $ return . Just
-              mayInspect False = Left Nothing
+drawLayer (SubLayer rl) =
+        do (layers, textures) <- renderLayer rl
+           mapM_ drawLayer layers
+           mapM_ removeTexture textures
 drawLayer (MultiLayer layers) = mapM_ drawLayer layers
 
 -- | Draw an 'Object'.
@@ -229,20 +223,44 @@ makeActive t = do ats <- activeTextures <$> Draw get
         where fi :: (Integral a, Integral b) => a -> b
               fi = fromIntegral
 
+
+-- | Realize a 'RenderLayer'. It returns the list of allocated 'Texture's so
+-- that you can free them if you want.
+renderLayer :: BackendIO => RenderLayer a -> Draw (a, [Texture])
+renderLayer (RenderLayer stypes w' h' rx ry rw rh inspCol inspDepth layer f) =
+        do (ts, mcol, mdepth) <- layerToTexture stypes w h layer
+                                                (mayInspect inspCol)
+                                                (mayInspect inspDepth)
+           return (f ts mcol mdepth, ts)
+        where w = fromIntegral w'
+              h = fromIntegral h'
+
+              mayInspect :: Bool
+                         -> Either (Maybe [r])
+                                   ([r] -> Draw (Maybe [r]), Int, Int, Int, Int)
+              mayInspect True = Right (return . Just, rx, ry, rw, rh)
+              mayInspect False = Left Nothing
+
 -- | Draw a 'Layer' on some textures.
 layerToTexture :: (GLES, BackendIO, Integral a)
-               => [LayerType]                   -- ^ Textures contents.
-               -> a                             -- ^ Width
-               -> a                             -- ^ Height
-               -> Layer                         -- ^ Layer to draw
-               -> Either b ([Color] -> Draw b)  -- ^ Color inspecting function
-               -> Either c ([Word8] -> Draw c)  -- ^ Depth inspecting function
+               => [LayerType]                           -- ^ Textures contents.
+               -> a                                     -- ^ Width
+               -> a                                     -- ^ Height
+               -> Layer                                 -- ^ Layer to draw
+               -> Either b ( [Color] -> Draw b
+                           , Int, Int, Int, Int)        -- ^ Color inspecting
+                                                        -- function, start x,
+                                                        -- start y, width,
+                                                        -- height
+               -> Either c ( [Word8] -> Draw c
+                           , Int, Int, Int, Int)        -- ^ Depth inspecting,
+                                                        -- function, etc.
                -> Draw ([Texture], b ,c)
 layerToTexture stypes wp hp layer einspc einspd = do
         (ts, (colRes, depthRes)) <- renderToTexture (map arguments stypes) w h $
                         do drawLayer layer
-                           colRes <- inspect einspc gl_RGBA wordsToColors
-                           depthRes <- inspect einspd gl_DEPTH_COMPONENT id
+                           colRes <- inspect einspc gl_RGBA wordsToColors 4
+                           depthRes <- inspect einspd gl_DEPTH_COMPONENT id 1
                            return (colRes, depthRes)
 
         return (map (TextureLoaded . LoadedTexture w h) ts, colRes, depthRes)
@@ -259,13 +277,17 @@ layerToTexture stypes wp hp layer einspc einspd = do
                                             , gl_UNSIGNED_SHORT
                                             , gl_DEPTH_ATTACHMENT )
 
-              inspect :: Either c (a -> Draw c) -> GLEnum
-                      -> ([Word8] -> a) -> Draw c
-              inspect (Left r) _ _ = return r
-              inspect (Right insp) format trans =
+              inspect :: Either c (a -> Draw c, Int, Int, Int, Int) -> GLEnum
+                      -> ([Word8] -> a) -> Int -> Draw c
+              inspect (Left r) _ _ s = return r
+              inspect (Right (insp, x, y, rw, rh)) format trans s =
                         do arr <- liftIO . newByteArray $
-                                        fromIntegral w * fromIntegral h * 4
-                           gl $ readPixels 0 0 w h format gl_UNSIGNED_BYTE arr
+                                        fromIntegral rw * fromIntegral rh * s
+                           gl $ readPixels (fromIntegral x)
+                                           (fromIntegral y)
+                                           (fromIntegral rw)
+                                           (fromIntegral rh)
+                                           format gl_UNSIGNED_BYTE arr
                            liftIO (decodeBytes arr) >>= insp . trans
               wordsToColors (r : g : b : a : xs) = Color r g b a :
                                                    wordsToColors xs

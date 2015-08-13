@@ -155,7 +155,7 @@ instance BackendIO where
                 where onFrame handler = asyncCallback1 NeverRetain handler
                                         >>= requestAnimationFrame
 
-        getTime = now
+        getTime = (/ 1000) <$> now
 
         terminateBackend = return ()
 

@@ -20,10 +20,13 @@ module FWGL.Graphics.Custom (
         combineLayers,
         subLayer,
         depthSubLayer,
-        colorDepthSubLayer,
-        subLayerInspect,
-        depthSubLayerInspect,
-        colorDepthSubLayerInspect,
+        subRenderLayer,
+        renderColor,
+        renderDepth,
+        renderColorDepth,
+        renderColorInspect,
+        renderDepthInspect,
+        renderColorDepthInspect,
 
         Geometry,
         AttrList(..),
@@ -108,61 +111,23 @@ combineLayers = MultiLayer
 colorTex :: GLES => Color -> Texture
 colorTex c = mkTexture 1 1 [ c ]
 
--- | Use a 'Layer' as a 'Texture' on another.
+-- | Use a 'Layer' as a 'Texture' on another. Based on 'renderColor'.
 subLayer :: Int                         -- ^ Texture width.
          -> Int                         -- ^ Texture height.
          -> Layer                       -- ^ Layer to draw on a 'Texture'.
          -> (Texture -> [Layer])        -- ^ Layers using the texture.
          -> Layer
-subLayer w h l f = SubLayer [ColorLayer] w h False False l $
-                        \[t] _ _ -> f t
+subLayer w h l = subRenderLayer . renderColor w h l
 
--- | Use a 'Layer' as a depth 'Texture' on another.
+-- | Use a 'Layer' as a depth 'Texture' on another. Based on 'renderDepth.
 depthSubLayer :: Int                         -- ^ Texture width.
               -> Int                         -- ^ Texture height.
-              -> Layer                       -- ^ Layer to draw on a depth 'Texture'.
+              -> Layer                       -- ^ Layer to draw on a
+                                             -- depth 'Texture'.
               -> (Texture -> [Layer])        -- ^ Layers using the texture.
               -> Layer
-depthSubLayer w h l f = SubLayer [DepthLayer] w h False False l $
-                                \[t] _ _ -> f t
+depthSubLayer w h l = subRenderLayer . renderDepth w h l
 
--- | Combination of 'subLayer' and 'depthSubLayer'.
-colorDepthSubLayer :: Int                               -- ^ Texture width.
-                   -> Int                               -- ^ Texture height.
-                   -> Layer                             -- ^ Layer to draw on a 'Texture'
-                   -> (Texture -> Texture -> [Layer])   -- ^ Color, depth.
-                   -> Layer
-colorDepthSubLayer w h l f = SubLayer [ColorLayer, DepthLayer] w h
-                                      False False l $
-                                \[ct, dt] _ _ -> f ct dt
-
--- | Use a 'Layer' as a 'Texture' on another, reading the content of the
--- texture.
-subLayerInspect :: Int                              -- ^ Texture width.
-                -> Int                              -- ^ Texture height.
-                -> Layer                            -- ^ Layer to draw on a 'Texture'.
-                -> (Texture -> [Color] -> [Layer])  -- ^ Layers using the texture.
-                -> Layer
-subLayerInspect w h l f = SubLayer [ColorLayer] w h True False l $
-                        \[t] (Just c) _ -> f t c
-
--- | Use a 'Layer' as a depth 'Texture' on another, reading the content of the
--- texture.
-depthSubLayerInspect :: Int                              -- ^ Texture width.
-                     -> Int                              -- ^ Texture height.
-                     -> Layer                            -- ^ Layer to draw on a depth 'Texture'.
-                     -> (Texture -> [Word8] -> [Layer])  -- ^ Layers using the texture.
-                     -> Layer
-depthSubLayerInspect w h l f = SubLayer [DepthLayer] w h False True l $
-                                \[t] _ (Just d) -> f t d
-
--- | Combination of 'subLayerInspect' and 'depthSubLayerInspect'.
-colorDepthSubLayerInspect :: Int         -- ^ Texture width.
-                          -> Int         -- ^ Texture height.
-                          -> Layer       -- ^ Layer to draw on a 'Texture'
-                          -> (Texture -> Texture -> [Color] -> [Word8] ->
-                              [Layer])   -- ^ Layers using the texture.
-                          -> Layer
-colorDepthSubLayerInspect w h l f = SubLayer [ColorLayer, DepthLayer] w h
-                                      True True l $
-                                \[ct, dt] (Just c) (Just d) -> f ct dt c d
+-- | Generalized version of 'subLayer' and 'depthSubLayer'.
+subRenderLayer :: RenderLayer [Layer] -> Layer
+subRenderLayer = SubLayer

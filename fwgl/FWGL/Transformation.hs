@@ -121,7 +121,7 @@ lookAtMat4 eye target up =
              (Vec4 xy yy zy 0)
              (Vec4 xz yz zz 0)
              (Vec4 (- dotprod xv eye) (- dotprod yv eye) (- dotprod zv eye) 1)
-        where zv@(Vec3 zx zy zz) = normalize $ eye &- target
+        where zv@(Vec3 zx zy zz) = normalize $ target &- eye
               xv@(Vec3 xx xy xz) = normalize $ crossprod up zv
               yv@(Vec3 yx yy yz) = crossprod zv xv
 

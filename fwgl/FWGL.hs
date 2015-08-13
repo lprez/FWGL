@@ -22,7 +22,7 @@ module FWGL (
         module FWGL.Audio,
         module FWGL.Input,
         module FWGL.Utils,
-        module Data.Vect.Float,
+        module FRP.Yampa,
         initialize,
         terminate,
         -- * FRP interface
@@ -63,8 +63,8 @@ module FWGL (
         liftIO,
         -- ** Other functions
         resizeViewport,
-        LayerType(..),
-        layerToTexture,
+        renderLayer,
+        outDraw,
         {-
         -- * Effectful Interface
         runDraw,
@@ -114,9 +114,13 @@ fastStep = Output True (return ())
 io :: IO () -> Output
 io = Output False . liftIO
 
--- | Perform an action in the Draw monad.
+-- | Perform a 'Draw' action.
 drawM :: Draw () -> Output
 drawM = Output False
+
+-- | Perform an 'Output' action in the Draw monad.
+outDraw :: Output -> Draw ()
+outDraw (Output _ a) = a
 
 -- | Delete a 'Geometry' from the GPU.
 freeGeometry :: BackendIO => Geometry i -> Output

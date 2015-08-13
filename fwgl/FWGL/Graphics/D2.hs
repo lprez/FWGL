@@ -39,13 +39,19 @@ module FWGL.Graphics.D2 (
         layer,
         layerPrg,
         C.program,
+        defaultProgram2D,
         -- ** Sublayers
         C.subLayer,
         C.depthSubLayer,
-        C.colorDepthSubLayer,
-        C.subLayerInspect,
-        C.depthSubLayerInspect,
-        C.colorDepthSubLayerInspect,
+        C.subRenderLayer,
+        -- *** Render layers
+        RenderLayer,
+        renderColor,
+        renderDepth,
+        renderColorDepth,
+        renderColorInspect,
+        renderDepthInspect,
+        renderColorDepthInspect,
         -- * Custom 2D objects
         Object,
         object,

@@ -39,13 +39,19 @@ module FWGL.Graphics.D3 (
         layer,
         layerPrg,
         C.program,
+        defaultProgram3D,
         -- ** Sublayers
         C.subLayer,
         C.depthSubLayer,
-        C.colorDepthSubLayer,
-        C.subLayerInspect,
-        C.depthSubLayerInspect,
-        C.colorDepthSubLayerInspect,
+        C.subRenderLayer,
+        -- *** Render layers
+        RenderLayer,
+        renderColor,
+        renderDepth,
+        renderColorDepth,
+        renderColorInspect,
+        renderDepthInspect,
+        renderColorDepthInspect,
         -- * Custom 3D objects
         Object,
         object,
