@@ -187,17 +187,19 @@ runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
 
            initCustom <- customInput
            lastTimeRef <- getTime bs >>= newIORef
+           newSizeRef <- newIORef Nothing
            drawStateVar <- drawCanvas (initState w h canvas) False canvas bs
                            >>= newMVar
            reactStateRef <- reactInit (return $ initInput w h initCustom)
                                       (\reactStateRef _ -> actuate lastTimeRef
                                                                    reactStateRef
+                                                                   newSizeRef
                                                                    canvas
                                                                    bs
                                                                    drawStateVar)
                                       sigf
 
-           setCanvasResizeCallback (resizeCb drawStateVar canvas bs) canvas bs
+           setCanvasResizeCallback (resizeCb newSizeRef) canvas bs
 
            setCanvasRefreshCallback (refreshCb lastTimeRef reactStateRef
                                                canvas bs)
@@ -207,13 +209,7 @@ runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
 
         where initState w h canvas = evalGL $ drawInit w h canvas
 
-              resizeCb drawStateVar canvas bs w h =
-                      drawCanvas (\ctx -> modifyMVar_ drawStateVar
-                        $ \drawState -> flip evalGL ctx $
-                                                execDraw (resizeViewport w h)
-                                                         drawState
-                                            
-                                  ) False canvas bs
+              resizeCb newSizeRef w h = writeIORef newSizeRef $ Just (w, h)
 
               refreshCb lastTimeRef reactStateRef canvas bs =
                       do tm <- readIORef lastTimeRef
@@ -223,16 +219,23 @@ runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
                          react reactStateRef ((tm' - tm) * 1000, Just inp)
                          writeIORef lastTimeRef tm'
 
-              actuate lastTimeRef reactStateRef canvas bs drawStateVar
+              actuate lastTimeRef reactStateRef newSizeRef canvas bs drawStateVar
                       (Output re edrawEff) =
-                      do case edrawEff of
+                      do mNewSize <- readIORef newSizeRef
+                         case edrawEff of
                               Right (drawAct, effFun) ->
                                       do r <- drawCanvas (drawTo $
-                                                                do drawBegin
-                                                                   r <- drawAct
-                                                                   drawEnd
-                                                                   return r)
-                                                         True canvas bs
+                                              do case mNewSize of
+                                                      Just (w, h) ->
+                                                        do resizeViewport w h
+                                                           liftIO $ writeIORef
+                                                                newSizeRef
+                                                                Nothing
+                                                      Nothing -> return ()
+                                                 drawBegin
+                                                 r <- drawAct
+                                                 drawEnd
+                                                 return r) True canvas bs
                                          runEffect $ effFun r
                               Left eff -> runEffect eff
                          when re $ refreshCb lastTimeRef reactStateRef canvas bs

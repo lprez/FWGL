@@ -142,11 +142,11 @@ createCanvas clientAPI maj min title w h _ =
 
               resizeCallback events resizeRef x y =
                       do callback <- readIORef resizeRef
-                         callback x y
                          modifyIORef' events $
                                 insertEvent Resize $ emptyEventData {
                                         dataFramebufferSize = Just $ (x, y)
                                 }
+                         callback x y
 
               refreshCallback bufferSem refreshRef =
                       do empty <- isEmptyMVar bufferSem
