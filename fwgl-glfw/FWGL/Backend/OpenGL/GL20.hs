@@ -10,6 +10,7 @@ import FWGL.Backend.OpenGL.Common
 import FWGL.Backend.GLES
 import qualified Graphics.GL.Standard20 as GL
 import qualified Graphics.GL.Ext.ARB.FramebufferObject as GL
+import qualified Graphics.GL.Ext.ARB.VertexArrayObject as GL
 import qualified Graphics.GL.Ext.EXT.BlendColor as GL
 import Graphics.GL.Types as GL
 
@@ -30,6 +31,7 @@ instance GLES where
         type Program = GLuint
         type FrameBuffer = GLuint
         type RenderBuffer = GLuint
+        type VertexArrayObject = GLuint
         -- type ShaderPrecisionFormat = GLint
         type Array = (GLsizei, ForeignPtr ())
         type Float32Array = (GLsizei, ForeignPtr GLfloat)
@@ -77,6 +79,7 @@ instance GLES where
         glBindFramebuffer = const GL.glBindFramebuffer
         glBindRenderbuffer = const GL.glBindRenderbuffer
         glBindTexture = const GL.glBindTexture
+        glBindVertexArray = const GL.glBindVertexArray 
         glBlendColor = const GL.glBlendColor
         glBlendEquation = const GL.glBlendEquation
         glBlendEquationSeparate = const GL.glBlendEquationSeparate
@@ -105,6 +108,7 @@ instance GLES where
         glCreateRenderbuffer = genToCreate GL.glGenRenderbuffers
         glCreateShader = const GL.glCreateShader
         glCreateTexture = genToCreate GL.glGenTextures
+        glCreateVertexArray = genToCreate GL.glGenVertexArrays
         glCullFace = const GL.glCullFace
         glDeleteBuffer = deleteToDelete GL.glDeleteBuffers
         glDeleteFramebuffer = deleteToDelete GL.glDeleteFramebuffers
@@ -112,6 +116,7 @@ instance GLES where
         glDeleteRenderbuffer = deleteToDelete GL.glDeleteRenderbuffers
         glDeleteShader = const GL.glDeleteShader
         glDeleteTexture = deleteToDelete GL.glDeleteTextures
+        glDeleteVertexArray = deleteToDelete GL.glDeleteVertexArrays
         glDepthFunc = const GL.glDepthFunc
         glDepthMask = const GL.glDepthMask
         glDepthRange _ a b = GL.glDepthRange (realToFrac a) (realToFrac b)
@@ -142,6 +147,7 @@ instance GLES where
         glIsRenderbuffer = const GL.glIsRenderbuffer
         glIsShader = const GL.glIsShader
         glIsTexture = const GL.glIsTexture
+        glIsVertexArray = const GL.glIsVertexArray
         glLineWidth = const GL.glLineWidth
         glLinkProgram = const GL.glLinkProgram
         glPixelStorei = const GL.glPixelStorei

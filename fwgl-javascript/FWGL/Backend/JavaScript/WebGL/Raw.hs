@@ -513,5 +513,21 @@ foreign import javascript unsafe "$1.vertexAttribPointer($2, $3, $4, $5, $6, $7)
 foreign import javascript unsafe "$1.viewport($2, $3, $4, $5)"
         glViewport :: Ctx -> Int -> Int -> Int -> Int -> IO ()
 
+-- Extensions
+
 foreign import javascript unsafe "$1.getExtension($2)"
         getExtension :: Ctx -> JSString -> IO (JSRef a)
+
+-- OES_vertex_array_object
+
+foreign import javascript unsafe "$1.vaoExt.createVertexArray()"
+        glCreateVertexArrayOES :: Ctx -> IO VertexArrayObject
+
+foreign import javascript unsafe "$1.vaoExt.bindVertexArrayOES($2)"
+        glBindVertexArrayOES :: Ctx -> VertexArrayObject -> IO()
+
+foreign import javascript unsafe "$1.vaoExt.deleteVertexArrayOES($2)"
+        glDeleteVertexArrayOES :: Ctx -> VertexArrayObject -> IO()
+
+foreign import javascript unsafe "$1.vaoExt.isVertexArrayOES($2)"
+        glIsVertexArrayOES :: Ctx -> VertexArrayObject -> IO Bool

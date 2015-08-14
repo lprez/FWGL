@@ -177,6 +177,7 @@ instance GLES where
         type Program = JS.Program
         type FrameBuffer = JS.FrameBuffer
         type RenderBuffer = JS.RenderBuffer
+        type VertexArrayObject = JS.VertexArrayObject
         -- type ActiveInfo = JS.ActiveInfo
         -- type ShaderPrecisionFormat = JS.ShaderPrecisionFormat
         type Array = JS.ArrayBufferView
@@ -248,6 +249,7 @@ instance GLES where
         glBindFramebuffer = JS.glBindFramebuffer
         glBindRenderbuffer = JS.glBindRenderbuffer
         glBindTexture = JS.glBindTexture
+        glBindVertexArray = JS.glBindVertexArrayOES
         glBlendColor = JS.glBlendColor
         glBlendEquation = JS.glBlendEquation
         glBlendEquationSeparate = JS.glBlendEquationSeparate
@@ -272,6 +274,7 @@ instance GLES where
         glCreateRenderbuffer = JS.glCreateRenderbuffer
         glCreateShader = JS.glCreateShader
         glCreateTexture = JS.glCreateTexture
+        glCreateVertexArray = JS.glCreateVertexArrayOES
         glCullFace = JS.glCullFace
         glDeleteBuffer = JS.glDeleteBuffer
         glDeleteFramebuffer = JS.glDeleteFramebuffer
@@ -279,6 +282,7 @@ instance GLES where
         glDeleteRenderbuffer = JS.glDeleteRenderbuffer
         glDeleteShader = JS.glDeleteShader
         glDeleteTexture = JS.glDeleteTexture
+        glDeleteVertexArray = JS.glDeleteVertexArrayOES
         glDepthFunc = JS.glDepthFunc
         glDepthMask = JS.glDepthMask
         glDepthRange = JS.glDepthRange
@@ -321,6 +325,7 @@ instance GLES where
         glIsRenderbuffer = JS.glIsRenderbuffer
         glIsShader = JS.glIsShader
         glIsTexture = JS.glIsTexture
+        glIsVertexArray = JS.glIsVertexArrayOES
         glLineWidth = JS.glLineWidth
         glLinkProgram = JS.glLinkProgram
         glPixelStorei = JS.glPixelStorei

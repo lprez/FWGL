@@ -11,6 +11,7 @@ module FWGL.Backend.JavaScript.WebGL.Types (
         Buffer,
         FrameBuffer,
         RenderBuffer,
+        VertexArrayObject,
         Texture,
         UniformLocation,
         ActiveInfo,
@@ -71,6 +72,9 @@ type FrameBuffer = JSRef FrameBuffer_
 
 data RenderBuffer_
 type RenderBuffer = JSRef RenderBuffer_
+
+data VertexArrayObject_
+type VertexArrayObject = JSRef VertexArrayObject_
 
 data Texture_
 type Texture = JSRef Texture_

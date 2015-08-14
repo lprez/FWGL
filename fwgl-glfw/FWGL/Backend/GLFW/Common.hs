@@ -189,11 +189,13 @@ getInput c (Canvas _ events _ _ _) _ = flip Input c <$> readIORef events
 drawCanvas :: (() -> IO a) -> Bool -> Canvas -> BackendState -> IO a
 drawCanvas act shouldSwap (Canvas win _ _ _ bufferSem) bs =
         do bound <- isCurrentThreadBound
-           {-
            tid <- myThreadId
+           {-
            let log s = do b <- readCounter $ drawingBoundThreads bs
                           u <- isEmptyMVar $ drawingUnboundThread bs
-                          putStrLn $ "[" ++ show tid ++ "]" ++
+                          Just t <- GLFW.getTime
+                          putStrLn $ "{" ++ show t ++ "}" ++
+                                     "[" ++ show tid ++ "]" ++
                                      (if bound then "[B]" else "[U]") ++
                                      "[" ++ show b ++ "]" ++
                                      (if u then "[ ]" else "[X]") ++ " " ++ s
@@ -224,11 +226,17 @@ forkWithContext a = do mctx <- getCurrentContext
 
 refreshLoop :: Int -> Canvas -> BackendState -> IO ()
 refreshLoop fps c@(Canvas win _ _ refreshCallback _) bs =
-        do closed <- windowShouldClose win
+        do Just t1 <- GLFW.getTime
+           closed <- windowShouldClose win
            join $ readIORef refreshCallback
+           Just t2 <- GLFW.getTime
+           let passed = (t2 - t1) * 1000000
            if closed
                 then destroyWindow win
-                else threadDelay (div 1000000 fps) >> refreshLoop fps c bs
+                else do when (passed > 0) $
+                                threadDelay . ceiling $ delay - passed
+                        refreshLoop fps c bs
+        where delay = 1000000 / fromIntegral fps
 
 getTime :: BackendState -> IO Double
 getTime _ = do Just t <- GLFW.getTime

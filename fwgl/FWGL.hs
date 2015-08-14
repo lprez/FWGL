@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies,
-             GeneralizedNewtypeDeriving #-}
+             GeneralizedNewtypeDeriving, ExistentialQuantification #-}
 
 {-|
     The main module. You should also import a backend:
@@ -28,48 +28,47 @@ module FWGL (
         fwgl,
         mapIO,
         -- * FRP interface
+        Output,
         run,
         run',
         runTo,
-        -- ** Effects
-        Output(..),
-        (.>),
         draw,
-        io,
+        -- * Draw monad
+        Draw,
+        drawM,
+        -- ** Drawing
+        drawLayer,
+        drawObject,
+        renderLayer,
+        setProgram,
+        resizeViewport,
+        gl,
+        -- ** Texture functions
+        textureUniform,
+        textureSize,
+        -- ** Resources
+        removeGeometry,
+        removeTexture,
+        removeProgram,
+        -- * Effect monad
+        Effect,
+        eff,
+        drawEff,
+        drawMEff,
+        fastStep,
+        -- ** Lifting functions
+        liftIO,
+        liftDraw,
+        -- ** Window/Canvas
         setSize,
         setTitle,
-        fastStep,
-        freeGeometry,
-        freeTexture,
-        freeProgram,
-        drawM,
         -- * File loading
         loadOBJ,
         loadOBJAsync,
         loadTextFileAsync,
-        -- * Draw monad
-        Draw,
-        drawLayer,
-        drawObject,
-        setProgram,
-        -- ** Memory functions
-        removeGeometry,
-        removeTexture,
-        removeProgram,
-        -- ** Texture functions
-        textureUniform,
-        textureSize,
-        -- textureData
-        -- ** Lifting functions
-        gl,
-        liftIO,
-        -- ** Other functions
-        resizeViewport,
-        renderLayer,
-        outDraw,
         {-
         -- * Effectful Interface
-        runDraw,
+        runEffect,
         setCanvasSize,
         setCanvasTitle,
         getTime
@@ -96,58 +95,59 @@ import FWGL.Utils
 import FRP.Yampa
 
 -- | The general output.
-data Output = Output Bool (Canvas -> BackendState -> Draw ())
+data Output = forall a. Output Bool (Either (Effect ())
+                                    (Draw a, a -> Effect ()))
 
--- | Sequence two 'Output' effects.
-(.>) :: Output -> Output -> Output
-Output r d .> Output r' d' = Output (r || r') (\c b -> d c b >> d' c b)
+newtype Effect a = Effect (ReaderT (Canvas, BackendState) Draw a)
+        deriving (Functor, Applicative, Monad, MonadIO)
 
--- | Draw some layers.
+-- | Draw some layers. Short for:
+-- 
+-- > drawM . mapM_ drawLayer
 draw :: BackendIO => [Layer] -> Output
-draw ls = Output False $ \_ _ -> mapM_ drawLayer ls
+draw = drawM . mapM_ drawLayer
 
--- | Use this when you want the next sample to be performed immediately
--- (e.g. when you need to produce some computationally expensive effectful input
--- at the request of the signal function). You can place it anywhere in the
--- action sequence. You shouldn't draw anything if you use it.
-fastStep :: Output
-fastStep = Output True $ \_ _ -> return ()
-
--- | Perform an IO action.
-io :: IO () -> Output
-io c = Output False $ \_ _ -> liftIO c
-
--- | Perform a 'Draw' action.
+-- | Run a 'Draw' action.
 drawM :: Draw () -> Output
-drawM c = Output False $ \_ _ -> c
+drawM d = Output False $ Right (d, \_ -> return ())
 
--- | Perform an 'Output' action in the Draw monad.
-outDraw :: Output -> (Draw () -> Draw ()) -> Output
-outDraw (Output r act) k = Output r $ \canvas -> k . act canvas
+-- | Perform an effect.
+eff :: Effect () -> Output
+eff = Output False . Left
 
--- | Delete a 'Geometry' from the GPU.
-freeGeometry :: BackendIO => Geometry i -> Output
-freeGeometry g = Output False $ \_ _ -> void $ removeGeometry g
+-- | Draw some layers and perform an effect.
+drawEff :: BackendIO => [Layer] -> Effect () -> Output
+drawEff layers eff = drawMEff (mapM_ drawLayer layers) $ const eff
 
--- | Delete a 'Texture' from the GPU.
-freeTexture :: BackendIO => Texture -> Output
-freeTexture t = Output False $ \_ _ -> void $ removeTexture t
+-- | Run a 'Draw' action and perform an effect.
+drawMEff :: Draw a -> (a -> Effect ()) -> Output
+drawMEff = curry $ Output False . Right
 
--- | Delete a 'Program' from the GPU.
-freeProgram :: BackendIO => Program g i -> Output
-freeProgram p = Output False $ \_ _ -> void $ removeProgram p
+-- | Use this instead of 'eff' when you want the next sample to be performed
+-- immediately (e.g. when you need to produce some computationally expensive
+-- effectful input at the request of the signal function).
+fastStep :: Effect () -> Output
+fastStep = Output True . Left
+
+-- | Perform a 'Draw' effect. Note that ('eff' . liftDraw) is different from
+-- 'drawM': you have to use drawM to actually draw something on the screen. 
+-- liftDraw should be used to modify the state of the context, to get some
+-- information from it, to render a 'Layer' on a 'Texture', ecc.
+liftDraw :: Draw a -> Effect a
+liftDraw c = Effect . ReaderT $ const c
 
 -- | Set canvas/window size.
 setSize :: BackendIO
         => Int -- ^ Width
         -> Int -- ^ Height
-        -> Output
-setSize w h = Output False $ \canvas bs -> liftIO $ setCanvasSize w h canvas bs
+        -> Effect ()
+setSize w h = Effect $ ask >>= \(canvas, bs) ->
+                liftIO $ setCanvasSize w h canvas bs
 
 -- | Set window title.
-setTitle :: BackendIO => String -> Output
-setTitle title = Output False $
-        \canvas bs -> liftIO $ setCanvasTitle title canvas bs
+setTitle :: BackendIO => String -> Effect ()
+setTitle title = Effect $ ask >>= \(canvas, bs) ->
+                liftIO $ setCanvasTitle title canvas bs
 
 newtype FWGL a = FWGL (ReaderT BackendState IO a)
         deriving (Functor, Applicative, Monad, MonadIO)
@@ -224,16 +224,26 @@ runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
                          writeIORef lastTimeRef tm'
 
               actuate lastTimeRef reactStateRef canvas bs drawStateVar
-                      (Output re drawAct) =
-                      do drawCanvas drawTo True canvas bs
+                      (Output re edrawEff) =
+                      do case edrawEff of
+                              Right (drawAct, effFun) ->
+                                      do r <- drawCanvas (drawTo $
+                                                                do drawBegin
+                                                                   r <- drawAct
+                                                                   drawEnd
+                                                                   return r)
+                                                         True canvas bs
+                                         runEffect $ effFun r
+                              Left eff -> runEffect eff
                          when re $ refreshCb lastTimeRef reactStateRef canvas bs
                          return False
-                      where drawTo ctx =
-                              modifyMVar_ drawStateVar $ \s ->
-                                     flip evalGL ctx . flip execDraw s $
-                                                do unless re drawBegin
-                                                   drawAct canvas bs
-                                                   unless re drawEnd
+                      where drawTo drawAct ctx = modifyMVar drawStateVar $ \s ->
+                                     flip evalGL ctx . fmap swap $
+                                             runDraw drawAct s
+                            runEffect (Effect e) =
+                                drawCanvas (drawTo $ runReaderT e (canvas, bs))
+                                           False canvas bs
+                            swap (a, b) = (b, a)
         
               initInput w h = Input $ H.singleton Resize [
                         emptyEventData {

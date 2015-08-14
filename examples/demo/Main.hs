@@ -91,8 +91,7 @@ gradient c1 c2 = mkTexture (floor w) (floor w) $ unfoldr f (0, 0)
               w = 256 :: Num a => a
 
 main :: IO ()
-main = do initialize
-          monkeyOBJ <- newIORef Nothing
+main = do monkeyOBJ <- newIORef Nothing
 #ifdef __GHCJS__
           loadDiv $ toJSString "<b>Loading monkey.obj...</b>"
 #endif
@@ -103,8 +102,7 @@ main = do initialize
 #ifdef __GHCJS__
                                         loadDiv $ toJSString ""
 #endif
-          run' (readIORef monkeyOBJ) mainSF
-          terminate
+          fwgl $ run' (readIORef monkeyOBJ) mainSF
 
 #ifdef __GHCJS__
 foreign import javascript unsafe "document.getElementById('load').innerHTML = $1;"

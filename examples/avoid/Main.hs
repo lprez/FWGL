@@ -66,4 +66,4 @@ mainSig r = perspective4 1000 0.3 100 &&& car &&& walls r >>>
         where redScreen = [cube $ colorTex red]
 
 main :: IO ()
-main = initialize >> newStdGen >>= run . mainSig >> terminate
+main = newStdGen >>= fwgl . run . mainSig

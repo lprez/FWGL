@@ -8,6 +8,7 @@ import Data.Vect.Float
 import Data.Word
 import FWGL.Graphics.Color
 
+-- | Mixed OpenGL ES 2.0/WebGL 1.0/OpenGL 2.0 API, with VAOs and FBOs.
 class ( Integral GLEnum
       , Integral GLUInt
       , Integral GLInt
@@ -40,6 +41,7 @@ class ( Integral GLEnum
         type Program
         type FrameBuffer
         type RenderBuffer
+        type VertexArrayObject
         -- type ActiveInfo
         -- type ShaderPrecisionFormat
         type Array
@@ -75,6 +77,7 @@ class ( Integral GLEnum
         glBindFramebuffer :: Ctx -> GLEnum -> FrameBuffer -> IO ()
         glBindRenderbuffer :: Ctx -> GLEnum -> RenderBuffer -> IO ()
         glBindTexture :: Ctx -> GLEnum -> Texture -> IO ()
+        glBindVertexArray :: Ctx -> VertexArrayObject -> IO ()
         glBlendColor :: Ctx -> Float -> Float -> Float -> Float -> IO ()
         glBlendEquation :: Ctx -> GLEnum -> IO ()
         glBlendEquationSeparate :: Ctx -> GLEnum -> GLEnum -> IO ()
@@ -99,6 +102,7 @@ class ( Integral GLEnum
         glCreateRenderbuffer :: Ctx -> IO RenderBuffer
         glCreateShader :: Ctx -> GLEnum -> IO Shader
         glCreateTexture :: Ctx -> IO Texture
+        glCreateVertexArray :: Ctx -> IO VertexArrayObject
         glCullFace :: Ctx -> GLEnum -> IO ()
         glDeleteBuffer :: Ctx -> Buffer -> IO ()
         glDeleteFramebuffer :: Ctx -> FrameBuffer -> IO ()
@@ -106,6 +110,7 @@ class ( Integral GLEnum
         glDeleteRenderbuffer :: Ctx -> RenderBuffer -> IO ()
         glDeleteShader :: Ctx -> Shader -> IO ()
         glDeleteTexture :: Ctx -> Texture -> IO ()
+        glDeleteVertexArray :: Ctx -> VertexArrayObject -> IO ()
         glDepthFunc :: Ctx -> GLEnum -> IO ()
         glDepthMask :: Ctx -> GLBool -> IO ()
         glDepthRange :: Ctx -> Float -> Float -> IO ()
@@ -148,6 +153,7 @@ class ( Integral GLEnum
         glIsRenderbuffer :: Ctx -> RenderBuffer -> IO GLBool
         glIsShader :: Ctx -> Shader -> IO GLBool
         glIsTexture :: Ctx -> Texture -> IO GLBool
+        glIsVertexArray :: Ctx -> VertexArrayObject -> IO GLBool
         glLineWidth :: Ctx -> Float -> IO ()
         glLinkProgram :: Ctx -> Program -> IO ()
         glPixelStorei :: Ctx -> GLEnum -> GLInt -> IO ()

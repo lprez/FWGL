@@ -4,6 +4,7 @@
 module FWGL.Graphics.Draw (
         Draw,
         DrawState,
+        runDraw,
         execDraw,
         drawInit,
         drawBegin,
@@ -74,7 +75,15 @@ drawInit w h canvas =
         where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
 
-              maxTexs = fromIntegral gl_MAX_COMBINED_TEXTURE_IMAGE_UNITS
+
+maxTexs :: (Integral a, GLES) => a
+maxTexs = 32 -- fromIntegral gl_MAX_COMBINED_TEXTURE_IMAGE_UNITS -- XXX
+
+-- | Run a 'Draw' action.
+runDraw :: Draw a
+        -> DrawState
+        -> GL (a, DrawState)
+runDraw (Draw a) = runStateT a
 
 -- | Execute a 'Draw' action.
 execDraw :: Draw ()             -- ^ Action.
@@ -201,10 +210,11 @@ getProgram :: (GLES, BackendIO)
            => Program '[] '[] -> Draw (ResStatus LoadedProgram)
 getProgram = getDrawResource gl programs (\ m s -> s { programs = m })
 
-freeActiveTextures :: Draw ()
+freeActiveTextures :: GLES => Draw ()
 freeActiveTextures = Draw . modify $ \ds ->
-        ds { activeTextures = V.map (const Nothing) $ activeTextures ds }
+        ds { activeTextures = V.replicate maxTexs Nothing }
 
+-- pretty expensive
 makeActive :: GLES => Texture -> Draw ActiveTexture
 makeActive t = do ats <- activeTextures <$> Draw get
                   let at@(ActiveTexture atn) =
