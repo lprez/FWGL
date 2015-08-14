@@ -2,6 +2,7 @@
 
 module FWGL.Backend.OpenGL.GL20 () where
         
+import Control.Concurrent (MVar)
 import Data.Word
 import Data.Vect.Float
 import Foreign
@@ -15,7 +16,7 @@ import qualified Graphics.GL.Ext.EXT.BlendColor as GL
 import Graphics.GL.Types as GL
 
 instance GLES where
-        type Ctx = ()
+        type Ctx = MVar ()
         type GLEnum = GLenum
         type GLUInt = GLuint
         type GLInt = GLint

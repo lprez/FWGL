@@ -10,7 +10,7 @@ module FWGL.Backend.GLFW.Common (
         popInput,
         getInput,
         drawCanvas,
-        forkWithContext,
+        safeFork,
         refreshLoop,
         FWGL.Backend.GLFW.Common.getTime,
         terminateBackend,
@@ -59,12 +59,8 @@ loadTextFile fname handler = (>> return ()) . forkIO $
         catch (fmap (\s -> s `seq` Right s) $ readFile fname)
               (\e -> return (Left $ show (e :: IOError))) >>= handler
 
-data ThreadType = Bound | Unbound
-
 data BackendState = BackendState {
-        eventThread :: ThreadId,
-        drawingUnboundThread :: MVar (),
-        drawingBoundThreads :: Counter
+        eventThread :: ThreadId
 }
 
 data Canvas = Canvas GLFW.Window
@@ -76,11 +72,9 @@ data Canvas = Canvas GLFW.Window
 initBackend :: IO BackendState
 initBackend = do GLFW.init
                  -- XXX: for some reason, waitEvents makes the windows really slow
-                 evTid <- forkIO $ forever pollEvents >> threadDelay 30000
                  setTime 0
-                 bound <- newCounter
-                 unbound <- newMVar ()
-                 return $ BackendState evTid unbound bound
+                 evTid <- forkIO $ forever pollEvents >> threadDelay 30000
+                 return $ BackendState evTid
 
 createCanvas :: ClientAPI -> Int -> Int
              -> String -> Int -> Int -> BackendState -> IO (Canvas, Int, Int)
@@ -186,43 +180,25 @@ popInput c canvas@(Canvas _ events _ _ _) bs = do i <- getInput c canvas bs
 getInput :: a -> Canvas -> BackendState -> IO (Input a)
 getInput c (Canvas _ events _ _ _) _ = flip Input c <$> readIORef events
 
-drawCanvas :: (() -> IO a) -> Bool -> Canvas -> BackendState -> IO a
-drawCanvas act shouldSwap (Canvas win _ _ _ bufferSem) bs =
-        do bound <- isCurrentThreadBound
-           tid <- myThreadId
-           {-
-           let log s = do b <- readCounter $ drawingBoundThreads bs
-                          u <- isEmptyMVar $ drawingUnboundThread bs
-                          Just t <- GLFW.getTime
-                          putStrLn $ "{" ++ show t ++ "}" ++
-                                     "[" ++ show tid ++ "]" ++
-                                     (if bound then "[B]" else "[U]") ++
-                                     "[" ++ show b ++ "]" ++
-                                     (if u then "[ ]" else "[X]") ++ " " ++ s
-           -}
-           () <- takeMVar $ drawingUnboundThread bs
-
-           if bound
-                then do incCounter $ drawingBoundThreads bs
-                        putMVar (drawingUnboundThread bs) ()
-                else do waitCounter $ drawingBoundThreads bs
-
-           () <- takeMVar bufferSem
+draw :: IO a -> Bool -> MVar () -> Window -> IO a
+draw act shouldSwap bufferSem win =
+        do () <- takeMVar bufferSem
            makeContextCurrent $ Just win
-           r <- act ()
+           r <- act
            when shouldSwap $
                  swapBuffers win
+           makeContextCurrent Nothing
            putMVar bufferSem ()
-
-           if bound
-                then decCounter $ drawingBoundThreads bs
-                else putMVar (drawingUnboundThread bs) ()
-
            return r
 
-forkWithContext :: IO () -> IO ThreadId
-forkWithContext a = do mctx <- getCurrentContext
-                       forkIO $ makeContextCurrent mctx >> a
+drawCanvas :: (MVar () -> IO a) -> Bool -> Canvas -> BackendState -> IO a
+drawCanvas act swap (Canvas win _ _ _ sem) _ = draw (act sem) swap sem win
+
+safeFork :: MVar () -> (IO () -> IO ThreadId) -> IO () -> IO ThreadId
+safeFork sem fork thread = do mctx <- getCurrentContext
+                              fork $ case mctx of
+                                          Just ctx -> draw thread False sem ctx
+                                          Nothing -> thread
 
 refreshLoop :: Int -> Canvas -> BackendState -> IO ()
 refreshLoop fps c@(Canvas win _ _ refreshCallback _) bs =
@@ -243,32 +219,7 @@ getTime _ = do Just t <- GLFW.getTime
                return t
 
 terminateBackend :: BackendState -> IO ()
-terminateBackend (BackendState tid _ _) = killThread tid >> terminate
-
-data Counter = Counter (MVar Integer) (MVar ())
-
-newCounter :: IO Counter
-newCounter = do num <- newMVar 0
-                empty <- newMVar ()
-                return $ Counter num empty
-
-incCounter :: Counter -> IO ()
-incCounter (Counter numVar empty) =
-        do num <- takeMVar numVar
-           when (num == 0) $ takeMVar empty
-           putMVar numVar $ num + 1
-
-decCounter :: Counter -> IO ()
-decCounter (Counter numVar empty) =
-        do num <- takeMVar numVar
-           when (num <= 1) $ putMVar empty ()
-           putMVar numVar $ num - 1
-
-waitCounter :: Counter -> IO ()
-waitCounter (Counter _ e) = readMVar e
-
-readCounter :: Counter -> IO Integer
-readCounter (Counter numVar _) = readMVar numVar
+terminateBackend (BackendState tid) = killThread tid >> terminate
 
 toMouseButton :: GLFW.MouseButton -> Input.MouseButton
 toMouseButton MouseButton'1 = MouseLeft

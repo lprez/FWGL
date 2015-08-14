@@ -48,7 +48,7 @@ class GLES => BackendIO where
                    -> BackendState
                    -> IO a
 
-        forkWithContext :: IO () -> IO ThreadId
+        safeFork :: Ctx -> (IO () -> IO ThreadId) -> IO () -> IO ThreadId
 
         refreshLoop :: Int  -- ^ FPS (not necessarily used).
                     -> Canvas

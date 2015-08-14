@@ -150,7 +150,7 @@ instance BackendIO where
 
         drawCanvas act _ (Canvas _ _ ctxRef _ _) _ = readIORef ctxRef >>= act
 
-        forkWithContext = forkIO
+        safeFork _ = ($)
 
         -- TODO: block
         refreshLoop t c@(Canvas _ _ _ _ refreshRef) bs =

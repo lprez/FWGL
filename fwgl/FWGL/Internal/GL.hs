@@ -140,7 +140,7 @@ import Control.Concurrent
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State
 import Data.Word
-import FWGL.Backend.IO (BackendIO, forkWithContext)
+import FWGL.Backend.IO (BackendIO, safeFork)
 import FWGL.Backend.GLES
         
 -- TODO: context loss
@@ -153,7 +153,8 @@ evalGL :: GL a -> Ctx -> IO a
 evalGL (GL m) = evalStateT m
 
 forkGL :: (GLES, BackendIO) => GL () -> GL ThreadId
-forkGL a = getCtx >>= \ctx -> liftIO . forkWithContext $ evalGL a ctx
+forkGL a = getCtx >>= \ctx ->
+        liftIO . safeFork ctx forkIO $ evalGL a ctx
 
 asyncGL :: (GLES, BackendIO) => GL a -> (a -> GL ()) -> GL ()
 asyncGL r f = forkGL (r >>= f) >> return ()
