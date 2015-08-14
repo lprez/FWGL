@@ -520,7 +520,7 @@ foreign import javascript unsafe "$1.getExtension($2)"
 
 -- OES_vertex_array_object
 
-foreign import javascript unsafe "$1.vaoExt.createVertexArray()"
+foreign import javascript unsafe "$1.vaoExt.createVertexArrayOES()"
         glCreateVertexArrayOES :: Ctx -> IO VertexArrayObject
 
 foreign import javascript unsafe "$1.vaoExt.bindVertexArrayOES($2)"

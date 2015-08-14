@@ -66,7 +66,8 @@ drawInit w h canvas =
            return DrawState { currentProgram = Nothing
                             , loadedProgram = Nothing
                             , programs = newGLResMap
-                            , gpuMeshes = newGLResMap
+                            , gpuBuffers = newGLResMap
+                            , gpuVAOs = newDrawResMap
                             , uniforms = newGLResMap
                             , textureImages = newGLResMap
                             , activeTextures =
@@ -74,6 +75,9 @@ drawInit w h canvas =
                             , viewportSize = (w, h) }
         where newGLResMap :: (Hashable i, Resource i r GL) => ResMap i r
               newGLResMap = newResMap
+              
+              newDrawResMap :: (Hashable i, Resource i r Draw) => ResMap i r
+              newDrawResMap = newResMap
 
 
 maxTexs :: (Integral a, GLES) => a
@@ -86,10 +90,16 @@ runDraw :: Draw a
 runDraw (Draw a) = runStateT a
 
 -- | Execute a 'Draw' action.
-execDraw :: Draw ()             -- ^ Action.
+execDraw :: Draw a              -- ^ Action.
          -> DrawState           -- ^ State.
          -> GL DrawState
 execDraw (Draw a) = execStateT a
+
+-- | Evaluate a 'Draw' action.
+evalDraw :: Draw a              -- ^ Action.
+         -> DrawState           -- ^ State.
+         -> GL a
+evalDraw (Draw a) = evalStateT a
 
 -- | Get the 'DrawState'.
 drawState :: Draw DrawState
@@ -113,8 +123,9 @@ drawEnd = return ()
 
 -- | Delete a 'Geometry' from the GPU.
 removeGeometry :: (GLES, BackendIO) => Geometry is -> Draw Bool
-removeGeometry = removeDrawResource gl gpuMeshes (\m s -> s { gpuMeshes = m })
-                 . castGeometry
+removeGeometry gi = let g = castGeometry gi in
+        do removeDrawResource gl gpuBuffers (\m s -> s { gpuBuffers = m }) g
+           removeDrawResource id gpuVAOs (\m s -> s { gpuVAOs = m }) g
 
 -- | Delete a 'Texture' from the GPU.
 removeTexture :: BackendIO => Texture -> Draw Bool
@@ -141,8 +152,8 @@ drawLayer (MultiLayer layers) = mapM_ drawLayer layers
 -- | Draw an 'Object'.
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
 drawObject ObjectEmpty = return ()
-drawObject (ObjectMesh g) = withRes_ (getGPUGeometry $ castGeometry g)
-                                   drawGPUGeometry
+drawObject (ObjectMesh g) = withRes_ (getGPUVAOGeometry $ castGeometry g)
+                                   drawGPUVAOGeometry
 drawObject (ObjectGlobal g c o) = c >>= uniform g >> drawObject o
 drawObject (ObjectAppend o o') = drawObject o >> drawObject o'
 
@@ -193,9 +204,21 @@ getUniform g = do mprg <- loadedProgram <$> Draw get
                                                   (prg, globalName g)
                           Nothing -> return $ Error "No loaded program."
 
-getGPUGeometry :: (GLES, BackendIO)
-               => Geometry '[] -> Draw (ResStatus GPUGeometry)
-getGPUGeometry = getDrawResource gl gpuMeshes (\ m s -> s { gpuMeshes = m })
+getGPUVAOGeometry :: (GLES, BackendIO)
+                  => Geometry '[] -> Draw (ResStatus GPUVAOGeometry)
+getGPUVAOGeometry = getDrawResource id gpuVAOs (\ m s -> s { gpuVAOs = m })
+
+getGPUBufferGeometry :: (GLES, BackendIO)
+                     => Geometry '[] -> Draw (ResStatus GPUBufferGeometry)
+getGPUBufferGeometry = getDrawResource gl gpuBuffers
+                                       (\ m s -> s { gpuBuffers = m })
+
+getGPUBufferGeometry' :: (GLES, BackendIO)
+                      => Geometry '[]
+                      -> (Either String GPUBufferGeometry -> GL ())
+                      -> Draw (ResStatus GPUBufferGeometry)
+getGPUBufferGeometry' = getDrawResource' gl gpuBuffers
+                                         (\ m s -> s { gpuBuffers = m })
 
 getTexture :: (GLES, BackendIO) => Texture -> Draw (ResStatus LoadedTexture)
 getTexture (TextureLoaded l) = return $ Loaded l
@@ -339,9 +362,19 @@ getDrawResource :: (Resource i r m, Hashable i)
                 -> (ResMap i r -> DrawState -> DrawState)
                 -> i
                 -> Draw (ResStatus r)
-getDrawResource lft mg ms i = do
+getDrawResource lft mg ms i = getDrawResource' lft mg ms i $ const (return ())
+
+getDrawResource' :: (Resource i r m, Hashable i)
+                 => (m (ResStatus r, ResMap i r)
+                     -> Draw (ResStatus r, ResMap i r))
+                 -> (DrawState -> ResMap i r)
+                 -> (ResMap i r -> DrawState -> DrawState)
+                 -> i
+                 -> (Either String r -> m ())
+                 -> Draw (ResStatus r)
+getDrawResource' lft mg ms i f = do
         s <- Draw get
-        (r, map) <- lft . getResource i $ mg s
+        (r, map) <- lft $ getResource' i (mg s) f
         Draw . put $ ms map s
         return r
 
@@ -357,36 +390,33 @@ removeDrawResource lft mg ms i = do
         Draw . put $ ms map s
         return removed
 
-drawGPUGeometry :: GLES => GPUGeometry -> Draw ()
-drawGPUGeometry (GPUGeometry abs eb ec) =
-        loadedProgram <$> Draw get >>= \mlp -> case mlp of
-                Nothing -> return ()
-                Just (LoadedProgram _ locs _) -> gl $ do
-                        bindBuffer gl_ARRAY_BUFFER noBuffer
-                        enabledLocs <- mapM (\(nm, buf, setAttr) ->
-                                             let loc = locs H.! nm in
-                                                  do bindBuffer gl_ARRAY_BUFFER
-                                                                buf
-                                                     enableVertexAttribArray $
-                                                             fromIntegral loc
-                                                     setAttr $ fromIntegral loc
-                                                     return loc
-                                            ) abs
-
-                        bindBuffer gl_ELEMENT_ARRAY_BUFFER eb
-                        drawElements gl_TRIANGLES (fromIntegral ec)
-                                     gl_UNSIGNED_SHORT nullGLPtr
-                        bindBuffer gl_ELEMENT_ARRAY_BUFFER noBuffer
-
-                        mapM_ (disableVertexAttribArray . fromIntegral)
-                              enabledLocs
-                        bindBuffer gl_ARRAY_BUFFER noBuffer
+drawGPUVAOGeometry :: GLES => GPUVAOGeometry -> Draw ()
+drawGPUVAOGeometry (GPUVAOGeometry _ ec vao) = currentProgram <$> Draw get >>=
+        \mcp -> case mcp of
+                     Just _ -> gl $ do bindVertexArray vao
+                                       drawElements gl_TRIANGLES
+                                                    (fromIntegral ec)
+                                                    gl_UNSIGNED_SHORT
+                                                    nullGLPtr
+                                       bindVertexArray noVAO
+                     Nothing -> return ()
 
 instance GLES => Resource (LoadedProgram, String) UniformLocation GL where
         loadResource (LoadedProgram prg _ _, g) f =
                 do loc <- getUniformLocation prg $ toGLString g
                    f . Right $ UniformLocation loc
         unloadResource _ _ = return ()
+
+instance (GLES, BackendIO) => Resource (Geometry '[]) GPUVAOGeometry Draw where
+        loadResource g f = (>> return ()) . getGPUBufferGeometry' g $
+                \ge -> case ge of
+                           Left err -> drawInGL . f $ Left err
+                           Right buf -> loadResource buf $ drawInGL . f
+
+                where drawInGL = flip evalDraw $
+                                error "drawInGL: can't access draw state"
+        unloadResource _ =
+                gl . unloadResource (Nothing :: Maybe GPUBufferGeometry)
 
 -- | Perform a 'GL' action in the 'Draw' monad.
 gl :: GL a -> Draw a

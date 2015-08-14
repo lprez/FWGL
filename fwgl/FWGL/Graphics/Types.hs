@@ -47,7 +47,8 @@ data DrawState = DrawState {
         loadedProgram :: Maybe LoadedProgram,
         programs :: ResMap (Program '[] '[]) LoadedProgram,
         uniforms :: ResMap (LoadedProgram, String) UniformLocation,
-        gpuMeshes :: ResMap (Geometry '[]) GPUGeometry,
+        gpuBuffers :: ResMap (Geometry '[]) GPUBufferGeometry,
+        gpuVAOs :: ResMap (Geometry '[]) GPUVAOGeometry,
         textureImages :: ResMap TextureImage LoadedTexture,
         activeTextures :: Vector (Maybe Texture),
         viewportSize :: (Int, Int)

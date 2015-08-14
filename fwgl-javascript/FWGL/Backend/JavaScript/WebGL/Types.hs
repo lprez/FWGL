@@ -31,6 +31,7 @@ module FWGL.Backend.JavaScript.WebGL.Types (
         listToJSArray,
         noBuffer,
         noTexture,
+        noVAO,
         noArray
 ) where
 
@@ -99,6 +100,9 @@ noBuffer = jsNull
 
 noTexture :: Texture
 noTexture = jsNull
+
+noVAO :: VertexArrayObject
+noVAO = jsNull
 
 noArray :: IO ArrayBufferView
 noArray = return jsNull

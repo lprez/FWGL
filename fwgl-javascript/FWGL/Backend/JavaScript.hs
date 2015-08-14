@@ -88,6 +88,9 @@ createCanvas' element =
                    resizeCb <- newIORef $ \_ _ -> return ()
                    refreshCb <- newIORef $ return ()
                    JS.getExtension ctx $ toJSString "WEBGL_depth_texture"
+                   vaoExt <- JS.getExtension ctx $
+                                toJSString "OES_vertex_array_object"
+                   setProp "vaoExt" vaoExt ctx
                    (Just w) <- getProp "clientWidth" element >>= fromJSRef
                    (Just h) <- getProp "clientHeight" element >>= fromJSRef
                    focus element
@@ -192,6 +195,7 @@ instance GLES where
         noBuffer = JS.noBuffer
         noTexture = JS.noTexture
         noArray = JS.noArray
+        noVAO = JS.noVAO
 
         encodeMat2 (Mat2 (Vec2 a1 a2) (Vec2 b1 b2)) =
                 JS.listToJSArray [ a1, a2, b1, b2] >>= JS.float32Array

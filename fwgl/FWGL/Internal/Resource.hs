@@ -8,6 +8,7 @@ module FWGL.Internal.Resource (
         newResMap,
         addResource,
         getResource,
+        getResource',
         removeResource
 ) where
 
@@ -24,7 +25,7 @@ data ResMap i r = forall m. (Resource i r m, Hashable i) =>
 data ResStatus r = Loaded r | Unloaded | Loading | Error String
 
 class (Eq i, Applicative m, MonadIO m) =>
-      Resource i r m | i -> r m where
+      Resource i r m | i r -> m where
         loadResource :: i -> (Either String r -> m ()) -> m ()
         unloadResource :: Maybe i -> r -> m ()
 
@@ -42,16 +43,23 @@ checkResource i (ResMap map) = case H.lookup i map of
 
 getResource :: (Resource i r m, Hashable i)
             => i -> ResMap i r -> m (ResStatus r, ResMap i r)
-getResource i rmap@(ResMap map) =
+getResource i r = getResource' i r $ const (return ())
+
+getResource' :: (Resource i r m, Hashable i)
+             => i -> ResMap i r
+             -> (Either String r -> m ())
+             -> m (ResStatus r, ResMap i r)
+getResource' i rmap@(ResMap map) f =
         do status <- checkResource i rmap
            case status of
                    Unloaded ->
                         do ref <- liftIO $ newIORef Loading
-                           loadResource i $ \e -> case e of
+                           loadResource i $ \e -> f e >> case e of
                                  Left s -> liftIO . writeIORef ref $ Error s
                                  Right r -> liftIO . writeIORef ref $ Loaded r
                            status' <- liftIO $ readIORef ref
                            return (status', ResMap $ H.insert i ref map)
+                   Loaded r -> f (Right r) >> return (status, rmap)
                    _ -> return (status, rmap)
 
 removeResource :: (Resource i r m, Hashable i)

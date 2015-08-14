@@ -6,7 +6,9 @@ module FWGL.Geometry (
         Geometry(..),
         Geometry2,
         Geometry3,
-        GPUGeometry(..),
+        GPUBufferGeometry(..),
+        GPUVAOGeometry(..),
+        withGPUBufferGeometry,
         mkGeometry,
         mkGeometry2,
         mkGeometry3,
@@ -36,21 +38,35 @@ import FWGL.Shader.Default2D (Position2)
 import FWGL.Shader.Default3D (Position3, Normal3)
 import qualified FWGL.Shader.Default2D as D2
 import qualified FWGL.Shader.Default3D as D3
-import FWGL.Shader.GLSL (attributeName)
+import FWGL.Shader.Language (size, ShaderType)
 import FWGL.Transformation
 
+-- | A heterogeneous list of attributes.
 data AttrList (is :: [*]) where
         AttrListNil :: AttrList '[]
-        AttrListCons :: (H.Hashable c, AttributeCPU c g)
-                     => g -> [c] -> AttrList gs -> AttrList (g ': gs)
+        AttrListCons :: (H.Hashable c, AttributeCPU c g, ShaderType g)
+                     => (a -> g)  -- ^ GPU attribute constructor (or any
+                                  -- function with that return type). This
+                                  -- argument is ignored, it just provides the
+                                  -- type.
+                     -> [c]  -- ^ List of CPU values
+                     -> AttrList gs
+                     -> AttrList (g ': gs)
 
 -- | A set of attributes and indices.
 data Geometry (is :: [*]) = Geometry (AttrList is) [Word16] Int
 
-data GPUGeometry = GPUGeometry {
-        attributeBuffers :: [(String, Buffer, GLUInt -> GL ())],
+data GPUBufferGeometry = GPUBufferGeometry {
+        attributeBuffers :: [(Buffer, GLUInt, GLUInt -> GL ())],
         elementBuffer :: Buffer,
-        elementCount :: Int
+        elementCount :: Int,
+        geometryHash :: Int
+}
+
+data GPUVAOGeometry = GPUVAOGeometry {
+        vaoBoundBuffers :: [Buffer],
+        vaoElementCount :: Int,
+        vao :: VertexArrayObject
 }
 
 -- | A 3D geometry.
@@ -69,6 +85,12 @@ instance H.Hashable (Geometry is) where
 instance Eq (Geometry is) where
         (Geometry _ _ h) == (Geometry _ _ h') = h == h'
 
+instance H.Hashable GPUBufferGeometry where
+        hashWithSalt salt = H.hashWithSalt salt . geometryHash
+
+instance Eq GPUBufferGeometry where
+        g == g' = geometryHash g == geometryHash g'
+
 -- | Create a 3D 'Geometry'. The first three lists should have the same length.
 mkGeometry3 :: GLES
             => [Vec3]   -- ^ List of vertices.
@@ -77,9 +99,9 @@ mkGeometry3 :: GLES
             -> [Word16] -- ^ Triangles expressed as triples of indices to the
                         --   three lists above.
             -> Geometry Geometry3
-mkGeometry3 v u n = mkGeometry (AttrListCons (undefined :: Position3) v $
-                                AttrListCons (undefined :: D3.UV) u $
-                                AttrListCons (undefined :: Normal3) n
+mkGeometry3 v u n = mkGeometry (AttrListCons D3.Position3 v $
+                                AttrListCons D3.UV u $
+                                AttrListCons D3.Normal3 n
                                 AttrListNil)
 
 -- | Create a 2D 'Geometry'. The first two lists should have the same length.
@@ -89,8 +111,8 @@ mkGeometry2 :: GLES
             -> [Word16] -- ^ Triangles expressed as triples of indices to the
                         --   two lists above.
             -> Geometry Geometry2
-mkGeometry2 v u = mkGeometry (AttrListCons (undefined :: Position2) v $
-                              AttrListCons (undefined :: D2.UV) u
+mkGeometry2 v u = mkGeometry (AttrListCons D2.Position2 v $
+                              AttrListCons D2.UV u
                               AttrListNil)
 
 -- | Create a custom 'Geometry'.
@@ -100,30 +122,78 @@ mkGeometry al e = Geometry al e $ H.hash al
 castGeometry :: Geometry is -> Geometry is'
 castGeometry = unsafeCoerce
 
-instance (GLES, BackendIO) => Resource (Geometry i) GPUGeometry GL where
+instance (GLES, BackendIO) => Resource (Geometry i) GPUBufferGeometry GL where
         -- TODO: err check
         loadResource i f = loadGeometry i $ f . Right
-        unloadResource _ = deleteGPUGeometry
+        unloadResource _ = deleteGPUBufferGeometry
+
+instance (GLES, BackendIO) => Resource GPUBufferGeometry GPUVAOGeometry GL where
+        -- TODO: err check
+        loadResource i f = loadGPUVAOGeometry i $ f . Right
+        unloadResource _ = deleteGPUVAOGeometry
+
+loadGPUVAOGeometry :: (GLES, BackendIO)
+                    => GPUBufferGeometry
+                    -> (GPUVAOGeometry -> GL ())
+                    -> GL ()
+loadGPUVAOGeometry g = asyncGL $
+        do vao <- createVertexArray
+           bindVertexArray vao
+           (ec, bufs) <- withGPUBufferGeometry g $
+                   \ec bufs -> bindVertexArray noVAO >> return (ec, bufs)
+           return $ GPUVAOGeometry bufs ec vao
 
 loadGeometry :: (GLES, BackendIO) 
-             => Geometry i -> (GPUGeometry -> GL ()) -> GL ()
-loadGeometry (Geometry al es _) = asyncGL $
-        GPUGeometry <$> loadAttrList al
-                    <*> (liftIO (encodeUShorts es) >>=
-                            loadBuffer gl_ELEMENT_ARRAY_BUFFER)
-                    <*> pure (length es)
+             => Geometry i -> (GPUBufferGeometry -> GL ()) -> GL ()
+loadGeometry (Geometry al es h) = asyncGL $
+        GPUBufferGeometry <$> loadAttrList al
+                          <*> (liftIO (encodeUShorts es) >>=
+                                  loadBuffer gl_ELEMENT_ARRAY_BUFFER)
+                          <*> pure (length es)
+                          <*> pure h
 
-loadAttrList :: GLES => AttrList is -> GL [(String, Buffer, GLUInt -> GL ())]
-loadAttrList AttrListNil = return []
-loadAttrList (AttrListCons g c al) = (:) <$> loadAttribute g c
-                                         <*> loadAttrList al
-        where loadAttribute g c = do arr <- encodeAttribute g c
-                                     buf <- loadBuffer gl_ARRAY_BUFFER arr
-                                     return (attributeName g, buf, setAttribute g)
+loadAttrList :: GLES => AttrList is -> GL [(Buffer, GLUInt, GLUInt -> GL ())]
+loadAttrList = loadFrom 0
+        where loadFrom :: GLUInt -> AttrList is
+                       -> GL [(Buffer, GLUInt, GLUInt -> GL ())]
+              loadFrom _ AttrListNil = return []
+              loadFrom i (AttrListCons g c al) =
+                      (:) <$> loadAttribute i (g undefined) c
+                          <*> loadFrom (i + fromIntegral (size $ g undefined))
+                                       al
+         
+              loadAttribute i g c = do arr <- encodeAttribute g c
+                                       buf <- loadBuffer gl_ARRAY_BUFFER arr
+                                       return (buf, i, setAttribute g)
 
-deleteGPUGeometry :: GLES => GPUGeometry -> GL ()
-deleteGPUGeometry (GPUGeometry abs eb _) = mapM_ (\(_, buf, _) -> deleteBuffer buf) abs
-                                           >> deleteBuffer eb
+withGPUBufferGeometry :: GLES
+                      => GPUBufferGeometry -> (Int -> [Buffer] -> GL a) -> GL a
+withGPUBufferGeometry (GPUBufferGeometry abs eb ec _) f =
+        do bindBuffer gl_ARRAY_BUFFER noBuffer
+           (locs, bufs) <- unzip <$>
+                   mapM (\(buf, loc, setAttr) ->
+                                     do bindBuffer gl_ARRAY_BUFFER buf
+                                        enableVertexAttribArray loc
+                                        setAttr loc
+                                        return (loc, buf)
+                        ) abs
+
+           bindBuffer gl_ELEMENT_ARRAY_BUFFER eb
+           r <- f ec $ eb : bufs
+           bindBuffer gl_ELEMENT_ARRAY_BUFFER noBuffer
+           bindBuffer gl_ARRAY_BUFFER noBuffer
+           -- mapM_ (disableVertexAttribArray . fromIntegral) locs
+           return r
+
+deleteGPUVAOGeometry :: GLES => GPUVAOGeometry -> GL ()
+deleteGPUVAOGeometry (GPUVAOGeometry bufs _ vao) =
+        do mapM_ deleteBuffer bufs
+           deleteVertexArray vao
+
+
+deleteGPUBufferGeometry :: GLES => GPUBufferGeometry -> GL ()
+deleteGPUBufferGeometry (GPUBufferGeometry abs eb _ _) =
+        mapM_ (\(buf, _, _) -> deleteBuffer buf) abs >> deleteBuffer eb
 
 -- TODO: move
 loadBuffer :: GLES => GLEnum -> Array -> GL Buffer

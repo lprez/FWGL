@@ -56,6 +56,7 @@ class ( Integral GLEnum
         toGLString :: String -> GLString
         noBuffer :: Buffer
         noTexture :: Texture
+        noVAO :: VertexArrayObject
         noArray :: IO Array
         encodeMat2 :: Mat2 -> IO Float32Array
         encodeMat3 :: Mat3 -> IO Float32Array

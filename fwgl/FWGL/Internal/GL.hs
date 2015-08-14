@@ -16,6 +16,7 @@ module FWGL.Internal.GL (
         bindFramebuffer,
         bindRenderbuffer,
         bindTexture,
+        bindVertexArray,
         blendColor,
         blendEquation,
         blendEquationSeparate,
@@ -40,6 +41,7 @@ module FWGL.Internal.GL (
         createRenderbuffer,
         createShader,
         createTexture,
+        createVertexArray,
         cullFace,
         deleteBuffer,
         deleteFramebuffer,
@@ -47,6 +49,7 @@ module FWGL.Internal.GL (
         deleteRenderbuffer,
         deleteShader,
         deleteTexture,
+        deleteVertexArray,
         depthFunc,
         depthMask,
         depthRange,
@@ -78,6 +81,7 @@ module FWGL.Internal.GL (
         isRenderbuffer,
         isShader,
         isTexture,
+        isVertexArray,
         lineWidth,
         linkProgram,
         pixelStorei,
@@ -178,6 +182,9 @@ bindRenderbuffer a b = GL get >>= \ctx -> liftIO $ glBindRenderbuffer ctx a b
 bindTexture :: GLES => GLEnum -> Texture -> GL ()
 bindTexture a b = GL get >>= \ctx -> liftIO $ glBindTexture ctx a b
 
+bindVertexArray :: GLES => VertexArrayObject -> GL ()
+bindVertexArray a = GL get >>= \ctx -> liftIO $ glBindVertexArray ctx a
+
 blendColor :: GLES => Float -> Float -> Float -> Float -> GL ()
 blendColor a b c d = GL get >>= \ctx -> liftIO $ glBlendColor ctx a b c d
 
@@ -250,6 +257,9 @@ createShader a = GL get >>= \ctx -> liftIO $ glCreateShader ctx a
 createTexture :: GLES => GL Texture
 createTexture = GL get >>= liftIO . glCreateTexture
 
+createVertexArray :: GLES => GL VertexArrayObject
+createVertexArray = GL get >>= liftIO . glCreateVertexArray
+
 cullFace :: GLES => GLEnum -> GL ()
 cullFace a = GL get >>= \ctx -> liftIO $ glCullFace ctx a
 
@@ -267,6 +277,9 @@ deleteRenderbuffer a = GL get >>= \ctx -> liftIO $ glDeleteRenderbuffer ctx a
 
 deleteShader :: GLES => Shader -> GL ()
 deleteShader a = GL get >>= \ctx -> liftIO $ glDeleteShader ctx a
+
+deleteVertexArray :: GLES => VertexArrayObject -> GL ()
+deleteVertexArray a = GL get >>= \ctx -> liftIO $ glDeleteVertexArray ctx a
 
 deleteTexture :: GLES => Texture -> GL ()
 deleteTexture a = GL get >>= \ctx -> liftIO $ glDeleteTexture ctx a
@@ -396,6 +409,9 @@ isShader a = GL get >>= \ctx -> liftIO $ glIsShader ctx a
 
 isTexture :: GLES => Texture -> GL GLBool
 isTexture a = GL get >>= \ctx -> liftIO $ glIsTexture ctx a
+
+isVertexArray :: GLES => VertexArrayObject -> GL GLBool
+isVertexArray a = GL get >>= \ctx -> liftIO $ glIsVertexArray ctx a
 
 lineWidth :: GLES => Float -> GL ()
 lineWidth a = GL get >>= \ctx -> liftIO $ glLineWidth ctx a

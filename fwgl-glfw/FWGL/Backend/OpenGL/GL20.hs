@@ -44,6 +44,7 @@ instance GLES where
         toGLString = id
         noBuffer = 0
         noTexture = 0
+        noVAO = 0
         noArray = fmap ((,) 0) $ newForeignPtr_ nullPtr
 
         -- TODO: move to FWGL.Backend.OpenGL.Common
