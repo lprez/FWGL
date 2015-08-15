@@ -59,10 +59,10 @@ drawAll = arrPrim $ \(c, ws) -> drawBox outRed c : map (drawBox outWhite) ws
               outWhite = outline white
 
 mainSig :: RandomGen g => g -> SF (Input ()) Output
-mainSig r = perspective4 1000 0.3 100 &&& car &&& walls r >>>
-            second (drawAll &&& death) >>^
-            second (\(els, ded) -> if ded then redScreen else els) >>^
-            (\(viewMat, els) -> draw [view viewMat els])
+mainSig r = car &&& walls r >>>
+            drawAll &&& death >>^
+            (\(els, ded) -> if ded then redScreen else els) >>^
+            \els -> draw [viewPersp 0.3 1000 100 idmtx els]
         where redScreen = [cube $ colorTex red]
 
 main :: IO ()

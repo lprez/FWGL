@@ -21,21 +21,19 @@ mainSF :: (String -> IO ()) -> SF (Input String) Output
 mainSF change = proc inp ->
         do me <- pointer -< inp
            other <- otherPos -< inp
-           screen <- screenScale -< inp
 
            meChanged <- edgeBy (\prev next -> if prev == next
                                                   then Nothing
                                                   else Just next) (0, 0) -< me
 
-           returnA -< draw [view screen [ drawQuad me, drawQuad other ]]
-                      .> io (event (return ()) change $ fmap show meChanged)
+           returnA -< drawEff [elementsScreen [ drawQuad me
+                                              , drawQuad other ]]
+                              (liftIO $ event (return ()) change $ fmap show meChanged)
 
 main :: IO ()
-main = do initialize
-          (out, inp, close) <- createConnection
-          run' inp $ mainSF out
+main = do (out, inp, close) <- createConnection
+          fwgl . run' inp $ mainSF out
           close
-          terminate
 
 createConnection :: IO (String -> IO (), IO String, IO ())
 createConnection =

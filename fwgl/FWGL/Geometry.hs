@@ -45,11 +45,8 @@ import FWGL.Transformation
 data AttrList (is :: [*]) where
         AttrListNil :: AttrList '[]
         AttrListCons :: (H.Hashable c, AttributeCPU c g, ShaderType g)
-                     => (a -> g)  -- ^ GPU attribute constructor (or any
-                                  -- function with that return type). This
-                                  -- argument is ignored, it just provides the
-                                  -- type.
-                     -> [c]  -- ^ List of CPU values
+                     => (a -> g)
+                     -> [c]
                      -> AttrList gs
                      -> AttrList (g ': gs)
 

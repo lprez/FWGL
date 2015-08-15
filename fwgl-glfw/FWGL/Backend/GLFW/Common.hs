@@ -71,9 +71,8 @@ data Canvas = Canvas GLFW.Window
 
 initBackend :: IO BackendState
 initBackend = do GLFW.init
-                 -- XXX: for some reason, waitEvents makes the windows really slow
                  setTime 0
-                 evTid <- forkIO $ forever pollEvents >> threadDelay 30000
+                 evTid <- forkIO . forever $ waitEvents
                  return $ BackendState evTid
 
 createCanvas :: ClientAPI -> Int -> Int
@@ -205,6 +204,7 @@ refreshLoop fps c@(Canvas win _ _ refreshCallback _) bs =
         do Just t1 <- GLFW.getTime
            closed <- windowShouldClose win
            join $ readIORef refreshCallback
+           pollEvents
            Just t2 <- GLFW.getTime
            let passed = (t2 - t1) * 1000000
            if closed

@@ -79,7 +79,7 @@ data LoadedTexture = LoadedTexture GLSize GLSize GL.Texture
 data Object (gs :: [*]) (is :: [*]) where
         ObjectEmpty :: Object gs is
         ObjectMesh :: Geometry is -> Object gs is
-        ObjectGlobal :: (Typeable g, UniformCPU c g) => g -> Draw c
+        ObjectGlobal :: (Typeable g, UniformCPU c g) => (a -> g) -> Draw c
                      -> Object gs is -> Object gs' is 
         ObjectAppend :: Object gs is -> Object gs' is' -> Object gs'' is''
 
@@ -112,6 +112,8 @@ instance GLES => Eq LoadedTexture where
 textureHash :: TextureImage -> Int
 textureHash (TexturePixels _ _ _ h) = h
 textureHash (TextureURL _ h) = h
+
+-- TODO: move
 
 -- | Render a 'Layer' in a 'Texture'.
 renderColor :: Int                         -- ^ Texture width.
@@ -156,7 +158,7 @@ renderColorInspect w h l rx ry rw rh f =
         RenderLayer [ColorLayer, DepthLayer] w h rx ry rw rh True False l $
                     \[t, _] (Just c) _ -> f t c
 
--- | Render a 'Layer' in a depth 'Texture, reading the content of the texture.
+-- | Render a 'Layer' in a depth 'Texture', reading the content of the texture.
 -- Not supported on WebGL.
 renderDepthInspect
         :: Int                          -- ^ Texture width.

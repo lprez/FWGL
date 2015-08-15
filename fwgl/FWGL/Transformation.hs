@@ -65,12 +65,12 @@ scaleMat4 (Vec3 x y z) = Mat4 (Vec4 x 0 0 0)
                               (Vec4 0 0 0 1)
 
 -- | 4x4 perspective projection matrix.
-perspectiveMat4 :: Float        -- ^ Far
-                -> Float        -- ^ Near
+perspectiveMat4 :: Float        -- ^ Near
+                -> Float        -- ^ Far
                 -> Float        -- ^ FOV
                 -> Float        -- ^ Aspect ratio
                 -> Mat4
-perspectiveMat4 f n fov ar =
+perspectiveMat4 n f fov ar =
         Mat4 (Vec4 (s / ar) 0 0 0)
              (Vec4 0 s 0 0)
              (Vec4 0 0 ((f + n) / (n - f)) ((2 * f * n) / (n - f)))
@@ -78,14 +78,14 @@ perspectiveMat4 f n fov ar =
         where s = 1 / tan (fov * pi / 360)
 
 -- | 4x4 orthographic projection matrix.
-orthoMat4 :: Float      -- ^ Far
-          -> Float      -- ^ Near
+orthoMat4 :: Float      -- ^ Near
+          -> Float      -- ^ Far
           -> Float      -- ^ Left
           -> Float      -- ^ Right
           -> Float      -- ^ Bottom
           -> Float      -- ^ Top
           -> Mat4
-orthoMat4 f n l r b t =
+orthoMat4 n f l r b t =
         Mat4 (Vec4 (2 / (r - l)) 0 0 ((r + l) / (r - l)))
              (Vec4 0 (2 / (t - b)) 0 ((t + b) / (t - b)))
              (Vec4 0 0 (2 / (n - f)) (( f + n) / (n - f)))
@@ -121,7 +121,7 @@ lookAtMat4 eye target up =
              (Vec4 xy yy zy 0)
              (Vec4 xz yz zz 0)
              (Vec4 (- dotprod xv eye) (- dotprod yv eye) (- dotprod zv eye) 1)
-        where zv@(Vec3 zx zy zz) = normalize $ target &- eye
+        where zv@(Vec3 zx zy zz) = normalize $ eye &- target
               xv@(Vec3 xx xy xz) = normalize $ crossprod up zv
               yv@(Vec3 yx yy yz) = crossprod zv xv
 

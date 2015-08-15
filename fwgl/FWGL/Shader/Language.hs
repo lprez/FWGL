@@ -572,9 +572,6 @@ refract x y z = fromExpr $ Apply "refract" [toExpr x, toExpr y, toExpr z]
 matrixCompMult :: (Matrix a, Matrix b, Matrix c) => a -> b -> c
 matrixCompMult x y = fromExpr $ Apply "matrixCompMult" [toExpr x, toExpr y]
 
-
--- TODO: add functions, ifThenElse, etc.
-
 -- | Avoid executing this expression more than one time. Conditionals and loops
 -- imply it.
 store :: ShaderType a => a -> a
@@ -586,7 +583,7 @@ true = Bool $ Literal "true"
 false :: Bool
 false = Bool $ Literal "false"
 
--- | Rebounded if.
+-- | Rebound if. You don't need to use this function, with -XRebindableSyntax.
 ifThenElse :: ShaderType a => Bool -> a -> a -> a
 ifThenElse b t f = fromExpr . Action $ If (toExpr b) (typeName t)
                                           (toExpr t) (toExpr f)

@@ -14,6 +14,7 @@ module FWGL.Graphics.Custom (
         globalDraw,
         globalTexture,
         globalTexSize,
+        globalFramebufferSize,
 
         Layer,
         layer,
@@ -68,22 +69,34 @@ geom :: Geometry i -> Object '[] i
 geom = ObjectMesh
 
 -- | Sets a global variable (uniform) of an object.
-global :: (Typeable g, UniformCPU c g) => g -> c
+global :: (Typeable g, UniformCPU c g)
+       => (a -> g)      -- ^ Any function that returns the GPU type of the
+                        -- uniform, like the constructor. This argument is
+                        -- actually ignored, it only provides the type.
+       -> c             -- ^ Value
        -> Object gs is -> Object (g ': gs) is
 global g c = globalDraw g $ return c
 
 -- | Sets a global (uniform) of an object using a 'Texture'.
 globalTexture :: (BackendIO, Typeable g, UniformCPU ActiveTexture g)
-              => g -> Texture -> Object gs is -> Object (g ': gs) is
+              => (a -> g) -> Texture -> Object gs is -> Object (g ': gs) is
 globalTexture g c = globalDraw g $ textureUniform c
 
 -- | Sets a global (uniform) of an object using the dimensions of a 'Texture'.
-globalTexSize :: (BackendIO, Typeable g, UniformCPU c g) => g -> Texture
+globalTexSize :: (BackendIO, Typeable g, UniformCPU c g) => (a -> g) -> Texture
               -> ((Int, Int) -> c) -> Object gs is -> Object (g ': gs) is
 globalTexSize g t fc = globalDraw g $ fc <$> textureSize t
 
+-- | Sets a global (uniform) of an object using the dimensions of the
+-- framebuffer.
+globalFramebufferSize :: (BackendIO, Typeable g, UniformCPU c g) => (a -> g)
+                      -> (Vec2 -> c) -> Object gs is -> Object (g ': gs) is
+globalFramebufferSize g fc = globalDraw g $ fc . tupleToVec <$>
+                                            (viewportSize <$> drawState)
+        where tupleToVec (x, y) = Vec2 (fromIntegral x) (fromIntegral y)
+
 -- | Sets a global (uniform) of an object using the 'Draw' monad.
-globalDraw :: (Typeable g, UniformCPU c g) => g -> Draw c
+globalDraw :: (Typeable g, UniformCPU c g) => (a -> g) -> Draw c
            -> Object gs is -> Object (g ': gs) is
 globalDraw = ObjectGlobal
 
@@ -119,7 +132,7 @@ subLayer :: Int                         -- ^ Texture width.
          -> Layer
 subLayer w h l = subRenderLayer . renderColor w h l
 
--- | Use a 'Layer' as a depth 'Texture' on another. Based on 'renderDepth.
+-- | Use a 'Layer' as a depth 'Texture' on another. Based on 'renderDepth'.
 depthSubLayer :: Int                         -- ^ Texture width.
               -> Int                         -- ^ Texture height.
               -> Layer                       -- ^ Layer to draw on a

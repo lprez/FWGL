@@ -20,9 +20,8 @@
     Import "FWGL.Internal.GL" if you want to use the raw GL commands.
 -}
 module FWGL (
-        module FWGL.Audio,
+        -- module FWGL.Audio,
         module FWGL.Input,
-        module FWGL.Utils,
         module FRP.Yampa,
         FWGL(..),
         fwgl,
@@ -82,7 +81,7 @@ import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Vect.Float
-import FWGL.Audio
+-- import FWGL.Audio
 import FWGL.Backend hiding (Texture, Program)
 import FWGL.Input
 import FWGL.Internal.GL (evalGL)
@@ -91,7 +90,6 @@ import FWGL.Geometry.OBJ
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Types
 import FWGL.Shader.Program (Program)
-import FWGL.Utils
 import FRP.Yampa
 
 -- | The general output.
@@ -156,9 +154,7 @@ newtype FWGL a = FWGL (ReaderT BackendState IO a)
 fwgl :: BackendIO => FWGL () -> IO ()
 fwgl (FWGL a) = initBackend >>= \bs -> runReaderT a bs >> terminateBackend bs
 
--- | Useful for functions like 'forkIO' and 'forkOS'. Note that, while drawing
--- on an unbound thread blocks drawing on any other thread, bound threads block
--- only unbound threads.
+-- | Useful for functions like 'forkIO' and 'forkOS'.
 mapIO :: (IO a -> IO b) -> FWGL a -> FWGL b
 mapIO f (FWGL a) = FWGL ask >>= liftIO . f . runReaderT a
 

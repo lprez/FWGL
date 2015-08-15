@@ -34,6 +34,8 @@ module FWGL.Graphics.D3 (
         -- ** Element layers
         elements,
         view,
+        viewPersp,
+        viewVP,
         -- ** Object layers
         Program,
         layer,
@@ -55,6 +57,7 @@ module FWGL.Graphics.D3 (
         -- * Custom 3D objects
         Object,
         object,
+        objectVP,
         object1,
         object1Trans,
         object1Tex,
@@ -63,6 +66,7 @@ module FWGL.Graphics.D3 (
         C.global,
         C.globalTexture,
         C.globalTexSize,
+        C.globalFramebufferSize,
         viewObject,
         DefaultUniforms3D,
         Texture2(..),
@@ -72,6 +76,7 @@ module FWGL.Graphics.D3 (
         module Data.Vect.Float,
         -- ** View matrices
         perspectiveMat4,
+        perspectiveMat4Size,
         orthoMat4,
         cameraMat4,
         lookAtMat4,
@@ -94,7 +99,7 @@ import FWGL.Graphics.Draw
 import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
 import FWGL.Internal.TList
-import FWGL.Shader.Default3D (Texture2, Transform3, View3)
+import FWGL.Shader.Default3D (Texture2(..), Transform3(..), View3(..))
 import FWGL.Shader.Program hiding (program)
 import FWGL.Graphics.Texture
 import FWGL.Transformation
@@ -112,25 +117,31 @@ geom t = Element t $ return idmtx
 
 -- | Create a graphical 'Object' from a list of 'Element's and a view matrix.
 object :: BackendIO => Mat4 -> [Element] -> Object DefaultUniforms3D Geometry3
-object m = viewObject m . foldl acc ObjectEmpty
+object = objectVP . const
+
+-- | Create a graphical 'Object' from a list of 'Element's and a view matrix,
+-- using the size of the framebuffer.
+objectVP :: BackendIO => (Vec2 -> Mat4) -> [Element]
+         -> Object DefaultUniforms3D Geometry3
+objectVP m = viewObject m . foldl acc ObjectEmpty
         where acc o e = o C.~~ object1 e
 
 -- | Create a graphical 'Object' from a single 'Element'. This lets you set your
 -- own globals individually. If the shader uses the view matrix 'View3' (e.g.
 -- the default 3D shader), you have to set it with 'viewObject'.
 object1 :: BackendIO => Element -> Object '[Transform3, Texture2] Geometry3
-object1 (Element t m g) = C.globalDraw (undefined :: Transform3) m $
-                          C.globalTexture (undefined :: Texture2) t $
+object1 (Element t m g) = C.globalDraw Transform3 m $
+                          C.globalTexture Texture2 t $
                           C.geom g
 
 -- | Like 'object1', but it will only set the transformation matrix.
 object1Trans :: BackendIO => Element -> Object '[Transform3] Geometry3
-object1Trans (Element _ m g) = C.globalDraw (undefined :: Transform3) m $
+object1Trans (Element _ m g) = C.globalDraw Transform3 m $
                                C.geom g
 
 -- | Like 'object1, but it will only set the texture.
 object1Tex :: BackendIO => Element -> Object '[Texture2] Geometry3
-object1Tex (Element t _ g) = C.globalTexture (undefined :: Texture2) t $
+object1Tex (Element t _ g) = C.globalTexture Texture2 t $
                              C.geom g
 
 -- | Create a standard 'Layer' from a list of 'Element's.
@@ -141,10 +152,32 @@ elements = layer . object idmtx
 view :: BackendIO => Mat4 -> [Element] -> Layer
 view m = layer . object m
 
--- | Set the value of the view matrix of a 3D 'Object'.
-viewObject :: BackendIO => Mat4 -> Object gs Geometry3
+-- | Create a 'Layer' from a view matrix and a list of 'Element's, using the
+-- size of the framebuffer.
+viewVP :: BackendIO => (Vec2 -> Mat4) -> [Element] -> Layer
+viewVP m = layer . objectVP m
+
+-- | Create a 'Layer' from a view matrix and a list of 'Element's, with
+-- perspective.
+--
+-- > viewPersp near far fov view =
+-- >    viewVP (\size -> view .*. perspectiveMat4Size near far fov size)
+
+viewPersp :: BackendIO
+          => Float                      -- ^ Near
+          -> Float                      -- ^ Far
+          -> Float                      -- ^ FOV
+          -> Mat4                       -- ^ View matrix
+          -> [Element]
+          -> Layer
+viewPersp near far fov view = viewVP $
+        (view .*.) . perspectiveMat4Size near far fov
+
+-- | Set the value of the view matrix of a 3D 'Object'. The argument of the
+-- function is the size of the framebuffer.
+viewObject :: BackendIO => (Vec2 -> Mat4) -> Object gs Geometry3
            -> Object (View3 ': gs) Geometry3
-viewObject = C.global (undefined :: View3)
+viewObject = C.globalFramebufferSize View3
 
 -- | Create a 'Layer' from a 3D 'Object', using the default shader.
 layer :: BackendIO => Object DefaultUniforms3D Geometry3 -> Layer
@@ -186,3 +219,12 @@ scaleV v = transform $ scaleMat4 v
 -- | Transform an 'Element'.
 transform :: Mat4 -> Element -> Element
 transform m' (Element t m g) = Element t (flip (.*.) m' <$> m) g
+
+-- | 4x4 perspective projection matrix, using width and height instead of the
+-- aspect ratio.
+perspectiveMat4Size :: Float        -- ^ Near
+                    -> Float        -- ^ Far
+                    -> Float        -- ^ FOV
+                    -> Vec2         -- ^ Viewport size
+                    -> Mat4
+perspectiveMat4Size n f fov (Vec2 w h) = perspectiveMat4 n f fov $ w / h

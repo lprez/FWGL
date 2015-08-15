@@ -157,9 +157,10 @@ drawObject (ObjectMesh g) = withRes_ (getGPUVAOGeometry $ castGeometry g)
 drawObject (ObjectGlobal g c o) = c >>= uniform g >> drawObject o
 drawObject (ObjectAppend o o') = drawObject o >> drawObject o'
 
-uniform :: (GLES, Typeable g, UniformCPU c g) => g -> c -> Draw ()
-uniform g c = withRes_ (getUniform g)
-                       $ \(UniformLocation l) -> gl $ setUniform l g c
+uniform :: (GLES, Typeable g, UniformCPU c g) => (a -> g) -> c -> Draw ()
+uniform g c = withRes_ (getUniform $ g undefined)
+                       $ \(UniformLocation l) -> gl $ setUniform l
+                                                                 (g undefined) c
 
 -- | This helps you set the uniforms of type 'FWGL.Shader.Sampler2D'.
 textureUniform :: (GLES, BackendIO) => Texture -> Draw ActiveTexture

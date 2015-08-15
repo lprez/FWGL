@@ -10,14 +10,13 @@ module Shaders (
         depthFragmentShader,
         DepthUniforms,
         DepthAttributes,
-        LightView3,
-        LightPos3,
-        ShadowMap
+        LightView3(..),
+        LightPos3(..),
+        ShadowMap(..)
 ) where
 
 import FWGL.Shader
 import FWGL.Shader.Default3D hiding (vertexShader, fragmentShader, Uniforms)
-import qualified FWGL.Vector
 
 type Uniforms = '[ Transform3, View3, LightView3, Texture2
                  , ShadowMap, LightPos3 ]
@@ -80,7 +79,7 @@ fragmentShader (Texture2 tex :- ShadowMap shadowMap :-
                     
                     -- Shadow mapping
                     stepDepth v = let Vec4 depth _ _ _ = texture2D shadowMap v
-                                  in step (pz - 0.0015) depth
+                                  in step (pz - 0.00008) depth
 
                     Vec3 px py pz = store $ Vec3 sx sy sz / sw
                     tsize = store $ Vec2 (1 / 1024) (1 / 1024)

@@ -4,7 +4,7 @@
 module Program (
         vertexShader,
         fragmentShader,
-        Pointer,
+        Pointer(..),
         Uniforms,
         Attributes
 ) where
@@ -23,6 +23,6 @@ vertexShader :: VertexShader VUniforms Attributes '[UV]
 vertexShader (Pointer (Vec2 px py) :- Transform2 trans :-
               View2 view :- Depth z :- N)
              (Position2 (Vec2 x y) :- uv@(UV _) :- N) =
-                let Vec3 x' y' _ = view * trans * Vec3 x y 1
+                let Vec3 x' y' _ = store $ view * trans * Vec3 x y 1
                     dist x x' = x + (abs $ x' - x) ^ 0.7 / 2 * sign (x - x')
                 in Vertex (Vec4 (dist x' px) (dist y' py) z 1) :- uv :- N

@@ -26,8 +26,8 @@ mainSF = proc inp -> do tm <- time >>> arr realToFrac -< inp
                                       , rotatingCube (pi * 3 / 2) gradGreenBlue ]
                               -< inp
  
-                        viewMatrix <- perspective4 10000 0.12 100 -< inp
-                        returnA -< draw [ view viewMatrix $ monkey : cubes ]
+                        returnA -< draw [ viewPersp 0.12 10000 100 idmtx
+                                                $ monkey : cubes ]
 
         where gradRedYellow = gradient red yellow
               gradGreenBlue = gradient green blue
