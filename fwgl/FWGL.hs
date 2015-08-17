@@ -73,6 +73,7 @@ module FWGL (
 
 import Data.IORef
 import qualified Data.HashMap.Strict as H
+import Control.Applicative
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.IO.Class
