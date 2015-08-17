@@ -32,11 +32,13 @@ mainSF :: SF (Input ()) Output
 mainSF = proc inp -> do
         rec qx <- quad -< (wx, inp)
             wx <- wall -< (qx, inp)
-        let cubeObj = pos (Vec2 qx 0) $
-                      rect (Vec2 0.4 0.4) (colorTex red)
-            wallObj = pos (Vec2 wx 0) $
-                      rect (Vec2 0.4 2) (colorTex blue)
-        returnA -< draw [elements [cubeObj, wallObj]]
+        let cubeObj = trans (Vec2 qx 0) $
+                      scaleV (Vec2 0.4 0.4) $
+                      rect (colorTex red)
+            wallObj = trans (Vec2 wx 0) $
+                      scaleV (Vec2 0.4 2) $
+                      rect (colorTex blue)
+        returnA -< draw [layerS $ view idmtx [cubeObj, wallObj]]
 
 main :: IO ()
 main = fwgl $ run mainSF

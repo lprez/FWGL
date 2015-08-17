@@ -9,6 +9,7 @@ module FWGL.Graphics.Draw (
         drawInit,
         drawBegin,
         drawLayer,
+        drawGroup,
         drawObject,
         drawEnd,
         removeGeometry,
@@ -142,20 +143,26 @@ removeProgram = removeDrawResource gl programs (\m s -> s { programs = m })
 
 -- | Draw a 'Layer'.
 drawLayer :: (GLES, BackendIO) => Layer -> Draw ()
-drawLayer (Layer prg obj) = setProgram prg >> drawObject obj
+drawLayer (Layer prg grp) = setProgram prg >> drawGroup grp
 drawLayer (SubLayer rl) =
         do (layers, textures) <- renderLayer rl
            mapM_ drawLayer layers
            mapM_ removeTexture textures
 drawLayer (MultiLayer layers) = mapM_ drawLayer layers
 
+-- | Draw a 'Group'.
+drawGroup :: (GLES, BackendIO) => Group gs is -> Draw ()
+drawGroup Empty = return ()
+drawGroup (Object o) = drawObject o
+drawGroup (Global (g := c) o) = c >>= uniform g >> drawGroup o
+drawGroup (Append g g') = drawGroup g >> drawGroup g'
+
 -- | Draw an 'Object'.
 drawObject :: (GLES, BackendIO) => Object gs is -> Draw ()
-drawObject ObjectEmpty = return ()
-drawObject (ObjectMesh g) = withRes_ (getGPUVAOGeometry $ castGeometry g)
-                                   drawGPUVAOGeometry
-drawObject (ObjectGlobal g c o) = c >>= uniform g >> drawObject o
-drawObject (ObjectAppend o o') = drawObject o >> drawObject o'
+drawObject NoMesh = return ()
+drawObject (Mesh g) = withRes_ (getGPUVAOGeometry $ castGeometry g)
+                                 drawGPUVAOGeometry
+drawObject ((g := c) :~> o) = c >>= uniform g >> drawObject o
 
 uniform :: (GLES, Typeable g, UniformCPU c g) => (a -> g) -> c -> Draw ()
 uniform g c = withRes_ (getUniform $ g undefined)

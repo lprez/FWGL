@@ -26,8 +26,8 @@ mainSF change = proc inp ->
                                                   then Nothing
                                                   else Just next) (0, 0) -< me
 
-           returnA -< drawEff [elementsScreen [ drawQuad me
-                                              , drawQuad other ]]
+           returnA -< drawEff [layerS $ viewScreen idmtx
+                                [ drawQuad me , drawQuad other ]]
                               (liftIO $ event (return ()) change $ fmap show meChanged)
 
 main :: IO ()
@@ -89,7 +89,7 @@ sendAndRecv sock sendVar recvRef =
                                     _ -> return True
               -}
 
-drawQuad :: (Int, Int) -> Element
-drawQuad (x, y) = pos (Vec2 (fromIntegral x - 320)
-                            (- fromIntegral y + 240)) $
-                  rect (Vec2 10 10) (colorTex red)
+drawQuad :: (Int, Int) -> Object2D
+drawQuad (x, y) = trans (Vec2 (fromIntegral x - 320)
+                              (- fromIntegral y + 240)) .
+                  scale 10 . rect $ colorTex red

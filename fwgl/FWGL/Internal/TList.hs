@@ -3,6 +3,7 @@
              FlexibleInstances, ConstraintKinds, PolyKinds #-}
 
 module FWGL.Internal.TList (
+        Empty,
         Equal,
         Member,
         IsMember,
@@ -13,8 +14,15 @@ module FWGL.Internal.TList (
         Append,
         Insert,
         Reverse,
-        Union
+        Union,
+        Set
 ) where
+
+type Set xs = Union xs xs ~ xs
+
+type family Empty (xs :: [*]) :: Bool where
+        Empty '[] = True
+        Empty (x ': xs) = False
 
 type Equal xs ys = And (IsSubset xs ys) (IsSubset ys xs) ~ True
 
@@ -61,10 +69,6 @@ type family Reverse' (xs :: [*]) (ys :: [*]) where
 type family Union (xs :: [*]) (ys :: [*]) where
         Union '[] ys = ys
         Union (x ': xs) ys = Union xs (Insert x ys)
-
-type family TypeEq (x :: k) (y :: k) :: Bool where
-        TypeEq x x = True
-        TypeEq x y = False
 
 type family And (a :: Bool) (b :: Bool) :: Bool where
         And True True = True

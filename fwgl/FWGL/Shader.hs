@@ -143,7 +143,7 @@ module FWGL.Shader (
 import Data.Typeable (Typeable)
 import qualified Data.Vect.Float as CPU
 import qualified FWGL.Internal.GL as CPU
-import FWGL.Shader.CPU (UniformCPU, AttributeCPU)
+import FWGL.Shader.CPU
 import FWGL.Shader.Language
 import FWGL.Shader.Shader
 import FWGL.Shader.Stages

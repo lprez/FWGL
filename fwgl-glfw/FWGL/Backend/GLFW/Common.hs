@@ -72,7 +72,7 @@ data Canvas = Canvas GLFW.Window
 initBackend :: IO BackendState
 initBackend = do GLFW.init
                  setTime 0
-                 evTid <- forkIO . forever $ waitEvents
+                 evTid <- forkIO . forever $ waitEvents >> threadDelay 10000
                  return $ BackendState evTid
 
 createCanvas :: ClientAPI -> Int -> Int

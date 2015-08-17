@@ -12,7 +12,7 @@
 
         * "FWGL.Graphics.D2": 2D graphics
         * "FWGL.Graphics.D3": 3D graphics
-        * "FWGL.Graphics.Custom": advanced custom graphics
+        * "FWGL.Graphics.Generic"
 
 
     "FWGL.Shader" contains the EDSL to make custom shaders.
@@ -32,23 +32,10 @@ module FWGL (
         run',
         runTo,
         draw,
-        -- * Draw monad
-        Draw,
-        drawM,
-        -- ** Drawing
-        drawLayer,
-        drawObject,
-        renderLayer,
-        setProgram,
-        resizeViewport,
-        gl,
-        -- ** Texture functions
-        textureUniform,
-        textureSize,
-        -- ** Resources
-        removeGeometry,
-        removeTexture,
-        removeProgram,
+        -- * File loading
+        loadOBJ,
+        loadOBJAsync,
+        loadTextFileAsync,
         -- * Effect monad
         Effect,
         eff,
@@ -61,10 +48,24 @@ module FWGL (
         -- ** Window/Canvas
         setSize,
         setTitle,
-        -- * File loading
-        loadOBJ,
-        loadOBJAsync,
-        loadTextFileAsync,
+        -- * Draw monad (for advanced use)
+        Draw,
+        drawM,
+        -- ** Drawing
+        drawLayer,
+        drawGroup,
+        drawObject,
+        setProgram,
+        renderLayer,
+        resizeViewport,
+        gl,
+        -- ** Texture functions
+        textureUniform,
+        textureSize,
+        -- ** Resources
+        removeGeometry,
+        removeTexture,
+        removeProgram,
         {-
         -- * Effectful Interface
         runEffect,
@@ -85,7 +86,7 @@ import Data.Vect.Float
 import FWGL.Backend hiding (Texture, Program)
 import FWGL.Input
 import FWGL.Internal.GL (evalGL)
-import FWGL.Geometry (Geometry3)
+import FWGL.Geometry (Geometry3D)
 import FWGL.Geometry.OBJ
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Types
@@ -258,7 +259,7 @@ runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
 -- | Load a model from an OBJ file asynchronously.
 loadOBJAsync :: BackendIO 
              => FilePath -- ^ Path or URL.
-             -> (Either String (Geometry Geometry3) -> IO ()) -- ^ Callback.
+             -> (Either String (Geometry Geometry3D) -> IO ()) -- ^ Callback.
              -> IO ()
 loadOBJAsync fp k = loadTextFile fp $
                        \e -> case e of
@@ -267,7 +268,7 @@ loadOBJAsync fp k = loadTextFile fp $
                                                  . parseOBJ $ str
 
 -- | Load a model from an OBJ file.
-loadOBJ :: BackendIO => FilePath -> IO (Either String (Geometry Geometry3))
+loadOBJ :: BackendIO => FilePath -> IO (Either String (Geometry Geometry3D))
 loadOBJ fp = do var <- newEmptyMVar
                 loadOBJAsync fp $ putMVar var
                 takeMVar var

@@ -1,26 +1,22 @@
 {-# LANGUAGE DataKinds, FlexibleContexts, ConstraintKinds, TypeOperators,
-             TypeFamilies #-}
+             TypeFamilies, MultiParamTypeClasses, FlexibleInstances,
+             UndecidableInstances #-}
 
 {-| Simplified 3D graphics system. -}
 module FWGL.Graphics.D3 (
-        -- * Elements
-        Element,
+        module FWGL.Graphics.Generic,
+        -- * 3D Objects
+        Object3D,
+        IsObject3D,
+        Group3D,
+        IsGroup3D,
         cube,
         -- ** Geometry
-        Geometry,
-        Geometry3,
-        geom,
-        mkGeometry3,
-        -- * Textures
-        module FWGL.Graphics.Color,
-        Texture,
-        textureURL,
-        textureFile,
-        C.colorTex,
-        mkTexture,
+        Geometry3D,
+        mesh,
+        mkGeometry3D,
         -- * Transformations
-        Vec3(..),
-        pos,
+        trans,
         rotX,
         rotY,
         rotZ,
@@ -29,51 +25,12 @@ module FWGL.Graphics.D3 (
         scaleV,
         transform,
         -- * Layers
-        Layer,
-        C.combineLayers,
-        -- ** Element layers
-        elements,
         view,
         viewPersp,
+        viewOrtho,
         viewVP,
-        -- ** Object layers
-        Program,
-        layer,
-        layerPrg,
-        C.program,
-        defaultProgram3D,
-        -- ** Sublayers
-        C.subLayer,
-        C.depthSubLayer,
-        C.subRenderLayer,
-        -- *** Render layers
-        RenderLayer,
-        renderColor,
-        renderDepth,
-        renderColorDepth,
-        renderColorInspect,
-        renderDepthInspect,
-        renderColorDepthInspect,
-        -- * Custom 3D objects
-        Object,
-        object,
-        objectVP,
-        object1,
-        object1Trans,
-        object1Tex,
-        (C.~~),
-        -- ** Globals
-        C.global,
-        C.globalTexture,
-        C.globalTexSize,
-        C.globalFramebufferSize,
-        viewObject,
-        DefaultUniforms3D,
-        Texture2(..),
-        Transform3(..),
-        View3(..),
-        -- * Vectors and matrices
-        module Data.Vect.Float,
+        layerS,
+        -- * Matrices
         -- ** View matrices
         perspectiveMat4,
         perspectiveMat4Size,
@@ -86,16 +43,21 @@ module FWGL.Graphics.D3 (
         rotYMat4,
         rotZMat4,
         rotMat4,
-        scaleMat4
+        scaleMat4,
+        -- * Uniforms
+        Uniforms3D,
+        Texture2(..),
+        Transform3(..),
+        View3(..),
 ) where
 
 import Control.Applicative
 import Data.Vect.Float
 import FWGL.Backend hiding (Texture, Program)
 import FWGL.Geometry
-import qualified FWGL.Graphics.Custom as C
 import FWGL.Graphics.Color
 import FWGL.Graphics.Draw
+import FWGL.Graphics.Generic
 import FWGL.Graphics.Shapes
 import FWGL.Graphics.Types
 import FWGL.Internal.TList
@@ -104,121 +66,108 @@ import FWGL.Shader.Program hiding (program)
 import FWGL.Graphics.Texture
 import FWGL.Transformation
 
--- | A 3D object with a 'Texture' and a transformation.
-data Element = Element Texture (Draw Mat4) (Geometry Geometry3)
+type Uniforms3D = '[Transform3, Texture2]
+
+-- | A standard 3D object.
+type Object3D = Object Uniforms3D Geometry3D
+
+-- | A standard 3D group.
+type Group3D = Group (View3 ': Uniforms3D) Geometry3D
+
+-- | 3D objects compatible with the standard 3D shader program.
+type IsObject3D globals inputs = ( Subset Geometry3D inputs
+                                 , Subset Uniforms3D globals
+                                 , Set inputs, Set globals )
+
+-- | 3D object groups compatible with the standard 3D shader program.
+type IsGroup3D gs is = ( Subset Geometry3D is, Subset (View3 ': Uniforms3D) gs
+                       , Set is, Set gs )
 
 -- | A cube with a specified 'Texture'.
-cube :: GLES => Texture -> Element
-cube t = Element t (return idmtx) cubeGeometry
+cube :: Backend => Texture -> Object3D
+cube = flip mesh cubeGeometry
 
--- | An element with a specified 'Geometry' and 'Texture'.
-geom :: Texture -> Geometry Geometry3 -> Element
-geom t = Element t $ return idmtx
+-- | A 3D object with a specified 'Geometry'.
+mesh :: (IsObject3D Uniforms3D is, Backend)
+     => Texture -> Geometry is -> Object Uniforms3D is
+mesh t g = Transform3 -= idmtx :~> globalTexture Texture2 t :~> geom g
 
--- | Create a graphical 'Object' from a list of 'Element's and a view matrix.
-object :: BackendIO => Mat4 -> [Element] -> Object DefaultUniforms3D Geometry3
-object = objectVP . const
+-- | Create a group of objects with a view matrix.
+view :: (IsObject3D gs is, Backend)
+     => Mat4 -> [Object gs is] -> Group (View3 ': gs) is
+view m = viewVP $ const m
 
--- | Create a graphical 'Object' from a list of 'Element's and a view matrix,
--- using the size of the framebuffer.
-objectVP :: BackendIO => (Vec2 -> Mat4) -> [Element]
-         -> Object DefaultUniforms3D Geometry3
-objectVP m = viewObject m . foldl acc ObjectEmpty
-        where acc o e = o C.~~ object1 e
+-- | Create a group of objects with a view matrix and perspective projection.
+viewPersp :: (IsObject3D gs is, Backend)
+          => Float      -- ^ Near
+          -> Float      -- ^ Far
+          -> Float      -- ^ FOV
+          -> Mat4       -- ^ View matrix
+          -> [Object gs is] -> Group (View3 ': gs) is
+viewPersp n f fov m = viewVP $ \s -> m .*. perspectiveMat4Size n f fov s
 
--- | Create a graphical 'Object' from a single 'Element'. This lets you set your
--- own globals individually. If the shader uses the view matrix 'View3' (e.g.
--- the default 3D shader), you have to set it with 'viewObject'.
-object1 :: BackendIO => Element -> Object '[Transform3, Texture2] Geometry3
-object1 (Element t m g) = C.globalDraw Transform3 m $
-                          C.globalTexture Texture2 t $
-                          C.geom g
+-- | Create a group of objects with a view matrix and orthographic projection.
+viewOrtho :: (IsObject3D gs is, Backend)
+          => Float      -- ^ Near
+          -> Float      -- ^ Far
+          -> Float      -- ^ Left
+          -> Float      -- ^ Right
+          -> Float      -- ^ Bottom
+          -> Float      -- ^ Top
+          -> Mat4       -- ^ View matrix
+          -> [Object gs is] -> Group (View3 ': gs) is
+viewOrtho n f l r b t m = view $ m .*. orthoMat4 n f l r b t
 
--- | Like 'object1', but it will only set the transformation matrix.
-object1Trans :: BackendIO => Element -> Object '[Transform3] Geometry3
-object1Trans (Element _ m g) = C.globalDraw Transform3 m $
-                               C.geom g
+-- | Create a group of objects with a view matrix, depending on the size of the
+-- framebuffer.
+viewVP :: (IsObject3D gs is, Backend)
+       => (Vec2 -> Mat4) -> [Object gs is] -> Group (View3 ': gs) is
+viewVP mf = globalGroup (globalFramebufferSize View3 mf) . group
 
--- | Like 'object1, but it will only set the texture.
-object1Tex :: BackendIO => Element -> Object '[Texture2] Geometry3
-object1Tex (Element t _ g) = C.globalTexture Texture2 t $
-                             C.geom g
+-- | A 'Layer' with the standard 3D program.
+layerS :: IsGroup3D gs is => Group gs is -> Layer
+layerS = layer defaultProgram3D
 
--- | Create a standard 'Layer' from a list of 'Element's.
-elements :: BackendIO => [Element] -> Layer
-elements = layer . object idmtx
+-- | Translate a 3D Object.
+trans :: (MemberGlobal Transform3 gs, GLES) => Vec3
+      -> Object gs is -> Object gs is
+trans v = transform $ transMat4 v
 
--- | Create a 'Layer' from a view matrix and a list of 'Element's.
-view :: BackendIO => Mat4 -> [Element] -> Layer
-view m = layer . object m
-
--- | Create a 'Layer' from a view matrix and a list of 'Element's, using the
--- size of the framebuffer.
-viewVP :: BackendIO => (Vec2 -> Mat4) -> [Element] -> Layer
-viewVP m = layer . objectVP m
-
--- | Create a 'Layer' from a view matrix and a list of 'Element's, with
--- perspective.
---
--- > viewPersp near far fov view =
--- >    viewVP (\size -> view .*. perspectiveMat4Size near far fov size)
-
-viewPersp :: BackendIO
-          => Float                      -- ^ Near
-          -> Float                      -- ^ Far
-          -> Float                      -- ^ FOV
-          -> Mat4                       -- ^ View matrix
-          -> [Element]
-          -> Layer
-viewPersp near far fov view = viewVP $
-        (view .*.) . perspectiveMat4Size near far fov
-
--- | Set the value of the view matrix of a 3D 'Object'. The argument of the
--- function is the size of the framebuffer.
-viewObject :: BackendIO => (Vec2 -> Mat4) -> Object gs Geometry3
-           -> Object (View3 ': gs) Geometry3
-viewObject = C.globalFramebufferSize View3
-
--- | Create a 'Layer' from a 3D 'Object', using the default shader.
-layer :: BackendIO => Object DefaultUniforms3D Geometry3 -> Layer
-layer = layerPrg defaultProgram3D
-
--- | Create a 'Layer' from a 3D 'Object', using a custom shader.
-layerPrg :: (BackendIO, Subset og pg) => Program pg Geometry3
-         -> Object og Geometry3 -> Layer
-layerPrg = C.layer
-
--- | Translate an 'Element'.
-pos :: Vec3 -> Element -> Element
-pos v = transform $ transMat4 v
-
--- | Rotate an 'Element' around the X axis.
-rotX :: Float -> Element -> Element
+-- | Rotate a 3D 'Object' around the X axis.
+rotX :: (MemberGlobal Transform3 gs, GLES) => Float
+     -> Object gs is -> Object gs is
 rotX a = transform $ rotXMat4 a
 
--- | Rotate an 'Element' around the X axis.
-rotY :: Float -> Element -> Element
+-- | Rotate a 3D 'Object' around the X axis.
+rotY :: (MemberGlobal Transform3 gs, GLES) => Float
+     -> Object gs is -> Object gs is
 rotY a = transform $ rotYMat4 a
 
--- | Rotate an 'Element' around the X axis.
-rotZ :: Float -> Element -> Element
+-- | Rotate a 3D 'Object' around the X axis.
+rotZ :: (MemberGlobal Transform3 gs, GLES) => Float
+     -> Object gs is -> Object gs is
 rotZ a = transform $ rotZMat4 a
 
--- | Rotate an 'Element' around a vector.
-rot :: Vec3 -> Float -> Element -> Element
+-- | Rotate a 3D 'Object' around a vector.
+rot :: (MemberGlobal Transform3 gs, GLES) => Vec3
+    -> Float
+    -> Object gs is -> Object gs is
 rot ax ag = transform $ rotMat4 ax ag
 
--- | Scale an 'Element'.
-scale :: Float -> Element -> Element
+-- | Scale a 3D 'Object'.
+scale :: (MemberGlobal Transform3 gs, GLES) => Float
+      -> Object gs is -> Object gs is
 scale f = transform $ scaleMat4 (Vec3 f f f)
 
--- | Scale an 'Element' in three dimensions.
-scaleV :: Vec3 -> Element -> Element
+-- | Scale a 3D 'Object' in three dimensions.
+scaleV :: (MemberGlobal Transform3 gs, GLES) => Vec3
+       -> Object gs is -> Object gs is
 scaleV v = transform $ scaleMat4 v
 
--- | Transform an 'Element'.
-transform :: Mat4 -> Element -> Element
-transform m' (Element t m g) = Element t (flip (.*.) m' <$> m) g
+-- | Transform a 3D 'Object'.
+transform :: (MemberGlobal Transform3 gs, GLES) => Mat4
+          -> Object gs is -> Object gs is
+transform m' o = (\m -> Transform3 := (.*. m') <$> m) ~~> o
 
 -- | 4x4 perspective projection matrix, using width and height instead of the
 -- aspect ratio.

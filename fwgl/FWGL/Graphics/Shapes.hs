@@ -5,21 +5,21 @@ import FWGL.Geometry
 import FWGL.Graphics.Types
 import FWGL.Internal.GL (GLES)
 
-rectGeometry :: GLES => Vec2 -> Geometry Geometry2
-rectGeometry (Vec2 w h) = mkGeometry2 [ Vec2 (-hw) (-hh)
-                                      , Vec2 hw    (-hh)
-                                      , Vec2 hw    hh
-                                      , Vec2 (-hw) hh ]
-                                      [ Vec2 0 0
-                                      , Vec2 1 0
-                                      , Vec2 1 1
-                                      , Vec2 0 1 ]
-                                      [ 0, 1, 2, 0, 3, 2 ]
+rectGeometry :: GLES => Vec2 -> Geometry Geometry2D
+rectGeometry (Vec2 w h) = mkGeometry2D [ Vec2 (-hw) (-hh)
+                                       , Vec2 hw    (-hh)
+                                       , Vec2 hw    hh
+                                       , Vec2 (-hw) hh ]
+                                       [ Vec2 0 0
+                                       , Vec2 1 0
+                                       , Vec2 1 1
+                                       , Vec2 0 1 ]
+                                       [ 0, 1, 2, 0, 3, 2 ]
         where (hw, hh) = (w / 2, h / 2)
 
-cubeGeometry :: GLES => Geometry Geometry3
+cubeGeometry :: GLES => Geometry Geometry3D
 cubeGeometry =
-        mkGeometry3
+        mkGeometry3D
                 [ Vec3 1.0 1.0 (-0.999999), 
                   Vec3 1.0 (-1.0) (-1.0), 
                   Vec3 (-1.0) 1.0 (-1.0), 

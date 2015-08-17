@@ -48,12 +48,12 @@ collision (Box (Vec3 x y z) (Vec3 hx hy hz))
              abs (y - y') > (hy + hy') ||
              abs (z - z') > (hz + hz'))
 
-drawBox :: Texture -> Box -> Element
-drawBox tex (Box p (Vec3 hx hy hz)) = pos p .
+drawBox :: Texture -> Box -> Object3D
+drawBox tex (Box p (Vec3 hx hy hz)) = trans p .
                                       scaleV (Vec3 hx hy hz) $
                                       cube tex
 
-drawAll :: SF (Box, [Box]) [Element]
+drawAll :: SF (Box, [Box]) [Object3D]
 drawAll = arrPrim $ \(c, ws) -> drawBox outRed c : map (drawBox outWhite) ws
         where outRed = outline red
               outWhite = outline white
@@ -61,8 +61,8 @@ drawAll = arrPrim $ \(c, ws) -> drawBox outRed c : map (drawBox outWhite) ws
 mainSig :: RandomGen g => g -> SF (Input ()) Output
 mainSig r = car &&& walls r >>>
             drawAll &&& death >>^
-            (\(els, ded) -> if ded then redScreen else els) >>^
-            \els -> draw [viewPersp 0.3 1000 100 idmtx els]
+            (\(objs, ded) -> if ded then redScreen else objs) >>^
+            \objs -> draw [layerS $ viewPersp 0.3 1000 100 idmtx objs]
         where redScreen = [cube $ colorTex red]
 
 main :: IO ()

@@ -14,36 +14,35 @@ import FWGL.Backend.GLFW.GL20
 
 import Shaders
 
-mainSF :: Geometry Geometry3 -> SF (Input ()) Output
+mainSF :: Geometry Geometry3D -> SF (Input ()) Output
 mainSF buildingGeom = 
         cameraViewProj &&& lightViewProj &&&
         lightPos &&& lightCube &&& time >>^
                 \(cameraMat, (lightMat, (lightPos, (light, time)))) ->
                     draw . (: []) $
                         depthSubLayer 1024 1024
-                                 ( layerPrg depthProgram $ 
-                                   global LightView3 lightMat $
-                                   object1Trans building )
+                                 ( layer depthProgram .
+                                   globalGroup (LightView3 -= lightMat) .
+                                   group . (: []) $
+                                   building )
                                 $ \shadowMap ->
-                                        [ layerPrg sceneProgram $
-                                          global LightView3 lightMat $
-                                          global LightPos3 lightPos $
-                                          globalTexture ShadowMap shadowMap $
-                                          objectVP cameraMat [ floor
-                                                             , light
-                                                             , building ]
-                                        {- , elements [depthCube shadowMap] -} ]
+                                        [ layer sceneProgram .
+                                          globalGroup (LightView3 -= lightMat) .
+                                          globalGroup (LightPos3 -= lightPos) .
+                                          globalGroup (globalTexture ShadowMap
+                                                                     shadowMap) .
+                                          viewVP cameraMat $
+                                          [ floor, light, building ] ]
         where floor = scaleV (Vec3 20 0.2 20) . cube . colorTex $
                                 visible 240 230 180
-              building = pos (Vec3 12 0.2 0) . scale 0.5 $
-                                geom (colorTex white) buildingGeom
-              depthCube map = pos (Vec3 0.7 0.7 0) . scale 0.2 $ cube map
+              building = trans (Vec3 12 0.2 0) . scale 0.5 $
+                                mesh (colorTex white) buildingGeom
               cameraView = fpsMovingCamera (Vec3 (- 3) 1.3 (- 10)) 0.3 >>^
                                 \(pos, (pitch, yaw)) -> cameraMat4 pos pitch yaw
               cameraViewProj = cameraView >>^ \view -> (view .*.) .
                                         perspectiveMat4Size 100000 0.5 100 
               lightCube = lightPos >>^ \(Vec3 x y z) ->
-                                pos (Vec3 (x - 0.2) y z) . scale 0.1 $
+                                trans (Vec3 (x - 0.2) y z) . scale 0.1 $
                                         cube (colorTex yellow)
 
 lightPos :: SF a Vec3

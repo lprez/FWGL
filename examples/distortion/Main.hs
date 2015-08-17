@@ -14,12 +14,12 @@ import FWGL.Backend.GLFW.GL20
 
 import Program
 
-surface :: Geometry Geometry2
-surface = mkGeometry2 (quads (- 0.5) (- 0.5))
-                      (quads 0 0)
-                      (concat [ let i' = i * 4
-                                in [ i', i' + 1, i' + 2, i', i' + 3, i' + 2 ]
-                              | i <- [ 0 .. precision ^ 2 - 1 ]])
+surface :: Geometry Geometry2D
+surface = mkGeometry2D (quads (- 0.5) (- 0.5))
+                       (quads 0 0)
+                       (concat [ let i' = i * 4
+                                 in [ i', i' + 1, i' + 2, i', i' + 3, i' + 2 ]
+                               | i <- [ 0 .. precision ^ 2 - 1 ]])
         where quads ix iy = concat [ quad ix iy x y (1 / precision)
                                    | x <- [ 0 .. precision - 1 ]
                                    , y <- [ 0 .. precision - 1 ]]
@@ -34,14 +34,12 @@ surface = mkGeometry2 (quads (- 0.5) (- 0.5))
 
 main :: IO ()
 main = fwgl . run $ pointer >>^ \(x, y) -> draw [
-                        layerPrg distProgram $
-                        global Pointer
-                               (Vec2 (fromIntegral x / 640 - 0.5)
-                                     (- fromIntegral y / 480 + 0.5))
-                               obj
+                        layer distProgram . view idmtx . (: []) $
+                        Pointer -= Vec2 (fromIntegral x / 640 - 0.5)
+                                         (- fromIntegral y / 480 + 0.5)
+                        :~> poly tex surface
                     ]
         where tex = textureFile "tex.png"
-              obj = object idmtx [geom tex surface]
 
 distProgram :: Program Uniforms Attributes
 distProgram = program vertexShader fragmentShader

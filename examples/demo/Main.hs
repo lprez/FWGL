@@ -17,7 +17,7 @@ import GHCJS.Types
 import FWGL.Backend.GLFW.GL20
 #endif
 
-mainSF :: SF (Input (Maybe (Geometry Geometry3))) Output
+mainSF :: SF (Input (Maybe (Geometry Geometry3D))) Output
 mainSF = proc inp -> do tm <- time >>> arr realToFrac -< inp
                         monkey <- monkey -< inp
                         cubes <- parB [ rotatingCube 0 gradRedYellow
@@ -26,19 +26,20 @@ mainSF = proc inp -> do tm <- time >>> arr realToFrac -< inp
                                       , rotatingCube (pi * 3 / 2) gradGreenBlue ]
                               -< inp
  
-                        returnA -< draw [ viewPersp 0.12 10000 100 idmtx
+                        returnA -< draw [ layerS
+                                                . viewPersp 0.12 10000 100 idmtx
                                                 $ monkey : cubes ]
 
         where gradRedYellow = gradient red yellow
               gradGreenBlue = gradient green blue
 
-rotatingCube :: Float -> Texture -> SF (Input a) Element
+rotatingCube :: Float -> Texture -> SF (Input a) Object3D
 rotatingCube angleOff tex =
         proc inp -> do tm <- time >>> arr realToFrac -< inp
 
                        let angle factor = mod' (tm / factor + angleOff) $ pi * 2
 
-                       returnA -< ( pos (
+                       returnA -< ( trans (
                                             Vec3 (sin (angle 800) / 6)
                                                  (sin (angle 800) / 6)
                                                  (cos (angle 800) / 5 - 1)) $
@@ -47,7 +48,7 @@ rotatingCube angleOff tex =
                                     scale 0.02 $
                                     cube tex )
 
-monkey :: SF (Input (Maybe (Geometry Geometry3))) Element
+monkey :: SF (Input (Maybe (Geometry Geometry3D))) Object3D
 monkey = proc inp -> do (x, y) <- pointer -< inp
                         (width, height) <- size -< inp
                         scaleFact <- mouseScale -< inp
@@ -57,14 +58,14 @@ monkey = proc inp -> do (x, y) <- pointer -< inp
                                             Just g -> g
                                             Nothing -> emptyGeometry
 
-                        returnA -< ( pos (Vec3 0 0 (- 1)) $
+                        returnA -< ( trans (Vec3 0 0 (- 1)) $
                                      rotY (2 - fromIntegral x * 4 /
                                            fromIntegral width) $
                                      rotX (2 - fromIntegral y * 4
                                            / fromIntegral height) $
                                      scale scaleFact $
-                                     geom (textureURL monkeyTex) geometry )
-        where emptyGeometry = mkGeometry3 [] [] [] []
+                                     mesh (textureURL monkeyTex) geometry )
+        where emptyGeometry = mkGeometry3D [] [] [] []
 
 mouseScale :: SF (Input a) Float
 mouseScale = proc inp -> do leftCount <- mouseCount 4 MouseLeft -< inp

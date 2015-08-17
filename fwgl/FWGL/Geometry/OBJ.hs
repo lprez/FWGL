@@ -76,5 +76,5 @@ parseOBJ file = runST $
 attributesOBJ :: OBJModel -> ([Vec3], [Vec2], [Vec3], [Word16])
 attributesOBJ (OBJModel v u n fs) = arraysToElements $ facesToArrays v u n fs
 
-geometryOBJ :: GLES => OBJModel -> Geometry Geometry3
-geometryOBJ o = let (v, u, n, e) = attributesOBJ o in mkGeometry3 v u n e
+geometryOBJ :: GLES => OBJModel -> Geometry Geometry3D
+geometryOBJ o = let (v, u, n, e) = attributesOBJ o in mkGeometry3D v u n e

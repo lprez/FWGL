@@ -3,95 +3,51 @@
 
 {-| Simplified 2D graphics system. -}
 module FWGL.Graphics.D2 (
-        -- * Elements
-        Element,
+        module FWGL.Graphics.Generic,
+        -- * 2D Objects and Groups
+        Object2D,
+        IsObject2D,
+        Group2D,
+        IsGroup2D,
         rect,
         image,
-        depth,
         sprite,
+        depth,
         -- ** Geometry
-        Geometry,
-        Geometry2,
-        geom,
-        mkGeometry2,
-        -- * Textures
-        module FWGL.Graphics.Color,
-        Texture,
-        C.textureURL,
-        C.textureFile,
-        C.colorTex,
-        mkTexture,
+        Geometry2D,
+        poly,
+        mkGeometry2D,
         -- * Transformations
-        Vec2(..),
-        pos,
+        trans,
         rot,
         scale,
         scaleV,
+        scaleTex,
+        scaleTexAR,
         transform,
         -- * Layers
-        Layer,
-        C.combineLayers,
-        -- ** Element layers
-        elements,
-        elementsScreen,
         view,
         viewScreen,
         viewVP,
-        -- ** Object layers
-        Program,
-        layer,
-        layerPrg,
-        C.program,
-        defaultProgram2D,
-        -- ** Sublayers
-        C.subLayer,
-        C.depthSubLayer,
-        C.subRenderLayer,
-        -- *** Render layers
-        RenderLayer,
-        renderColor,
-        renderDepth,
-        renderColorDepth,
-        renderColorInspect,
-        renderDepthInspect,
-        renderColorDepthInspect,
-        -- * Custom 2D objects
-        Object,
-        object,
-        objectVP,
-        object1,
-        object1Image,
-        object1Depth,
-        object1Trans,
-        object1ImageDepth,
-        object1ImageTrans,
-        object1DepthTrans,
-        (C.~~),
-        -- ** Globals
-        C.global,
-        C.globalTexture,
-        C.globalTexSize,
-        C.globalFramebufferSize,
-        viewObject,
-        DefaultUniforms2D,
-        Image(..),
-        Depth(..),
-        Transform2(..),
-        View2(..),
-        -- * Vectors and matrices
-        module Data.Vect.Float,
-        -- ** Transformation matrices
+        layerS,
+        -- * Transformation matrices
         transMat3,
         rotMat3,
         scaleMat3,
         screenMat3,
+        -- * Uniforms
+        Uniforms2D,
+        Image(..),
+        Depth(..),
+        Transform2(..),
+        View2(..),
 ) where
 
 import Control.Applicative
 import Data.Vect.Float
 import FWGL.Backend hiding (Texture, Image, Program)
 import FWGL.Geometry
-import qualified FWGL.Graphics.Custom as C
+import FWGL.Graphics.Generic
 import FWGL.Graphics.Color
 import FWGL.Graphics.Draw
 import FWGL.Graphics.Shapes
@@ -102,151 +58,115 @@ import FWGL.Shader.Default2D (Image(..), Depth(..), Transform2(..), View2(..))
 import FWGL.Shader.Program
 import FWGL.Transformation
 
--- | A 2D object with a 'Texture', a depth and a transformation.
-data Element = Element Float Texture (Draw Mat3) (Geometry Geometry2)
+type Uniforms2D = '[Image, Depth, Transform2]
 
--- | A rectangle with a specified 'Texture' and size.
-rect :: GLES => Vec2 -> Texture -> Element
-rect v t = scaleV v $ Element 0 t (return idmtx) $ rectGeometry (Vec2 1 1)
+-- | A standard 2D object.
+type Object2D = Object Uniforms2D Geometry2D
 
--- | An element with a specified 'Geometry' and 'Texture'.
-geom :: Texture -> Geometry Geometry2 -> Element
-geom t = Element 0 t $ return idmtx
+-- | A standard 2D object group.
+type Group2D = Group (View2 ': Uniforms2D) Geometry2D
+
+-- | 2D objects compatible with the standard 2D shader program.
+type IsObject2D globals inputs = ( Subset Geometry2D inputs
+                                 , Subset Uniforms2D globals
+                                 , Set inputs, Set globals )
+
+-- | 2D object groups compatible with the standard 2D shader program.
+type IsGroup2D gs is = ( Subset Geometry2D is, Subset (View2 ': Uniforms2D) gs
+                       , Set is, Set gs )
+
+-- | A rectangle with a specified 'Texture'.
+rect :: Backend => Texture -> Object2D
+rect = flip poly . rectGeometry $ Vec2 1 1
+
+-- | A 2D object with a specified 'Geometry'.
+poly :: (IsObject2D Uniforms2D is, Backend)
+     => Texture -> Geometry is -> Object Uniforms2D is
+poly t g = globalTexture Image t :~>
+           Depth -= 0 :~> Transform2 -= idmtx :~> geom g
 
 -- | A rectangle with the aspect ratio adapted to its texture.
-image :: BackendIO
-      => Float          -- ^ Width.
-      -> Texture -> Element
-image s t = Element 0 t ((\(w, h) -> scaleMat3 (Vec2 1 $ h /w)) <$>
-                                     textureSize t)
-                        (rectGeometry $ Vec2 s s)
+image :: Backend => Texture -> Object2D
+image t = scaleTexAR t $ rect t
 
--- | Set the depth of an element.
-depth :: Float -> Element -> Element
-depth d (Element _ t m g) = Element d t m g
+-- | Set the depth of a 2D 'Object'.
+depth :: (MemberGlobal Depth gs, GLES)
+      => Float -> Object gs is -> Object gs is
+depth d obj = const (Depth -= d) ~~> obj
 
 -- | A rectangle with the size and aspect ratio adapted to the screen, assuming
--- that you're using 'elementsScreen', 'viewScreen', 'viewVP' 'screenMat3',
--- 'objectVP' screenMat3 or 'viewObject' screenMat3.
-sprite :: BackendIO => Texture -> Element
-sprite t = Element 0 t ((\(w, h) -> scaleMat3 $ Vec2 w h) <$> textureSize t)
-                       (rectGeometry $ Vec2 1 1)
+-- that you're using 'viewScreen' or 'screenMat3'.
+sprite :: BackendIO => Texture -> Object2D
+sprite t = scaleTex t $ rect t
 
--- | Create a graphical 'Object' from a list of 'Element's and a view matrix,
--- using the size of the framebuffer.
-objectVP :: BackendIO => (Vec2 -> Mat3)
-         -> [Element] -> Object DefaultUniforms2D Geometry2
-objectVP m = viewObject m . foldl acc ObjectEmpty
-        where acc o e = o C.~~ object1 e
-
--- | Create a graphical 'Object' from a list of 'Element's and a view matrix.
-object :: BackendIO => Mat3 -> [Element] -> Object DefaultUniforms2D Geometry2
-object = objectVP . const
-
--- | Create a graphical 'Object' from a single 'Element'. This lets you set your
--- own globals individually. If the shader uses the view matrix 'View2' (e.g.
--- the default 2D shader), you have to set it with 'viewObject'.
-object1 :: BackendIO => Element -> Object '[Image, Depth, Transform2] Geometry2
-object1 (Element d t m g) = C.globalTexture Image t $
-                            C.global Depth d $
-                            C.globalDraw Transform2 m $
-                            C.geom g
-
--- | Like 'object1', but it will only set the image.
-object1Image :: BackendIO => Element -> Object '[Image] Geometry2
-object1Image (Element _ t _ g) = C.globalTexture Image t $
-                                 C.geom g
-
--- | Like 'object1', but it will only set the depth.
-object1Depth :: BackendIO => Element -> Object '[Depth] Geometry2
-object1Depth (Element d _ _ g) = C.global Depth d $
-                                 C.geom g
-
--- | Like 'object1', but it will only set the transformation matrix.
-object1Trans :: BackendIO => Element -> Object '[Transform2] Geometry2
-object1Trans (Element _ _ m g) = C.globalDraw Transform2 m $
-                                 C.geom g
-
--- | Like 'object1', but it will only set the image and the depth.
-object1ImageDepth :: BackendIO => Element -> Object '[Image, Depth] Geometry2
-object1ImageDepth (Element d t _ g) = C.globalTexture Image t $
-                                      C.global Depth d $
-                                      C.geom g
-
--- | Like 'object1', but it will only set the image and the transformation
--- matrix.
-object1ImageTrans :: BackendIO => Element 
-                  -> Object '[Image, Transform2] Geometry2
-object1ImageTrans (Element _ t m g) = C.globalTexture Image t $
-                                      C.globalDraw Transform2 m $
-                                      C.geom g
-
--- | Like 'object1', but it will only set the depth and the transformation
--- matrix.
-object1DepthTrans :: BackendIO => Element
-                  -> Object '[Depth, Transform2] Geometry2
-object1DepthTrans (Element d _ m g) = C.global Depth d $
-                                      C.globalDraw Transform2 m $
-                                      C.geom g
-
--- | Create a standard 'Layer' from a list of 'Element's.
-elements :: BackendIO => [Element] -> Layer
-elements = layer . object idmtx
-
--- | Create a standard 'Layer' from a list of 'Element's, using the screen
--- coordinates (that is, (0, 1) = 1 pixel above the center).
-elementsScreen :: BackendIO => [Element] -> Layer
-elementsScreen = layer . objectVP screenMat3
-
--- | Create a 'Layer' from a view matrix and a list of 'Element's.
-view :: BackendIO => Mat3 -> [Element] -> Layer
+-- | Create a group of objects with a view matrix.
+view :: (IsObject2D gs is, Backend)
+     => Mat3 -> [Object gs is] -> Group (View2 ': gs) is
 view m = viewVP $ const m
 
--- | Create a 'Layer' from a view matrix and a list of 'Element's, using the
--- screen coordinates.
-viewScreen :: BackendIO => Mat3 -> [Element] -> Layer
-viewScreen m = viewVP $ (m .*.) . screenMat3
+-- | Create a group of objects with a view matrix and 'screenMat3'.
+viewScreen :: (IsObject2D gs is, Backend)
+           => Mat3 -> [Object gs is] -> Group (View2 ': gs) is
+viewScreen m = viewVP $ \s -> screenMat3 s .*. m
 
--- | Create a 'Layer' from a view matrix and a list of 'Element's, using the
--- size of the framebuffer.
-viewVP :: BackendIO => (Vec2 -> Mat3) -> [Element] -> Layer
-viewVP m = layer . objectVP m
+-- | Create a group of objects with a view matrix, depending on the size of the
+-- framebuffer.
+viewVP :: (IsObject2D gs is, Backend)
+       => (Vec2 -> Mat3) -> [Object gs is] -> Group (View2 ': gs) is
+viewVP mf = globalGroup (globalFramebufferSize View2 mf) . group
 
--- | Set the value of the view matrix of a 2D 'Object'.
-viewObject :: BackendIO => (Vec2 -> Mat3) -> Object gs Geometry2
-           -> Object (View2 ': gs) Geometry2
-viewObject = C.globalFramebufferSize View2
+-- | A 'Layer' with the standard 2D program.
+layerS :: IsGroup2D gs is => Group gs is -> Layer
+layerS = layer defaultProgram2D
 
--- | Create a 'Layer' from a 2D 'Object', using the default shader.
-layer :: BackendIO => Object DefaultUniforms2D Geometry2 -> Layer
-layer = layerPrg defaultProgram2D
+-- | Translate a 2D 'Object'.
+trans :: (MemberGlobal Transform2 gs, GLES)
+      => Vec2 -> Object gs is -> Object gs is
+trans v = transform $ transMat3 v
 
--- | Create a 'Layer' from a 2D 'Object', using a custom shader.
-layerPrg :: (BackendIO, Subset og pg) => Program pg Geometry2
-         -> Object og Geometry2 -> Layer
-layerPrg = C.layer
-
--- | Translate an 'Element'.
-pos :: Vec2 -> Element -> Element
-pos v = transform $ transMat3 v
-
--- | Rotate an 'Element'.
-rot :: Float -> Element -> Element
+-- | Rotate a 2D 'Object'.
+rot :: (MemberGlobal Transform2 gs, GLES)
+    => Float -> Object gs is -> Object gs is
 rot a = transform $ rotMat3 a
 
--- | Scale an 'Element'.
-scale :: Float -> Element -> Element
+-- | Scale a 2D 'Object'.
+scale :: (MemberGlobal Transform2 gs, GLES)
+      => Float -> Object gs is -> Object gs is
 scale f = transform $ scaleMat3 (Vec2 f f)
 
--- | Scale an 'Element' in two dimensions.
-scaleV :: Vec2 -> Element -> Element
+-- | Scale a 2D 'Object' in two dimensions.
+scaleV :: (MemberGlobal Transform2 gs, GLES)
+       => Vec2 -> Object gs is -> Object gs is
 scaleV v = transform $ scaleMat3 v
 
--- | Transform an 'Element'.
-transform :: Mat3 -> Element -> Element
-transform m' (Element d t m g) = Element d t (flip (.*.) m' <$> m) g
+-- | Scale an 'Object' so that it has the same size as the 'Texture', assuming
+-- 'viewScreen' or 'screenMat3'.
+scaleTex :: (MemberGlobal Transform2 gs, Backend)
+           => Texture -> Object gs is -> Object gs is
+scaleTex t = transformDraw $
+                (\(w, h) -> scaleMat3 $ Vec2 w h) <$> textureSize t
+
+-- | Scale an 'Object' so that it has the same aspect ratio as the 'Texture'
+-- 
+-- > scaleV $ Vec2 1 (texture height / texture width).
+scaleTexAR :: (MemberGlobal Transform2 gs, Backend)
+           => Texture -> Object gs is -> Object gs is
+scaleTexAR t = transformDraw $
+                (\(w, h) -> scaleMat3 $ Vec2 1 (h / w)) <$> textureSize t
+
+-- | Transform a 2D 'Object'.
+transform :: (MemberGlobal Transform2 gs, GLES)
+          => Mat3 -> Object gs is -> Object gs is
+transform m' o = (\m -> Transform2 := (.*. m') <$> m) ~~> o
+
+-- | Transform a 2D 'Object'.
+transformDraw :: (MemberGlobal Transform2 gs, GLES)
+              => Draw Mat3 -> Object gs is -> Object gs is
+transformDraw m' o = (\m -> Transform2 := (.*.) <$> m <*> m') ~~> o
 
 -- | Convert the screen coordinates to GL coordinates.
 screenMat3 :: Vec2      -- ^ Viewport size.
            -> Mat3
-screenMat3 (Vec2 w h) = scaleMat3 $ Vec2 (2 / w) (2 / h)
+screenMat3 (Vec2 w h) = Mat3 (Vec3 (2 / w)          0           0 )
+                             (Vec3    0         (- 2 / h)       0 )
+                             (Vec3  (- 1)           1           1 )
