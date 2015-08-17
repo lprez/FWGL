@@ -1,9 +1,9 @@
 name:                fwgl
 version:             0.1.3.0
-synopsis:            FRP 2D/3D game engine
-description:         FRP 2D/3D game engine (work in progress).
+synopsis:            Game engine
+description:         FWGL is a library for interactive 2D and 3D applications and games. It provides a purely functional interface for advanced graphics programming, including a type safe embedded DSL for GPU programming. You are not required to know or use OpenGL directly to work with FWGL, you just need a basic knowledge of what vertex/fragment shaders, uniforms and attributes are (if you are going to make a more advanced use of it). FWGL is aimed at functional reactive programming (with Yampa), but provides a non-reactive interface as well. There are two backends: fwgl-glfw and fwgl-javascript.
 homepage:            https://github.com/ziocroc/FWGL
-stability:           experimental
+stability:           provisional
 license:             BSD3
 license-file:        LICENSE
 author:              Luca "ziocroc" Prezzavento

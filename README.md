@@ -60,7 +60,7 @@ Project
   * Network/WebSocket
 
 **Other ideas:**  
-  * Android backend
+  * Android backend (waiting for ghc-android support for GHC 7.10)
   * Partial shaders
 
 Note that FWGL won't include anything that can be already done with the shader EDSL. For this reason, these features are unlikely to be implemented unless I find a decent way to implement partial shaders (I will provide examples anyway):  

@@ -1,8 +1,6 @@
 module FWGL.Input (
         module FWGL.Key,
-        Input(..),
-        InputEvent(..),
-        EventData(..),
+        -- * FRP
         keyUp,
         keyDown,
         key,
@@ -14,7 +12,11 @@ module FWGL.Input (
         pointer,
         resize,
         size,
-        custom
+        custom,
+        -- * IO
+        Input(..),
+        InputEvent(..),
+        EventData(..),
 ) where
 
 import Data.Maybe

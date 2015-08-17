@@ -66,13 +66,9 @@ module FWGL (
         removeGeometry,
         removeTexture,
         removeProgram,
-        {-
-        -- * Effectful Interface
-        runEffect,
-        setCanvasSize,
-        setCanvasTitle,
-        getTime
-        -}
+        -- * IO interface
+        runIO,
+        runToIO
 ) where
 
 import Data.IORef
@@ -174,32 +170,65 @@ run' = runTo "canvas"
 
 -- | Run a FWGL program, using custom inputs and a specified canvas.
 runTo :: BackendIO
-      => String -- ^ Destination canvas (eg. "#myCanvasId"). This only has
-                -- meaning on the JavaScript backend.
+      => String -- ^ Destination canvas (eg. "#myCanvasId"). This has
+                -- meaning only in the JavaScript backend.
       -> IO inp -- ^ An IO effect generating the custom inputs.
       -> SF (Input inp) Output
       -> FWGL ()
-runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
-        do (canvas, w, h) <- createCanvas dest bs
+runTo dest customInput sigf =
+        do initCustom <- liftIO customInput
+           outputRef <- liftIO . newIORef . eff $ return ()
+           reactHandleRef <- liftIO . newIORef $ error "react before reactInit."
+           
+           runToIO dest
+                (\w h -> writeIORef reactHandleRef =<<
+                                reactInit (return $ initInput w h initCustom)
+                                          (\_ _ -> (>> return False) .
+                                                   writeIORef outputRef)
+                                          sigf)
+                $ \tmdiff inp ->
+                   do custom <- customInput
+                      reactStateRef <- readIORef reactHandleRef
+                      react reactStateRef
+                            (tmdiff, Just inp { inputCustom = custom })
+                      readIORef outputRef
+        
+        where initInput w h = Input $ H.singleton Resize [
+                        emptyEventData {
+                                dataFramebufferSize = Just (w, h)
+                        }]
 
-           initCustom <- customInput
+              emptyEventData = EventData {
+                                dataFramebufferSize = Nothing,
+                                dataPointer = Nothing,
+                                dataButton = Nothing,
+                                dataKey = Nothing }
+
+-- | Run a non-reactive FWGL program.
+runIO :: BackendIO
+      => (Double -> Input () -> IO Output) -- ^ Loop function
+      -> FWGL ()
+runIO = runToIO "canvas" $ \_ _ -> return ()
+
+-- | Run a non-reactive FWGL program in a specified canvas.
+runToIO :: BackendIO
+        => String -- ^ Destination canvas (eg. "#myCanvasId"). This only has
+        -> (Int -> Int -> IO ()) -- ^ Initialization function
+        -> (Double -> Input () -> IO Output) -- ^ Loop function
+        -> FWGL ()
+runToIO dest init fun = FWGL $ ask >>= \bs -> liftIO $
+        do (canvas, w, h) <- createCanvas dest bs
+           init w h
+
            lastTimeRef <- getTime bs >>= newIORef
            newSizeRef <- newIORef Nothing
            drawStateVar <- drawCanvas (initState w h canvas) False canvas bs
                            >>= newMVar
-           reactStateRef <- reactInit (return $ initInput w h initCustom)
-                                      (\reactStateRef _ -> actuate lastTimeRef
-                                                                   reactStateRef
-                                                                   newSizeRef
-                                                                   canvas
-                                                                   bs
-                                                                   drawStateVar)
-                                      sigf
 
            setCanvasResizeCallback (resizeCb newSizeRef) canvas bs
 
-           setCanvasRefreshCallback (refreshCb lastTimeRef reactStateRef
-                                               canvas bs)
+           setCanvasRefreshCallback (refreshCb lastTimeRef newSizeRef canvas
+                                               bs drawStateVar)
                                     canvas bs
 
            refreshLoop 60 canvas bs
@@ -208,15 +237,16 @@ runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
 
               resizeCb newSizeRef w h = writeIORef newSizeRef $ Just (w, h)
 
-              refreshCb lastTimeRef reactStateRef canvas bs =
+              refreshCb lastTimeRef newSizeRef canvas bs drawStateVar =
                       do tm <- readIORef lastTimeRef
                          tm' <- getTime bs
-                         custom <- customInput
-                         inp <- popInput custom canvas bs
-                         react reactStateRef ((tm' - tm) * 1000, Just inp)
+                         inp <- popInput () canvas bs
+                         out <- fun ((tm' - tm) * 1000) inp
                          writeIORef lastTimeRef tm'
+                         cycle lastTimeRef newSizeRef canvas
+                               bs drawStateVar out
 
-              actuate lastTimeRef reactStateRef newSizeRef canvas bs drawStateVar
+              cycle lastTimeRef newSizeRef canvas bs drawStateVar
                       (Output re edrawEff) =
                       do mNewSize <- readIORef newSizeRef
                          case edrawEff of
@@ -235,8 +265,8 @@ runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
                                                  return r) True canvas bs
                                          runEffect $ effFun r
                               Left eff -> runEffect eff
-                         when re $ refreshCb lastTimeRef reactStateRef canvas bs
-                         return False
+                         when re $ refreshCb lastTimeRef newSizeRef
+                                             canvas bs drawStateVar
                       where drawTo drawAct ctx = modifyMVar drawStateVar $ \s ->
                                      flip evalGL ctx . fmap swap $
                                              runDraw drawAct s
@@ -244,17 +274,6 @@ runTo dest customInput sigf = FWGL $ ask >>= \bs -> liftIO $
                                 drawCanvas (drawTo $ runReaderT e (canvas, bs))
                                            False canvas bs
                             swap (a, b) = (b, a)
-        
-              initInput w h = Input $ H.singleton Resize [
-                        emptyEventData {
-                                dataFramebufferSize = Just (w, h)
-                        }]
-
-              emptyEventData = EventData {
-                                dataFramebufferSize = Nothing,
-                                dataPointer = Nothing,
-                                dataButton = Nothing,
-                                dataKey = Nothing }
 
 -- | Load a model from an OBJ file asynchronously.
 loadOBJAsync :: BackendIO 
