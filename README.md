@@ -38,6 +38,11 @@ Shadow mapping, point light (the example in the screenshot).
 **[Distortion](http://ziocroc.github.io/FWGL/distortion)**  
 Custom geometry.
 
+**[3D picking](http://ziocroc.github.io/FWGL/picking)**  
+Render layers.
+
+**[Multiple windows](http://ziocroc.github.io/FWGL/multi)**  
+
 **[TCP](https://github.com/ziocroc/FWGL/tree/master/examples/io) (GLFW only)**  
 Custom inputs, IO output.
 
