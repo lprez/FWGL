@@ -32,12 +32,10 @@ mainSF buildingGeom =
                                           globalGroup (globalTexture ShadowMap
                                                                      shadowMap) .
                                           viewVP cameraMat $
-                                          [ floor, light, building ] ]
-        where floor = scaleV (Vec3 20 0.2 20) . cube . colorTex $
-                                visible 240 230 180
-              building = trans (Vec3 12 0.2 0) . scale 0.5 $
+                                          [ light, building ] ]
+        where building = trans (Vec3 12 0.2 0) . scale 0.5 $
                                 mesh (colorTex white) buildingGeom
-              cameraView = fpsMovingCamera (Vec3 (- 3) 1.3 (- 10)) 0.3 >>^
+              cameraView = fpsMovingCamera (Vec3 9 1.3 0) 0.3 >>^
                                 \(pos, (pitch, yaw)) -> cameraMat4 pos pitch yaw
               cameraViewProj = cameraView >>^ \view -> (view .*.) .
                                         perspectiveMat4Size 100000 0.5 100 
@@ -60,15 +58,15 @@ fpsMovingCamera ipos sp = key KeyW &&& key KeyA &&& key KeyS &&& key KeyD &&&
                           pointer &&& size >>> flip sscan (ipos, (pi, 0)) update
         where update (Vec3 x y z, (pitch, yaw))
                      (kw, (ka, (ks, (kd, ((ptrX, ptrY), ((w, h))))))) =
-                        let par = (if isEvent kw then - sp else 0) +
-                                  (if isEvent ks then sp else 0)
+                        let par = (if isEvent kw then sp else 0) +
+                                  (if isEvent ks then - sp else 0)
                             perp = (if isEvent kd then sp else 0) +
                                    (if isEvent ka then - sp else 0)
                             offX = sin yaw * par + cos yaw * perp
                             offZ = cos yaw * par - sin yaw * perp
                             fi = fromIntegral :: Int -> Float
-                            newYaw = - 2 * pi * fi ptrX / fi w
-                            newPitch = - 2 * pi * fi ptrY / fi h + pi
+                            newYaw = 2 * pi * fi ptrX / fi w
+                            newPitch = 2 * pi * fi ptrY / fi h + pi
                         in (Vec3 (x + offX) y (z + offZ), (newPitch, newYaw))
 
 sceneProgram :: Program Uniforms Attributes
