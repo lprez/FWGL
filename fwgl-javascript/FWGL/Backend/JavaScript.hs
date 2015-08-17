@@ -78,7 +78,7 @@ data Canvas = Canvas (JSRef ())
                      (IORef (Int -> Int -> IO ()))
                      (IORef (IO ()))
 
-createCanvas' :: JSRef a -- | Canvas element (you can use 'querySelector').
+createCanvas' :: JSRef a -- ^ Canvas element (you can use 'querySelector').
               -> IO (FWGL.Backend.JavaScript.Canvas, Int, Int)
 createCanvas' element = 
                 do eventSrc <- source handledEvents element
