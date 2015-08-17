@@ -29,7 +29,6 @@ import Data.Hashable
 import Data.IORef
 import Data.Vector.Storable (unsafeWith)
 import Foreign.Ptr
-import FRP.Yampa
 import FWGL.Backend.GLES hiding (Image)
 import FWGL.Input as Input
 import Graphics.UI.GLFW as GLFW

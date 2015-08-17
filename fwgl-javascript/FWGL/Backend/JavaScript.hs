@@ -16,7 +16,6 @@ import qualified Data.HashMap.Strict as H
 import Data.IORef
 import Data.Vect.Float
 import Data.Word
-import FRP.Yampa hiding (now)
 import FWGL.Backend
 import FWGL.Backend.JavaScript.Event
 import qualified FWGL.Backend.JavaScript.WebGL as JS
