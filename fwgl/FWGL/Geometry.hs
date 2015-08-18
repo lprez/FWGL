@@ -1,5 +1,5 @@
 {-# LANGUAGE GADTs, TypeOperators, KindSignatures, DataKinds,
-             MultiParamTypeClasses #-}
+             MultiParamTypeClasses, FlexibleInstances, OverlappingInstances #-}
 
 module FWGL.Geometry (
         AttrList(..),
@@ -35,6 +35,7 @@ import Unsafe.Coerce
 import FWGL.Backend (BackendIO)
 import FWGL.Internal.GL
 import FWGL.Internal.Resource
+import FWGL.Internal.TList
 import FWGL.Shader.CPU
 import FWGL.Shader.Default2D (Position2)
 import FWGL.Shader.Default3D (Position3, Normal3)
@@ -46,11 +47,11 @@ import FWGL.Transformation
 -- | A heterogeneous list of attributes.
 data AttrList (is :: [*]) where
         AttrListNil :: AttrList '[]
-        AttrListCons :: (H.Hashable c, AttributeCPU c g, ShaderType g)
-                     => (a -> g)
+        AttrListCons :: (H.Hashable c, AttributeCPU c i, ShaderType i)
+                     => (a -> i)
                      -> [c]
-                     -> AttrList gs
-                     -> AttrList (g ': gs)
+                     -> AttrList is
+                     -> AttrList (i ': is)
 
 -- | A set of attributes and indices.
 data Geometry (is :: [*]) = Geometry (AttrList is) [Word16] Int
@@ -111,15 +112,40 @@ mkGeometry2D :: GLES
                         --   two lists above.
             -> Geometry Geometry2D
 mkGeometry2D v u = mkGeometry (AttrListCons D2.Position2 v $
-                              AttrListCons D2.UV u
-                              AttrListNil)
+                               AttrListCons D2.UV u
+                               AttrListNil)
 
-extend = undefined
-remove = undefined
+
+-- | Add an attribute to a geometry.
+extend :: (AttributeCPU c i, H.Hashable c, ShaderType i, GLES)
+       => (a -> i)              -- ^ Attribute constructor (or any other
+                                -- function with that type).
+       -> [c]                   -- ^ List of values
+       -> Geometry is
+       -> Geometry (i ': is)
+extend g c (Geometry al es _) = mkGeometry (AttrListCons g c al) es
+
+-- | Remove an attribute from a geometry.
+remove :: (RemoveAttr i is is', GLES)
+       => (a -> i)      -- ^ Attribute constructor (or any other function with
+                        -- that type).
+       -> Geometry is -> Geometry is'
+remove g (Geometry al es _) = mkGeometry (removeAttr g al) es
+
+class RemoveAttr i is is' where
+        removeAttr :: (a -> i) -> AttrList is -> AttrList is'
+
+instance RemoveAttr i (i ': is) is where
+        removeAttr _ (AttrListCons _ _ al) = al
+
+instance RemoveAttr i is is' =>
+         RemoveAttr i (i1 ': is) (i1 ': is') where
+        removeAttr g (AttrListCons g' c al) =
+                AttrListCons g' c $ removeAttr g al
 
 -- | Create a custom 'Geometry'.
 mkGeometry :: GLES => AttrList is -> [Word16] -> Geometry is
-mkGeometry al e = Geometry al e $ H.hash al
+mkGeometry al e = Geometry al e $ H.hash (al, e)
 
 castGeometry :: Geometry is -> Geometry is'
 castGeometry = unsafeCoerce

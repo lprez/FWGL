@@ -28,6 +28,7 @@ module FWGL.Graphics.Generic (
         depthSubLayer,
         subRenderLayer,
         -- ** Render layers
+        RenderLayer,
         renderColor,
         renderDepth,
         renderColorDepth,

@@ -4,6 +4,7 @@
 {-| Simplified 2D graphics system. -}
 module FWGL.Graphics.D2 (
         module FWGL.Graphics.Generic,
+        module Data.Vect.Float,
         -- * 2D Objects and Groups
         Object2D,
         IsObject2D,

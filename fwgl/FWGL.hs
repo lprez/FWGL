@@ -213,7 +213,8 @@ runIO = runToIO "canvas" $ \_ _ -> return ()
 
 -- | Run a non-reactive FWGL program in a specified canvas.
 runToIO :: BackendIO
-        => String -- ^ Destination canvas (eg. "#myCanvasId"). This only has
+        => String -- ^ Destination canvas (eg. "#myCanvasId"). This has
+                  -- meaning only in the JavaScript backend.
         -> (Int -> Int -> IO ()) -- ^ Initialization function
         -> (Double -> Input () -> IO Output) -- ^ Loop function
         -> FWGL ()

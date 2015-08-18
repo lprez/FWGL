@@ -5,6 +5,7 @@
 {-| Simplified 3D graphics system. -}
 module FWGL.Graphics.D3 (
         module FWGL.Graphics.Generic,
+        module Data.Vect.Float,
         -- * 3D Objects
         Object3D,
         IsObject3D,
