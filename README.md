@@ -63,6 +63,7 @@ Project
   * Audio
   * HTTP requests
   * Network/WebSocket
+  * Local storage
 
 **Other ideas:**  
   * Android backend (waiting for ghc-android support for GHC 7.10)

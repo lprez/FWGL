@@ -100,8 +100,8 @@ custom = arr inputCustom
 keyLimited :: KeyCode a => Double -> a -> SF Input (Event ()) -}
 
 upDown :: Event a -> (Event a, Event a) -> Event a
-upDown _ (_, Event x) = Event x
-upDown (Event _) (Event _, _) = NoEvent
+upDown _ (NoEvent, Event x) = Event x
+upDown (Event _) (Event _, NoEvent) = NoEvent
 upDown s _ = s
 
 isKey :: Key -> EventData -> Bool

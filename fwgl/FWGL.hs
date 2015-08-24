@@ -92,7 +92,7 @@ import FRP.Yampa
 
 -- | The general output.
 data Output = forall a. Output Bool (Either (Effect ())
-                                    (Draw a, a -> Effect ()))
+                                            (Draw a, a -> Effect ()))
 
 newtype Effect a = Effect (ReaderT (Canvas, BackendState) Draw a)
         deriving (Functor, Applicative, Monad, MonadIO)
