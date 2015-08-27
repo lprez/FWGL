@@ -41,7 +41,7 @@ import FWGL.Shader.Default2D (Position2)
 import FWGL.Shader.Default3D (Position3, Normal3)
 import qualified FWGL.Shader.Default2D as D2
 import qualified FWGL.Shader.Default3D as D3
-import FWGL.Shader.Language (size, ShaderType)
+import FWGL.Shader.Language.Types (ShaderType(size))
 import FWGL.Transformation
 
 -- | A heterogeneous list of attributes.

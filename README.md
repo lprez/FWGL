@@ -59,11 +59,11 @@ Project
 
 **Features that will be implemented soon:**  
   * Fullscreen windows
-  * Shader arrays
   * Audio
   * HTTP requests
   * Network/WebSocket
   * Local storage
+  * Blending, culling, etc.
 
 **Other ideas:**  
   * Android backend (waiting for ghc-android support for GHC 7.10)

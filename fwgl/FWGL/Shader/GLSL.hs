@@ -15,8 +15,7 @@ import Data.Hashable (hash)
 import qualified Data.HashMap.Strict as H
 import Data.Typeable
 import FWGL.Shader.Shader
-import FWGL.Shader.Language ( Expr(..), ShaderType(..), Unknown, Action(..)
-                            , ContextVarType(..) )
+import FWGL.Shader.Language.Types hiding (Int, Bool)
 import FWGL.Shader.Stages (VertexShader, FragmentShader, ValidVertex)
 import Text.Printf
 
@@ -216,8 +215,12 @@ compileExpr (W e) = first3 (++ "[3]") $ compileExpr e
 compileExpr (Literal s) = (s, H.empty, H.empty)
 compileExpr (Action a) = let h = hash a
                          in (actionName h, H.singleton h a, H.empty)
-compileExpr (ContextVar i t) = (contextVarName t i, H.empty, H.singleton i ())
 compileExpr (Dummy _) = error "compileExpr: Dummy"
+compileExpr (ArrayIndex eArr ei) = let (arr, aArr, cArr) = compileExpr eArr
+                                       (i, ai, ci) = compileExpr ei
+                                   in ( "(" ++ arr ++ "[" ++ i ++ "])"
+                                      , H.union aArr ai, H.union cArr ci )
+compileExpr (ContextVar i t) = (contextVarName t i, H.empty, H.singleton i ())
 
 first3 :: (a -> a') -> (a, b, c) -> (a', b, c)
 first3 f (a, b, c) = (f a, b, c)

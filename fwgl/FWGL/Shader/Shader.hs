@@ -19,7 +19,7 @@ module FWGL.Shader.Shader (
 
 import Data.Typeable
 import FWGL.Internal.TList
-import FWGL.Shader.Language (ShaderType)
+import FWGL.Shader.Language.Types (ShaderType)
 import Prelude (String, error, Bool(False), undefined)
 
 infixr 4 :-

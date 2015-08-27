@@ -13,7 +13,7 @@ module FWGL.Shader.Stages (
 import Data.Typeable
 
 import FWGL.Internal.TList
-import FWGL.Shader.Language
+import FWGL.Shader.Language.Types
 import FWGL.Shader.Shader
 
 -- | A 'Shader' with a 'VertexShaderOutput' output.
