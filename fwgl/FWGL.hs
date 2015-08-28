@@ -203,7 +203,8 @@ runTo dest customInput sigf =
                                 dataFramebufferSize = Nothing,
                                 dataPointer = Nothing,
                                 dataButton = Nothing,
-                                dataKey = Nothing }
+                                dataKey = Nothing,
+                                dataTime = 0 }
 
 -- | Run a non-reactive FWGL program.
 runIO :: BackendIO

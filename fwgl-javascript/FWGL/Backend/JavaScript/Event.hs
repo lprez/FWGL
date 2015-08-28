@@ -3,6 +3,7 @@
 module FWGL.Backend.JavaScript.Event (
         InputEvent(..),
         Source,
+        now,
         source,
         pushEvent,
         addEvent,
@@ -38,7 +39,7 @@ source es j = do
 
 pushEvent :: Event -> EventData -> Source -> IO ()
 pushEvent e eventData (Source _ map) =
-        modifyIORef map $ H.insertWith (flip (++)) e [ eventData ]
+        modifyIORef map $ H.insertWith ((++)) e [ eventData ]
 
 events :: Source -> IO (H.HashMap Event [EventData])
 events (Source _ c) = readIORef c
@@ -69,6 +70,7 @@ addEvent e s@(Source j _) = asyncCallback1 NeverRetain handler >>=
                                              )
                                         <*> ((getButton <$>) <$> prop "button" d)
                                         <*> ((getKey <$>) <$> prop "keyCode" d)
+                                        <*> now
                         pushEvent e eventData s
 
 eventName :: Event -> String
@@ -83,6 +85,9 @@ getButton 2 = MouseRight
 
 foreign import javascript unsafe "$1.addEventListener($2, $3)"
         addHandler :: JSRef a -> JSString -> JSFun (JSRef b -> IO ()) -> IO ()
+
+foreign import javascript unsafe "performance.now()"
+        now :: IO Double
 
 getKey :: Int -> Key
 getKey 65 = KeyA

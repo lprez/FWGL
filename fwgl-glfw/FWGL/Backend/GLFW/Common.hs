@@ -105,37 +105,42 @@ createCanvas clientAPI maj min title w h _ =
 
            return (Canvas win eventsRef resizeRef refreshRef bufferSem, w, h)
 
-        where keyCallback events key _ keyState _ = modifyIORef' events $
+        where keyCallback events key _ keyState _ =
+                do Just t <- GLFW.getTime
+                   modifyIORef' events $
                       case keyState of
-                              KeyState'Pressed -> insertEvent KeyDown keyData
-                              KeyState'Released -> insertEvent KeyUp keyData
+                              KeyState'Pressed -> insertEvent t KeyDown keyData
+                              KeyState'Released -> insertEvent t KeyUp keyData
                               _ -> id
                 where keyData = emptyEventData {
                                         dataKey = Just $ toKey key
                                 }
 
               mouseCallback events win mb mbState _ = do
+                      Just t <- GLFW.getTime
                       pos <- fmap convertCursorPos $ getCursorPos win
                       modifyIORef' events $
                         case mbState of
                                 MouseButtonState'Pressed ->
-                                        insertEvent MouseDown $ keyData pos
+                                        insertEvent t MouseDown $ keyData pos
                                 MouseButtonState'Released ->
-                                        insertEvent MouseUp $ keyData pos
+                                        insertEvent t MouseUp $ keyData pos
                 where keyData p = emptyEventData {
                                         dataButton = Just $ toMouseButton mb,
                                         dataPointer = Just p
                                 }
 
-              cursorCallback events x y = modifyIORef' events $
-                      insertEvent MouseMove $ emptyEventData {
+              cursorCallback events x y = GLFW.getTime >>= \(Just t) ->
+                      modifyIORef' events $
+                        insertEvent t MouseMove $ emptyEventData {
                                 dataPointer = Just $ convertCursorPos (x, y)
                         }
 
               resizeCallback events resizeRef x y =
-                      do callback <- readIORef resizeRef
+                      do Just t <- GLFW.getTime
+                         callback <- readIORef resizeRef
                          modifyIORef' events $
-                                insertEvent Resize $ emptyEventData {
+                                insertEvent t Resize $ emptyEventData {
                                         dataFramebufferSize = Just $ (x, y)
                                 }
                          callback x y
@@ -147,13 +152,15 @@ createCanvas clientAPI maj min title w h _ =
 
               convertCursorPos (x, y) = (floor x, floor y)
 
-              insertEvent e = H.insertWith (flip (++)) e . return
+              insertEvent t e = H.insertWith (++) e . (: []) . setTime t
+                        where setTime t ed = ed { dataTime = t }
 
               emptyEventData = EventData {
                                 dataFramebufferSize = Nothing,
                                 dataPointer = Nothing,
                                 dataButton = Nothing,
-                                dataKey = Nothing }
+                                dataKey = Nothing,
+                                dataTime = 0 }
 
 setCanvasSize :: Int -> Int -> Canvas -> BackendState -> IO ()
 setCanvasSize w h (Canvas win _ _ _ _) _ = setWindowSize win w h

@@ -39,6 +39,7 @@ class GLES => BackendIO where
                                 -> Canvas -> BackendState -> IO ()
         setCanvasRefreshCallback :: IO () -> Canvas -> BackendState -> IO ()
 
+        -- | 'EventData's must be sorted in reverse chronological order.
         popInput :: a -> Canvas -> BackendState -> IO (Input a)
         getInput :: a -> Canvas -> BackendState -> IO (Input a)
 

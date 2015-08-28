@@ -58,9 +58,6 @@ foreign import javascript unsafe "$2.getAttribute($1)"
 foreign import javascript unsafe "$3.setAttribute($1, $2)"
         setAttributeRaw :: JSString -> JSString -> JSRef a -> IO ()
 
-foreign import javascript unsafe "performance.now()"
-        now :: IO Double
-
 getAttribute :: String -> JSRef a -> IO String
 getAttribute attr e = fromJSString <$> getAttributeRaw (toJSString attr) e
 
@@ -133,7 +130,8 @@ instance BackendIO where
                         dataFramebufferSize = Just $ (w, h),
                         dataPointer = Nothing,
                         dataButton = Nothing,
-                        dataKey = Nothing } src
+                        dataKey = Nothing,
+                        dataTime = 0 } src
 
         setCanvasTitle _ _ _ = return ()
 
