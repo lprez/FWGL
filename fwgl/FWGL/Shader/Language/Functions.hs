@@ -1,10 +1,12 @@
 {-# LANGUAGE DataKinds, MultiParamTypeClasses, FunctionalDependencies,
              KindSignatures, TypeOperators, TypeFamilies, GADTs,
-             FlexibleInstances, UndecidableInstances, OverlappingInstances #-}
+             FlexibleInstances, UndecidableInstances, OverlappingInstances,
+             ConstraintKinds, FlexibleContexts #-}
 module FWGL.Shader.Language.Functions where
 
 import FWGL.Shader.Language.Types
 
+import GHC.Exts (Constraint)
 import GHC.TypeLits
 import Text.Printf
 import Prelude (String, (.), ($), error, Eq)
@@ -12,70 +14,108 @@ import qualified Prelude
 
 -- TODO: memoized versions of the functions
 
+class Base a b | a -> b
+instance Base Int Int
+instance Base IVec2 Int
+instance Base IVec3 Int
+instance Base IVec4 Int
+instance Base Float Float
+instance Base Vec2 Float
+instance Base Vec3 Float
+instance Base Vec4 Float
+instance Base Mat2 Float
+instance Base Mat3 Float
+instance Base Mat4 Float
+
+class (Base a aBase, Base b bBase) =>
+      Arithmetic aBase bBase a b result | a b -> result
+                                        , b -> aBase bBase
+                                        , a -> aBase bBase
+                                        , result -> aBase bBase
+
+instance Arithmetic Float Float Float Float Float
+instance Arithmetic Float Float Vec2 Vec2 Vec2
+instance Arithmetic Float Float Vec3 Vec3 Vec3
+instance Arithmetic Float Float Vec4 Vec4 Vec4
+instance Arithmetic Float Float Vec2 Float Vec2
+instance Arithmetic Float Float Vec3 Float Vec3
+instance Arithmetic Float Float Vec4 Float Vec4
+instance Arithmetic Float Float Float Vec2 Vec2
+instance Arithmetic Float Float Float Vec3 Vec3
+instance Arithmetic Float Float Float Vec4 Vec4
+instance Arithmetic Float Float Mat2 Mat2 Mat2
+instance Arithmetic Float Float Mat3 Mat3 Mat3
+instance Arithmetic Float Float Mat4 Mat4 Mat4
+instance Arithmetic Float Float Mat2 Float Mat2
+instance Arithmetic Float Float Mat3 Float Mat3
+instance Arithmetic Float Float Mat4 Float Mat4
+instance Arithmetic Float Float Float Mat2 Mat2
+instance Arithmetic Float Float Float Mat3 Mat3
+instance Arithmetic Float Float Float Mat4 Mat4
+
+instance Arithmetic Int Int Int Int Int
+instance Arithmetic Int Int IVec2 IVec2 IVec2
+instance Arithmetic Int Int IVec3 IVec3 IVec3
+instance Arithmetic Int Int IVec4 IVec4 IVec4
+instance Arithmetic Int Int IVec2 Int IVec2
+instance Arithmetic Int Int IVec3 Int IVec3
+instance Arithmetic Int Int IVec4 Int IVec4
+instance Arithmetic Int Int Int IVec2 IVec2
+instance Arithmetic Int Int Int IVec3 IVec3
+instance Arithmetic Int Int Int IVec4 IVec4
+
 -- | Types that can be multiplied.
-class Mul a b c | a b -> c
-instance Mul Float Float Float
-instance Mul Vec2 Vec2 Vec2
-instance Mul Vec3 Vec3 Vec3
-instance Mul Vec4 Vec4 Vec4
-instance Mul Vec2 Float Vec2
-instance Mul Vec3 Float Vec3
-instance Mul Vec4 Float Vec4
-instance Mul Float Vec2 Vec2
-instance Mul Float Vec3 Vec3
-instance Mul Float Vec4 Vec4
-instance Mul Mat2 Mat2 Mat2
-instance Mul Mat3 Mat3 Mat3
-instance Mul Mat4 Mat4 Mat4
-instance Mul Mat2 Float Mat2
-instance Mul Mat3 Float Mat3
-instance Mul Mat4 Float Mat4
-instance Mul Float Mat2 Mat2
-instance Mul Float Mat3 Mat3
-instance Mul Float Mat4 Mat4
-instance Mul Mat2 Vec2 Vec2
-instance Mul Mat3 Vec3 Vec3
-instance Mul Mat4 Vec4 Vec4
-instance Mul Vec2 Mat2 Vec2
-instance Mul Vec3 Mat3 Vec3
-instance Mul Vec4 Mat4 Vec4
+class (Base a aBase, Base b bBase) =>
+      Mul aBase bBase a b result | a b -> result
+                                 , b -> aBase bBase
+                                 , a -> aBase bBase
+                                 , result -> aBase bBase
+instance Mul Float Float Mat2 Vec2 Vec2
+instance Mul Float Float Mat3 Vec3 Vec3
+instance Mul Float Float Mat4 Vec4 Vec4
+instance Mul Float Float Vec2 Mat2 Vec2
+instance Mul Float Float Vec3 Mat3 Vec3
+instance Mul Float Float Vec4 Mat4 Vec4
+instance Arithmetic aBase bBase a b result => Mul aBase bBase a b result
+
+class (ShaderType a, Base a Float) => FloatVec a
+instance FloatVec Vec2
+instance FloatVec Vec3
+instance FloatVec Vec4
 
 -- | Floats or vectors.
 class ShaderType a => GenType a
 instance GenType Float
-instance GenType Vec2
-instance GenType Vec3
-instance GenType Vec4
+instance FloatVec a => GenType a
+
+type family GenTypeFloatConstr a b where
+        GenTypeFloatConstr a Float = GenType a
+        GenTypeFloatConstr a a = GenType a
+
+type GenTypeFloat a b = (GenTypeFloatConstr a b, ShaderType a, ShaderType b)
 
 infixl 7 *
-(*) :: (Mul a b c, ShaderType a, ShaderType b, ShaderType c) => a -> b -> c
+(*) :: (Mul aBase bBase a b c, ShaderType a, ShaderType b, ShaderType c)
+    => a -> b -> c
 (*) = op2 "*"
 
 infixl 7 /
-(/) :: (Mul a b c, ShaderType a, ShaderType b, ShaderType c) => a -> b -> c
+(/) :: (Arithmetic aBase bBase a b c, ShaderType a, ShaderType b, ShaderType c)
+    => a -> b -> c
 (/) = op2 "/"
 
--- | Types that can be added.
-class Sum a
-instance Sum Float
-instance Sum Vec2
-instance Sum Vec3
-instance Sum Vec4
-instance Sum Mat2
-instance Sum Mat3
-instance Sum Mat4
-
 infixl 6 +
-(+) :: (Sum a, ShaderType a) => a -> a -> a
+(+) :: (Arithmetic aBase bBase a b c, ShaderType a, ShaderType b, ShaderType c)
+    => a -> b -> c
 (+) = op2 "+"
 
 infixl 6 -
-(-) :: (Sum a, ShaderType a) => a -> a -> a
+(-) :: (Arithmetic aBase bBase a b c, ShaderType a, ShaderType b, ShaderType c)
+    => a -> b -> c
 (-) = op2 "-"
 
 infixr 8 ^
--- TODO: type-unsafe?
-(^) :: (ShaderType a, ShaderType b) => a -> b -> a
+(^) :: (ShaderType a, GenType a) => a -> a -> a
 (^) = fun2 "pow"
 
 infixr 3 &&
@@ -167,7 +207,7 @@ negate = op1 "-"
 not :: GenType a => a -> a
 not = op1 "!"
 
-class ShaderType a => Num a where
+class (ShaderType a, Base a a) => Num a where
         fromInteger :: Prelude.Integer -> a
 
 instance Num Float where
@@ -243,25 +283,25 @@ ceil = fun1 "ceil"
 fract :: GenType a => a -> a
 fract = fun1 "fract"
 
-mod :: (GenType a, GenType b) => a -> b -> a
+mod :: GenTypeFloat a b => a -> b -> a
 mod = fun2 "mod"
 
-min :: GenType a => a -> a -> a
+min :: GenTypeFloat a b => a -> b -> a
 min = fun2 "min"
 
-max :: GenType a => a -> a -> a
+max :: GenTypeFloat a b => a -> b -> a
 max = fun2 "max"
 
-clamp :: (GenType a, GenType b) => a -> b -> b -> a
+clamp :: GenTypeFloat a b => a -> b -> b -> a
 clamp = fun3 "clamp"
 
-mix :: (GenType a, GenType b) => a -> a -> b -> a
+mix :: GenTypeFloat a b => a -> a -> b -> a
 mix = fun3 "mix"
 
-step :: GenType a => a -> a -> a
+step :: GenTypeFloat a b => b -> a -> a
 step = fun2 "step"
 
-smoothstep :: (GenType a, GenType b) => b -> b -> a -> a
+smoothstep :: GenTypeFloat a b => b -> b -> a -> a
 smoothstep = fun3 "smoothstep"
 
 length :: GenType a => a -> Float
