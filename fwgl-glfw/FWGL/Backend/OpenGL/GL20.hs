@@ -68,10 +68,16 @@ instance GLES where
         encodeVec2s = mkArray
         encodeVec3s = mkArray
         encodeVec4s = mkArray
+        encodeInts = mkArray
+        encodeIVec2s = mkArray
+        encodeIVec3s = mkArray
+        encodeIVec4s = mkArray
         encodeUShorts = mkArray
         encodeColors = mkArray
 
         newByteArray = mkArrayLen
+        fromFloat32Array (size, fptr) = (size, castForeignPtr fptr)
+        fromInt32Array (size, fptr) = (size, castForeignPtr fptr)
         decodeBytes = arrayToList
 
         glActiveTexture = const GL.glActiveTexture

@@ -1,7 +1,8 @@
-{-# LANGUAGE TypeFamilies, MultiParamTypeClasses, FunctionalDependencies #-}
+{-# LANGUAGE TypeFamilies, MultiParamTypeClasses,
+             FunctionalDependencies, FlexibleInstances #-}
 
 -- FWGL.Shader.Variables? (+ loadUniform, loadAttribute, inputName, etc.)
-module FWGL.Shader.CPU (UniformCPU(..), AttributeCPU(..)) where
+module FWGL.Shader.CPU (UniformCPU(..), AttributeCPU(..), toGPUBool) where
 
 import qualified Data.Int as CPU
 import Data.Word (Word)
@@ -23,44 +24,115 @@ class Typeable g => AttributeCPU c g | g -> c where
 instance GLES => UniformCPU CPU.Float GPU.Float where
         setUniform l _ v = uniform1f l v
 
-{-
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.Float] (GPU.Array n GPU.Float) where
+        setUniform l _ v = liftIO (encodeFloats v) >>= uniform1fv l
+
+instance GLES => AttributeCPU CPU.Float GPU.Float where
+        encodeAttribute _ a = liftIO . fmap fromFloat32Array $ encodeFloats a
+        setAttribute _ i = attr gl_FLOAT i 1
+
+instance GLES => UniformCPU CPU.Int32 GPU.Bool where
+        setUniform l _ v = uniform1i l v
+
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.Int32] (GPU.Array n GPU.Bool) where
+        setUniform l _ v = liftIO (encodeInts v) >>= uniform1iv l
+
+instance GLES => AttributeCPU CPU.Int32 GPU.Bool where
+        encodeAttribute _ a = liftIO . fmap fromInt32Array $ encodeInts a
+        setAttribute _ i = attr gl_INT i 1
+
 instance GLES => UniformCPU CPU.Int32 GPU.Int where
         setUniform l _ v = uniform1i l v
 
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.Int32] (GPU.Array n GPU.Int) where
+        setUniform l _ v = liftIO (encodeInts v) >>= uniform1iv l
+
 instance GLES => AttributeCPU CPU.Int32 GPU.Int where
-        encodeAttribute _ a = liftIO $ encodeInts a
+        encodeAttribute _ a = liftIO . fmap fromInt32Array $ encodeInts a
         setAttribute _ i = attr gl_INT i 1
--}
 
--- TODO: bool, samplercube, ivec*, bvec*
-
-instance GLES => AttributeCPU CPU.Float GPU.Float where
-        encodeAttribute _ a = liftIO $ encodeFloats a
-        setAttribute _ i = attr gl_FLOAT i 1
+-- TODO: sampler arrays (they're problematic to safely access in the shaders)
 
 instance GLES => UniformCPU CPU.ActiveTexture GPU.Sampler2D where
         setUniform l _ (CPU.ActiveTexture v) = uniform1i l $ fromIntegral v
 
-instance GLES => UniformCPU CPU.Vec2 GPU.Vec2 where
-        setUniform l _ (CPU.Vec2 x y) = uniform2f l x y
+instance GLES => UniformCPU CPU.ActiveTexture GPU.SamplerCube where
+        setUniform l _ (CPU.ActiveTexture v) = uniform1i l $ fromIntegral v
+
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.Vec2] (GPU.Array n GPU.Vec2) where
+        setUniform l _ v = liftIO (encodeVec2s v) >>= uniform2fv l
 
 instance GLES => AttributeCPU CPU.Vec2 GPU.Vec2 where
-        encodeAttribute _ a = liftIO $ encodeVec2s a
+        encodeAttribute _ a = liftIO . fmap fromFloat32Array $ encodeVec2s a
         setAttribute _ i = attr gl_FLOAT i 2
 
-instance GLES => UniformCPU CPU.Vec3 GPU.Vec3 where
-        setUniform l _ (CPU.Vec3 x y z) = uniform3f l x y z
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.Vec3] (GPU.Array n GPU.Vec3) where
+        setUniform l _ v = liftIO (encodeVec3s v) >>= uniform3fv l
 
 instance GLES => AttributeCPU CPU.Vec3 GPU.Vec3 where
-        encodeAttribute _ a = liftIO $ encodeVec3s a
+        encodeAttribute _ a = liftIO . fmap fromFloat32Array $ encodeVec3s a
         setAttribute _ i = attr gl_FLOAT i 3
 
-instance GLES => UniformCPU CPU.Vec4 GPU.Vec4 where
-        setUniform l _ (CPU.Vec4 x y z w) = uniform4f l x y z w
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.Vec4] (GPU.Array n GPU.Vec4) where
+        setUniform l _ v = liftIO (encodeVec4s v) >>= uniform4fv l
 
 instance GLES => AttributeCPU CPU.Vec4 GPU.Vec4 where
-        encodeAttribute _ a = liftIO $ encodeVec4s a
+        encodeAttribute _ a = liftIO . fmap fromFloat32Array $ encodeVec4s a
         setAttribute _ i = attr gl_FLOAT i 4
+
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.IVec2] (GPU.Array n GPU.IVec2) where
+        setUniform l _ v = liftIO (encodeIVec2s v) >>= uniform2iv l
+
+instance GLES => AttributeCPU CPU.IVec2 GPU.IVec2 where
+        encodeAttribute _ a = liftIO . fmap fromInt32Array $ encodeIVec2s a
+        setAttribute _ i = attr gl_INT i 2
+
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.IVec3] (GPU.Array n GPU.IVec3) where
+        setUniform l _ v = liftIO (encodeIVec3s v) >>= uniform3iv l
+
+instance GLES => AttributeCPU CPU.IVec3 GPU.IVec3 where
+        encodeAttribute _ a = liftIO . fmap fromInt32Array $ encodeIVec3s a
+        setAttribute _ i = attr gl_INT i 3
+
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.IVec4] (GPU.Array n GPU.IVec4) where
+        setUniform l _ v = liftIO (encodeIVec4s v) >>= uniform4iv l
+
+instance GLES => AttributeCPU CPU.IVec4 GPU.IVec4 where
+        encodeAttribute _ a = liftIO . fmap fromInt32Array $ encodeIVec4s a
+        setAttribute _ i = attr gl_INT i 4
+
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.IVec2] (GPU.Array n GPU.BVec2) where
+        setUniform l _ v = liftIO (encodeIVec2s v) >>= uniform2iv l
+
+instance GLES => AttributeCPU CPU.IVec2 GPU.BVec2 where
+        encodeAttribute _ a = liftIO . fmap fromInt32Array $ encodeIVec2s a
+        setAttribute _ i = attr gl_INT i 2
+
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.IVec3] (GPU.Array n GPU.BVec3) where
+        setUniform l _ v = liftIO (encodeIVec3s v) >>= uniform3iv l
+
+instance GLES => AttributeCPU CPU.IVec3 GPU.BVec3 where
+        encodeAttribute _ a = liftIO . fmap fromInt32Array $ encodeIVec3s a
+        setAttribute _ i = attr gl_INT i 3
+
+instance (Typeable n, GLES) =>
+         UniformCPU [CPU.IVec4] (GPU.Array n GPU.BVec4) where
+        setUniform l _ v = liftIO (encodeIVec4s v) >>= uniform4iv l
+
+instance GLES => AttributeCPU CPU.IVec4 GPU.BVec4 where
+        encodeAttribute _ a = liftIO . fmap fromInt32Array $ encodeIVec4s a
+        setAttribute _ i = attr gl_INT i 4
 
 instance GLES => UniformCPU CPU.Mat2 GPU.Mat2 where
         setUniform l _ m = liftIO (encodeMat2 m) >>= uniformMatrix2fv l false
@@ -73,3 +145,7 @@ instance GLES => UniformCPU CPU.Mat4 GPU.Mat4 where
 
 attr :: GLES => GLEnum -> GLUInt -> GLInt -> GL ()
 attr t i s = vertexAttribPointer i s t false 0 nullGLPtr
+
+toGPUBool :: CPU.Bool -> CPU.Int32
+toGPUBool True = 1
+toGPUBool False = 0

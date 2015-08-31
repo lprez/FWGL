@@ -139,6 +139,7 @@ import Control.Applicative
 import Control.Concurrent
 import Control.Monad.IO.Class
 import Control.Monad.Trans.State
+import Data.Int (Int32)
 import Data.Word
 import FWGL.Backend.IO (BackendIO, safeFork)
 import FWGL.Backend.GLES
@@ -480,7 +481,7 @@ uniform1f a b = GL get >>= \ctx -> liftIO $ glUniform1f ctx a b
 uniform1fv :: GLES => UniformLocation -> Float32Array -> GL ()
 uniform1fv a b = GL get >>= \ctx -> liftIO $ glUniform1fv ctx a b
 
-uniform1i :: GLES => UniformLocation -> GLInt -> GL ()
+uniform1i :: GLES => UniformLocation -> Int32 -> GL ()
 uniform1i a b = GL get >>= \ctx -> liftIO $ glUniform1i ctx a b
 
 uniform1iv :: GLES => UniformLocation -> Int32Array -> GL ()
@@ -492,7 +493,7 @@ uniform2f a b c = GL get >>= \ctx -> liftIO $ glUniform2f ctx a b c
 uniform2fv :: GLES => UniformLocation -> Float32Array -> GL ()
 uniform2fv a b = GL get >>= \ctx -> liftIO $ glUniform2fv ctx a b
 
-uniform2i :: GLES => UniformLocation -> GLInt -> GLInt -> GL ()
+uniform2i :: GLES => UniformLocation -> Int32 -> Int32 -> GL ()
 uniform2i a b c = GL get >>= \ctx -> liftIO $ glUniform2i ctx a b c
 
 uniform2iv :: GLES => UniformLocation -> Int32Array -> GL ()
@@ -504,7 +505,7 @@ uniform3f a b c d = GL get >>= \ctx -> liftIO $ glUniform3f ctx a b c d
 uniform3fv :: GLES => UniformLocation -> Float32Array -> GL ()
 uniform3fv a b = GL get >>= \ctx -> liftIO $ glUniform3fv ctx a b
 
-uniform3i :: GLES => UniformLocation -> GLInt -> GLInt -> GLInt -> GL ()
+uniform3i :: GLES => UniformLocation -> Int32 -> Int32 -> Int32 -> GL ()
 uniform3i a b c d = GL get >>= \ctx -> liftIO $ glUniform3i ctx a b c d
 
 uniform3iv :: GLES => UniformLocation -> Int32Array -> GL ()
@@ -516,7 +517,7 @@ uniform4f a b c d e = GL get >>= \ctx -> liftIO $ glUniform4f ctx a b c d e
 uniform4fv :: GLES => UniformLocation -> Float32Array -> GL ()
 uniform4fv a b = GL get >>= \ctx -> liftIO $ glUniform4fv ctx a b
 
-uniform4i :: GLES => UniformLocation -> GLInt -> GLInt -> GLInt -> GLInt -> GL ()
+uniform4i :: GLES => UniformLocation -> Int32 -> Int32 -> Int32 -> Int32 -> GL ()
 uniform4i a b c d e = GL get >>= \ctx -> liftIO $ glUniform4i ctx a b c d e
 
 uniform4iv :: GLES => UniformLocation -> Int32Array -> GL ()

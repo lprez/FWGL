@@ -13,6 +13,7 @@ import Control.Applicative
 import Control.Concurrent
 import Data.Maybe
 import qualified Data.HashMap.Strict as H
+import Data.Int (Int32)
 import Data.IORef
 import Data.Vect.Float
 import Data.Word
@@ -164,10 +165,10 @@ instance GLES where
         type Ctx = JS.Ctx
         type GLEnum = Word
         type GLUInt = Word
-        type GLInt = Int
+        type GLInt = Int32
         type GLPtr = Word
         type GLPtrDiff = Word
-        type GLSize = Int
+        type GLSize = Int32
         type GLString = JSString
         type GLBool = Bool
         type Buffer = JS.Buffer
@@ -212,22 +213,45 @@ instance GLES where
                                                   , c1, c2, c3, c4
                                                   , d1, d2, d3, d4 ]
                                  >>= JS.float32Array
-        encodeFloats v = JS.listToJSArray v >>= JS.float32View
+        encodeFloats v = JS.listToJSArray v >>= JS.float32Array
+        encodeInts v = JS.listToJSArray v >>= JS.int32Array
 
         -- TODO: decent implementation
-        encodeVec2s v = JS.toJSArray next (False, v) >>= JS.float32View
+        encodeVec2s v = JS.toJSArray next (False, v) >>= JS.float32Array
                 where next (False, xs@(Vec2 x _ : _)) = Just (x, (True, xs))
                       next (True, Vec2 _ y : xs) = Just (y, (False, xs))
                       next (_, []) = Nothing
 
-        encodeVec3s v = JS.toJSArray next (0, v) >>= JS.float32View
+        encodeVec3s v = JS.toJSArray next (0, v) >>= JS.float32Array
                 where next (0, xs@(Vec3 x _ _ : _)) = Just (x, (1, xs))
                       next (1, xs@(Vec3 _ y _ : _)) = Just (y, (2, xs))
                       next (2, Vec3 _ _ z : xs) = Just (z, (0, xs))
                       next (_, []) = Nothing
 
-        -- TODO
-        encodeVec4s = error "encodeVec4s: TODO"
+        encodeVec4s v = JS.toJSArray next (0, v) >>= JS.float32Array
+                where next (0, xs@(Vec4 x _ _ _ : _)) = Just (x, (1, xs))
+                      next (1, xs@(Vec4 _ y _ _ : _)) = Just (y, (2, xs))
+                      next (2, xs@(Vec4 _ _ z _ : _)) = Just (z, (3, xs))
+                      next (3, Vec4 _ _ _ w : xs) = Just (w, (0, xs))
+                      next (_, []) = Nothing
+
+        encodeIVec2s v = JS.toJSArray next (False, v) >>= JS.int32Array
+                where next (False, xs@(IVec2 x _ : _)) = Just (x, (True, xs))
+                      next (True, IVec2 _ y : xs) = Just (y, (False, xs))
+                      next (_, []) = Nothing
+
+        encodeIVec3s v = JS.toJSArray next (0, v) >>= JS.int32Array
+                where next (0, xs@(IVec3 x _ _ : _)) = Just (x, (1, xs))
+                      next (1, xs@(IVec3 _ y _ : _)) = Just (y, (2, xs))
+                      next (2, IVec3 _ _ z : xs) = Just (z, (0, xs))
+                      next (_, []) = Nothing
+
+        encodeIVec4s v = JS.toJSArray next (0, v) >>= JS.int32Array
+                where next (0, xs@(IVec4 x _ _ _ : _)) = Just (x, (1, xs))
+                      next (1, xs@(IVec4 _ y _ _ : _)) = Just (y, (2, xs))
+                      next (2, xs@(IVec4 _ _ z _ : _)) = Just (z, (3, xs))
+                      next (3, IVec4 _ _ _ w : xs) = Just (w, (0, xs))
+                      next (_, []) = Nothing
 
         encodeUShorts v = JS.listToJSArray v >>= JS.uint16View
 
@@ -239,6 +263,8 @@ instance GLES where
                       next (_, []) = Nothing
 
         newByteArray = fmap castRef . JS.uint8ArraySize
+        fromFloat32Array = castRef
+        fromInt32Array = castRef
 
         decodeBytes = (>>= mapM (fmap fromJust . fromJSRef))
                       . fromArray . castRef

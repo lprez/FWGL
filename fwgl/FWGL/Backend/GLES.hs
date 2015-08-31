@@ -5,8 +5,15 @@ module FWGL.Backend.GLES where
 
 import Data.Bits (Bits)
 import Data.Vect.Float
+import Data.Int
 import Data.Word
+import Foreign.Storable
+import Foreign.Ptr (castPtr)
 import FWGL.Graphics.Color
+
+data IVec2 = IVec2 !Int32 !Int32 
+data IVec3 = IVec3 !Int32 !Int32 !Int32
+data IVec4 = IVec4 !Int32 !Int32 !Int32 !Int32
 
 -- | Mixed OpenGL ES 2.0/WebGL 1.0/OpenGL 2.0 API, with VAOs and FBOs.
 class ( Integral GLEnum
@@ -61,14 +68,20 @@ class ( Integral GLEnum
         encodeMat2 :: Mat2 -> IO Float32Array
         encodeMat3 :: Mat3 -> IO Float32Array
         encodeMat4 :: Mat4 -> IO Float32Array
-        encodeFloats :: [Float] -> IO Array
-        encodeVec2s :: [Vec2] -> IO Array
-        encodeVec3s :: [Vec3] -> IO Array
-        encodeVec4s :: [Vec4] -> IO Array
+        encodeFloats :: [Float] -> IO Float32Array
+        encodeInts :: [Int32] -> IO Int32Array
+        encodeVec2s :: [Vec2] -> IO Float32Array
+        encodeVec3s :: [Vec3] -> IO Float32Array
+        encodeVec4s :: [Vec4] -> IO Float32Array
+        encodeIVec2s :: [IVec2] -> IO Int32Array
+        encodeIVec3s :: [IVec3] -> IO Int32Array
+        encodeIVec4s :: [IVec4] -> IO Int32Array
         encodeUShorts :: [Word16] -> IO Array
         encodeColors :: [Color] -> IO Array
 
         newByteArray :: Int -> IO Array
+        fromFloat32Array :: Float32Array -> Array
+        fromInt32Array :: Int32Array -> Array
         decodeBytes :: Array -> IO [Word8]
 
         glActiveTexture :: Ctx -> GLEnum -> IO ()
@@ -177,19 +190,19 @@ class ( Integral GLEnum
         glTexSubImage2D :: Ctx -> GLEnum -> GLInt -> GLInt -> GLInt -> GLSize -> GLSize -> GLEnum -> GLEnum -> Array -> IO ()
         glUniform1f :: Ctx -> UniformLocation -> Float -> IO ()
         glUniform1fv :: Ctx -> UniformLocation -> Float32Array -> IO ()
-        glUniform1i :: Ctx -> UniformLocation -> GLInt -> IO ()
+        glUniform1i :: Ctx -> UniformLocation -> Int32 -> IO ()
         glUniform1iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
         glUniform2f :: Ctx -> UniformLocation -> Float -> Float -> IO ()
         glUniform2fv :: Ctx -> UniformLocation -> Float32Array -> IO ()
-        glUniform2i :: Ctx -> UniformLocation -> GLInt -> GLInt -> IO ()
+        glUniform2i :: Ctx -> UniformLocation -> Int32 -> Int32 -> IO ()
         glUniform2iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
         glUniform3f :: Ctx -> UniformLocation -> Float -> Float -> Float -> IO ()
         glUniform3fv :: Ctx -> UniformLocation -> Float32Array -> IO ()
-        glUniform3i :: Ctx -> UniformLocation -> GLInt -> GLInt -> GLInt -> IO ()
+        glUniform3i :: Ctx -> UniformLocation -> Int32 -> Int32 -> Int32 -> IO ()
         glUniform3iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
         glUniform4f :: Ctx -> UniformLocation -> Float -> Float -> Float -> Float -> IO ()
         glUniform4fv :: Ctx -> UniformLocation -> Float32Array -> IO ()
-        glUniform4i :: Ctx -> UniformLocation -> GLInt -> GLInt -> GLInt -> GLInt -> IO ()
+        glUniform4i :: Ctx -> UniformLocation -> Int32 -> Int32 -> Int32 -> Int32 -> IO ()
         glUniform4iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
         glUniformMatrix2fv :: Ctx -> UniformLocation -> GLBool -> Float32Array -> IO ()
         glUniformMatrix3fv :: Ctx -> UniformLocation -> GLBool -> Float32Array -> IO ()
@@ -494,3 +507,33 @@ class ( Integral GLEnum
         gl_RENDERBUFFER_BINDING :: GLEnum
         gl_MAX_RENDERBUFFER_SIZE :: GLEnum
         gl_INVALID_FRAMEBUFFER_OPERATION :: GLEnum
+
+instance Storable IVec2 where
+        sizeOf _ = 8
+        alignment _ = 4
+        peek ptr = IVec2 <$> peekElemOff (castPtr ptr) 0
+                         <*> peekElemOff (castPtr ptr) 1
+        poke ptr (IVec2 x y) = do pokeElemOff (castPtr ptr) 0 x
+                                  pokeElemOff (castPtr ptr) 1 y
+
+instance Storable IVec3 where
+        sizeOf _ = 12
+        alignment _ = 4
+        peek ptr = IVec3 <$> peekElemOff (castPtr ptr) 0
+                         <*> peekElemOff (castPtr ptr) 1
+                         <*> peekElemOff (castPtr ptr) 2
+        poke ptr (IVec3 x y z) = do pokeElemOff (castPtr ptr) 0 x
+                                    pokeElemOff (castPtr ptr) 1 y
+                                    pokeElemOff (castPtr ptr) 2 z
+
+instance Storable IVec4 where
+        sizeOf _ = 16
+        alignment _ = 4
+        peek ptr = IVec4 <$> peekElemOff (castPtr ptr) 0
+                         <*> peekElemOff (castPtr ptr) 1
+                         <*> peekElemOff (castPtr ptr) 2
+                         <*> peekElemOff (castPtr ptr) 3
+        poke ptr (IVec4 x y z w) = do pokeElemOff (castPtr ptr) 0 x
+                                      pokeElemOff (castPtr ptr) 1 y
+                                      pokeElemOff (castPtr ptr) 2 z
+                                      pokeElemOff (castPtr ptr) 3 w

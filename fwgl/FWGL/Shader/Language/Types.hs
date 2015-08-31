@@ -9,19 +9,19 @@ import Data.Hashable
 import Prelude (String, ($), error, Eq(..), (++), (*), fromInteger, (&&))
 import qualified Prelude
 
--- | CPU integer.
-type CInt = Prelude.Int
+-- | CPU integer, used in the shader compiler.
+type MInt = Prelude.Int
 
 -- | An expression.
 data Expr = Empty | Read String | Op1 String Expr | Op2 String Expr Expr
           | Apply String [Expr] | X Expr | Y Expr | Z Expr | W Expr
-          | Literal String | Action Action | Dummy CInt | ArrayIndex Expr Expr
-          | ContextVar CInt ContextVarType
+          | Literal String | Action Action | Dummy MInt | ArrayIndex Expr Expr
+          | ContextVar MInt ContextVarType
           deriving Eq
 
 -- | Expressions that are transformed to statements.
 data Action = Store String Expr | If Expr String Expr Expr
-            | For CInt String Expr (Expr -> Expr -> (Expr, Expr))
+            | For MInt String Expr (Expr -> Expr -> (Expr, Expr))
 
 data ContextVarType = LoopIteration | LoopValue deriving Eq
 
@@ -93,7 +93,7 @@ class ShaderType t where
 
         typeName :: t -> String
 
-        size :: t -> CInt
+        size :: t -> MInt
 
 instance ShaderType Unknown where
         zero = error "zero: Unknown type."
@@ -391,7 +391,7 @@ instance ShaderType Mat4 where
 
 instance Hashable Expr where
         hashWithSalt s e = case e of
-                                Empty -> hash2 s 0 (0 :: CInt)
+                                Empty -> hash2 s 0 (0 :: MInt)
                                 Read str -> hash2 s 1 str
                                 Op1 str exp -> hash2 s 2 (str, exp)
                                 Op2 str exp exp' -> hash2 3 s (str, exp, exp')
@@ -418,5 +418,5 @@ instance Hashable Action where
 instance Prelude.Eq Action where
         a == a' = hash a == hash a'
 
-hash2 :: Hashable a => CInt -> CInt -> a -> CInt
+hash2 :: Hashable a => MInt -> MInt -> a -> MInt
 hash2 s i x = s `hashWithSalt` i `hashWithSalt` x

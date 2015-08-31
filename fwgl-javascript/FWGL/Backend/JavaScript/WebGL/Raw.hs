@@ -77,7 +77,7 @@ foreign import javascript unsafe "$1.clearDepth($2)"
         glClearDepth :: Ctx -> Float -> IO ()
 
 foreign import javascript unsafe "$1.clearStencil($2)"
-        glClearStencil :: Ctx -> Int -> IO ()
+        glClearStencil :: Ctx -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.colorMask($2, $3, $4, $5)"
         glColorMask :: Ctx -> Bool -> Bool -> Bool -> Bool -> IO ()
@@ -86,16 +86,16 @@ foreign import javascript unsafe "$1.compileShader($2)"
         glCompileShader :: Ctx -> Shader -> IO ()
 
 foreign import javascript unsafe "$1.compressedTexImage2D($2, $3, $4, $5, $6, $7, $8)"
-        glCompressedTexImage2D :: Ctx -> Word -> Int -> Word -> Int -> Int -> Int -> ArrayBufferView -> IO ()
+        glCompressedTexImage2D :: Ctx -> Word -> Int32 -> Word -> Int32 -> Int32 -> Int32 -> ArrayBufferView -> IO ()
 
 foreign import javascript unsafe "$1.compressedTexSubImage2D($2, $3, $4, $5, $6, $7, $8, $9)"
-        glCompressedTexSubImage2D :: Ctx -> Word -> Int -> Int -> Int -> Int -> Int -> Word -> ArrayBufferView -> IO ()
+        glCompressedTexSubImage2D :: Ctx -> Word -> Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> Word -> ArrayBufferView -> IO ()
 
 foreign import javascript unsafe "$1.copyTexImage2D($2, $3, $4, $5, $6, $7, $8, $9)"
-        glCopyTexImage2D :: Ctx -> Word -> Int -> Word -> Int -> Int -> Int -> Int -> Int -> IO ()
+        glCopyTexImage2D :: Ctx -> Word -> Int32 -> Word -> Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.copyTexSubImage2D($2, $3, $4, $5, $6, $7, $8, $9)"
-        glCopyTexSubImage2D :: Ctx -> Word -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> IO ()
+        glCopyTexSubImage2D :: Ctx -> Word -> Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.createBuffer()"
         glCreateBuffer :: Ctx -> IO Buffer
@@ -155,10 +155,10 @@ foreign import javascript unsafe "$1.disableVertexAttribArray($2)"
         glDisableVertexAttribArray :: Ctx -> Word -> IO ()
 
 foreign import javascript unsafe "$1.drawArrays($2, $3, $4)"
-        glDrawArrays :: Ctx -> Word -> Int -> Int -> IO ()
+        glDrawArrays :: Ctx -> Word -> Int32 -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.drawElements($2, $3, $4, $5)"
-        glDrawElements :: Ctx -> Word -> Int -> Word -> Word -> IO ()
+        glDrawElements :: Ctx -> Word -> Int32 -> Word -> Word -> IO ()
 
 foreign import javascript unsafe "$1.enable($2)"
         glEnable :: Ctx -> Word -> IO ()
@@ -176,7 +176,7 @@ foreign import javascript unsafe "$1.framebufferRenderbuffer($2, $3, $4, $5)"
         glFramebufferRenderbuffer :: Ctx -> Word -> Word -> Word -> RenderBuffer -> IO ()
 
 foreign import javascript unsafe "$1.framebufferTexture2D($2, $3, $4, $5, $6)"
-        glFramebufferTexture2D :: Ctx -> Word -> Word -> Word -> Texture -> Int -> IO ()
+        glFramebufferTexture2D :: Ctx -> Word -> Word -> Word -> Texture -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.frontFace($2)"
         glFrontFace :: Ctx -> Word -> IO ()
@@ -196,7 +196,7 @@ foreign import javascript unsafe "$1.getAttachedShaders($2)"
 -}
 
 foreign import javascript unsafe "$1.getAttribLocation($2, $3)"
-        glGetAttribLocation :: Ctx -> Program -> JSString -> IO Int
+        glGetAttribLocation :: Ctx -> Program -> JSString -> IO Int32
 
 foreign import javascript unsafe "$1.getBufferParameter($2, $3)"
         glGetBufferParameter :: Ctx -> Word -> Word -> IO (JSRef a)
@@ -274,31 +274,31 @@ foreign import javascript unsafe "$1.linkProgram($2)"
         glLinkProgram :: Ctx -> Program -> IO ()
 
 foreign import javascript unsafe "$1.pixelStorei($2, $3)"
-        glPixelStorei :: Ctx -> Word -> Int -> IO ()
+        glPixelStorei :: Ctx -> Word -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.polygonOffset($2, $3)"
         glPolygonOffset :: Ctx -> Float -> Float -> IO ()
 
 foreign import javascript unsafe "$1.readPixels($2, $3, $4, $5, $6, $7, $8)"
-        glReadPixels :: Ctx -> Int -> Int -> Int -> Int -> Word -> Word -> ArrayBufferView -> IO ()
+        glReadPixels :: Ctx -> Int32 -> Int32 -> Int32 -> Int32 -> Word -> Word -> ArrayBufferView -> IO ()
 
 foreign import javascript unsafe "$1.renderbufferStorage($2, $3, $4, $5)"
-        glRenderbufferStorage :: Ctx -> Word -> Word -> Int -> Int -> IO ()
+        glRenderbufferStorage :: Ctx -> Word -> Word -> Int32 -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.sampleCoverage($2, $3)"
         glSampleCoverage :: Ctx -> Float -> Bool -> IO ()
 
 foreign import javascript unsafe "$1.scissor($2, $3, $4, $5)"
-        glScissor :: Ctx -> Int -> Int -> Int -> Int -> IO ()
+        glScissor :: Ctx -> Int32 -> Int32 -> Int32 -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.shaderSource($2, $3)"
         glShaderSource :: Ctx -> Shader -> JSString -> IO ()
 
 foreign import javascript unsafe "$1.stencilFunc($2, $3, $4)"
-        glStencilFunc :: Ctx -> Word -> Int -> Word -> IO ()
+        glStencilFunc :: Ctx -> Word -> Int32 -> Word -> IO ()
 
 foreign import javascript unsafe "$1.stencilFuncSeparate($2, $3, $4, $5)"
-        glStencilFuncSeparate :: Ctx -> Word -> Word -> Int -> Word -> IO ()
+        glStencilFuncSeparate :: Ctx -> Word -> Word -> Int32 -> Word -> IO ()
 
 foreign import javascript unsafe "$1.stencilMask($2)"
         glStencilMask :: Ctx -> Word -> IO ()
@@ -313,35 +313,35 @@ foreign import javascript unsafe "$1.stencilOpSeparate($2, $3, $4, $5)"
         glStencilOpSeparate :: Ctx -> Word -> Word -> Word -> Word -> IO ()
 
 foreign import javascript unsafe "$1.texImage2D($2, $3, $4, $5, $6, $7, $8, $9, $10)"
-        glTexImage2DBuffer :: Ctx -> Word -> Int -> Int -> Int -> Int -> Int -> Word -> Word -> ArrayBufferView -> IO ()
+        glTexImage2DBuffer :: Ctx -> Word -> Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> Word -> Word -> ArrayBufferView -> IO ()
 
 foreign import javascript unsafe "$1.texImage2D($2, $3, $4, $5, $6, $7)"
-        glTexImage2DElement :: Ctx -> Word -> Int -> Int -> Word -> Word -> Image -> IO ()
+        glTexImage2DElement :: Ctx -> Word -> Int32 -> Int32 -> Word -> Word -> Image -> IO ()
 
 {-
 foreign import javascript unsafe "$1.texImage2D()"
-        glTexImage2D :: Ctx -> Word -> Int -> Word -> Word -> Word -> CanvasElement -> Void 
+        glTexImage2D :: Ctx -> Word -> Int32 -> Word -> Word -> Word -> CanvasElement -> Void 
 
 foreign import javascript unsafe "$1.texImage2D()"
-        glTexImage2D :: Ctx -> Word -> Int -> Word -> Word -> Word -> VideoElement -> Void 
+        glTexImage2D :: Ctx -> Word -> Int32 -> Word -> Word -> Word -> VideoElement -> Void 
 -}
 
 foreign import javascript unsafe "$1.texParameterf($2, $3, $4)"
         glTexParameterf :: Ctx -> Word -> Word -> Float -> IO ()
 
 foreign import javascript unsafe "$1.texParameteri($2, $3, $4)"
-        glTexParameteri :: Ctx -> Word -> Word -> Int -> IO ()
+        glTexParameteri :: Ctx -> Word -> Word -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.texSubImage2D($2, $3, $4, $5, $6, $7, $8, $9, $10)"
-        glTexSubImage2D :: Ctx -> Word -> Int -> Int -> Int -> Int -> Int -> Word -> Word -> ArrayBufferView -> IO ()
+        glTexSubImage2D :: Ctx -> Word -> Int32 -> Int32 -> Int32 -> Int32 -> Int32 -> Word -> Word -> ArrayBufferView -> IO ()
 
 {-
 
 foreign import javascript unsafe "$1.texSubImage2D()"
-        glTexSubImage2D :: Ctx -> Word -> Int -> Int -> Int -> Word -> Word -> CanvasElement -> Void 
+        glTexSubImage2D :: Ctx -> Word -> Int32 -> Int32 -> Int32 -> Word -> Word -> CanvasElement -> Void 
 
 foreign import javascript unsafe "$1.texSubImage2D()"
-        glTexSubImage2D :: Ctx -> Word -> Int -> Int -> Int -> Word -> Word -> VideoElement -> Void 
+        glTexSubImage2D :: Ctx -> Word -> Int32 -> Int32 -> Int32 -> Word -> Word -> VideoElement -> Void 
 
 -}
 
@@ -357,14 +357,14 @@ foreign import javascript unsafe "$1.uniform1fv($2 Sequence Float ->)"
 -}
 
 foreign import javascript unsafe "$1.uniform1i($2, $3)"
-        glUniform1i :: Ctx -> UniformLocation -> Int -> IO ()
+        glUniform1i :: Ctx -> UniformLocation -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.uniform1iv($2, $3)"
         glUniform1iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
 
 {-
-foreign import javascript unsafe "$1.uniform1iv($2 Sequence Int ->)"
-        glUniform1iv :: Ctx -> UniformLocation -> Sequence Int -> IO ()
+foreign import javascript unsafe "$1.uniform1iv($2 Sequence Int32 ->)"
+        glUniform1iv :: Ctx -> UniformLocation -> Sequence Int32 -> IO ()
 -}
 
 foreign import javascript unsafe "$1.uniform2f($2, $3, $4)"
@@ -379,14 +379,14 @@ foreign import javascript unsafe "$1.uniform2fv($2 Sequence Float ->)"
 -}
 
 foreign import javascript unsafe "$1.uniform2i($2, $3, $4)"
-        glUniform2i :: Ctx -> UniformLocation -> Int -> Int -> IO ()
+        glUniform2i :: Ctx -> UniformLocation -> Int32 -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.uniform2iv($2, $3)"
         glUniform2iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
 
 {-
-foreign import javascript unsafe "$1.uniform2iv($2 Sequence Int ->)"
-        glUniform2iv :: Ctx -> UniformLocation -> Sequence Int -> IO ()
+foreign import javascript unsafe "$1.uniform2iv($2 Sequence Int32 ->)"
+        glUniform2iv :: Ctx -> UniformLocation -> Sequence Int32 -> IO ()
 -}
 
 foreign import javascript unsafe "$1.uniform3f($2, $3, $4, $5)"
@@ -401,14 +401,14 @@ foreign import javascript unsafe "$1.uniform3fv($2 Sequence Float ->)"
 -}
 
 foreign import javascript unsafe "$1.uniform3i($2, $3, $4, $5)"
-        glUniform3i :: Ctx -> UniformLocation -> Int -> Int -> Int -> IO ()
+        glUniform3i :: Ctx -> UniformLocation -> Int32 -> Int32 -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.uniform3iv($2, $3)"
         glUniform3iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
 
 {-
-foreign import javascript unsafe "$1.uniform3iv($2 Sequence Int ->)"
-        glUniform3iv :: Ctx -> UniformLocation -> Sequence Int -> IO ()
+foreign import javascript unsafe "$1.uniform3iv($2 Sequence Int32 ->)"
+        glUniform3iv :: Ctx -> UniformLocation -> Sequence Int32 -> IO ()
 -}
 
 foreign import javascript unsafe "$1.uniform4f($2, $3, $4, $5, $6)"
@@ -423,14 +423,14 @@ foreign import javascript unsafe "$1.uniform4fv($2 Sequence Float ->)"
 -}
 
 foreign import javascript unsafe "$1.uniform4i($2, $3, $4, $5, $6)"
-        glUniform4i :: Ctx -> UniformLocation -> Int -> Int -> Int -> Int -> IO ()
+        glUniform4i :: Ctx -> UniformLocation -> Int32 -> Int32 -> Int32 -> Int32 -> IO ()
 
 foreign import javascript unsafe "$1.uniform4iv($2, $3)"
         glUniform4iv :: Ctx -> UniformLocation -> Int32Array -> IO ()
 
 {-
-foreign import javascript unsafe "$1.uniform4iv($2 Sequence Int ->)"
-        glUniform4iv :: Ctx -> UniformLocation -> Sequence Int -> IO ()
+foreign import javascript unsafe "$1.uniform4iv($2 Sequence Int32 ->)"
+        glUniform4iv :: Ctx -> UniformLocation -> Sequence Int32 -> IO ()
 -}
 
 foreign import javascript unsafe "$1.uniformMatrix2fv($2, $3, $4)"
@@ -508,10 +508,10 @@ foreign import javascript unsafe "$1.vertexAttrib4fv($2 Sequence Float ->)"
 -}
 
 foreign import javascript unsafe "$1.vertexAttribPointer($2, $3, $4, $5, $6, $7)"
-        glVertexAttribPointer :: Ctx -> Word -> Int -> Word -> Bool -> Int -> Word -> IO ()
+        glVertexAttribPointer :: Ctx -> Word -> Int32 -> Word -> Bool -> Int32 -> Word -> IO ()
 
 foreign import javascript unsafe "$1.viewport($2, $3, $4, $5)"
-        glViewport :: Ctx -> Int -> Int -> Int -> Int -> IO ()
+        glViewport :: Ctx -> Int32 -> Int32 -> Int32 -> Int32 -> IO ()
 
 -- Extensions
 

@@ -78,23 +78,24 @@ module FWGL.Shader (
         Array,
         -- ** CPU types
         CInt,
-        -- CBool,
+        CBool,
         CFloat,
         CSampler2D,
-        -- CSamplerCube,
+        CSamplerCube,
         CVec2,
         CVec3,
         CVec4,
-        -- CIVec2,
-        -- CIVec3,
-        -- CIVec4,
-        -- CBVec2,
-        -- CBVec3,
-        -- CBVec4,
+        CIVec2,
+        CIVec3,
+        CIVec4,
+        CBVec2,
+        CBVec3,
+        CBVec4,
         CMat2,
         CMat3,
         CMat4,
-        -- CArray,
+        CArray,
+        toGPUBool,
         -- * Functions
         loop,
         store,
@@ -229,9 +230,11 @@ module FWGL.Shader (
         fragFrontFacing
 ) where
 
+import qualified Data.Int as CPU
 import Data.Typeable (Typeable)
 import qualified Data.Vect.Float as CPU
 import qualified FWGL.Internal.GL as CPU
+import qualified FWGL.Backend.GLES as CPU
 import FWGL.Shader.CPU
 import FWGL.Shader.Language.Types
 import FWGL.Shader.Language.Functions
@@ -240,11 +243,23 @@ import FWGL.Shader.Stages
 import Prelude ((.), id, const, flip, ($))
 import qualified Prelude as CPU
 
+-- | Arrays in the CPU.
+type CArray a = [a]
+
+-- | 32-bit integers in the CPU.
+type CInt = CPU.Int32
+
+-- | Booleans in the CPU.
+type CBool = CPU.Int32
+
 -- | Floats in the CPU.
 type CFloat = CPU.Float
 
 -- | Samplers in the CPU.
 type CSampler2D = CPU.ActiveTexture
+
+-- | Samplers in the CPU.
+type CSamplerCube = CPU.ActiveTexture
 
 -- | 2D vectors in the CPU.
 type CVec2 = CPU.Vec2
@@ -254,6 +269,24 @@ type CVec3 = CPU.Vec3
 
 -- | 4D vectors in the CPU.
 type CVec4 = CPU.Vec4
+
+-- | 2D integer vectors in the CPU.
+type CIVec2 = CPU.IVec2
+
+-- | 3D integer vectors in the CPU.
+type CIVec3 = CPU.IVec3
+
+-- | 4D integer vectors in the CPU.
+type CIVec4 = CPU.IVec4
+
+-- | 2D boolean vectors in the CPU.
+type CBVec2 = CPU.IVec2
+
+-- | 3D boolean vectors in the CPU.
+type CBVec3 = CPU.IVec3
+
+-- | 4D boolean vectors in the CPU.
+type CBVec4 = CPU.IVec4
 
 -- | 2x2 matrices in the CPU.
 type CMat2 = CPU.Mat2
