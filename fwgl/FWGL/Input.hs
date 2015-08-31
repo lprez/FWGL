@@ -22,7 +22,6 @@ module FWGL.Input (
 import Data.Maybe
 import Data.Hashable
 import qualified Data.HashMap.Strict as H
-import Debug.Trace
 import FWGL.Key
 import FRP.Yampa
 
@@ -108,9 +107,9 @@ keyLimited :: KeyCode a => Double -> a -> SF Input (Event ()) -}
 
 -- TODO: remove Show a
 upDown :: Show a => Event a -> (Event (Double, a), Event (Double, a)) -> Event a
-upDown _ (NoEvent, Event (_, x)) = trace "noEv" $ Event x
+upDown _ (NoEvent, Event (_, x)) = Event x
 upDown _ (Event _, NoEvent) = NoEvent
-upDown _ (Event (t, _), Event (t', x)) | t' > t = traceShow (t, t') $ Event x
+upDown _ (Event (t, _), Event (t', x)) | t' > t = Event x
                                        | otherwise = noEvent
 upDown e _ = e
 
