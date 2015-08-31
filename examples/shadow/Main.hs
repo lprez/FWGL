@@ -77,4 +77,4 @@ depthProgram = program depthVertexShader depthFragmentShader
 
 main :: IO ()
 main = do Right o <- loadOBJ "building.obj"
-          fwgl . run $ mainSF o
+          backend . run $ mainSF o
