@@ -23,8 +23,8 @@ module FWGL (
         -- module FWGL.Audio,
         module FWGL.Input,
         module FRP.Yampa,
-        FWGL(..),
-        fwgl,
+        BackendM(..),
+        backend,
         mapIO,
         -- * FRP interface
         Output,
@@ -145,28 +145,30 @@ setTitle :: BackendIO => String -> Effect ()
 setTitle title = Effect $ ask >>= \(canvas, bs) ->
                 liftIO $ setCanvasTitle title canvas bs
 
-newtype FWGL a = FWGL (ReaderT BackendState IO a)
+newtype BackendM a = BackendM (ReaderT BackendState IO a)
         deriving (Functor, Applicative, Monad, MonadIO)
 
--- | Initialize the FWGL backend, run the action and terminate it.
-fwgl :: BackendIO => FWGL () -> IO ()
-fwgl (FWGL a) = initBackend >>= \bs -> runReaderT a bs >> terminateBackend bs
+-- | Initialize the backend, run the action and terminate it.
+backend :: BackendIO => BackendM () -> IO ()
+backend (BackendM a) = do bs <- initBackend
+                          runReaderT a bs
+                          terminateBackend bs
 
 -- | Useful for functions like 'forkIO' and 'forkOS'.
-mapIO :: (IO a -> IO b) -> FWGL a -> FWGL b
-mapIO f (FWGL a) = FWGL ask >>= liftIO . f . runReaderT a
+mapIO :: (IO a -> IO b) -> BackendM a -> BackendM b
+mapIO f (BackendM a) = BackendM ask >>= liftIO . f . runReaderT a
 
 -- | Run a FWGL program on a new canvas/window.
 run :: BackendIO
     => SF (Input ()) Output  -- ^ Main signal
-    -> FWGL ()
+    -> BackendM ()
 run = run' $ return ()
 
 -- | Run a FWGL program, using custom inputs.
 run' :: BackendIO
      => IO inp                -- ^ An IO effect generating the custom inputs.
      -> SF (Input inp) Output
-     -> FWGL ()
+     -> BackendM ()
 run' = runTo "canvas"
 
 -- | Run a FWGL program, using custom inputs and a specified canvas.
@@ -175,7 +177,7 @@ runTo :: BackendIO
                 -- meaning only in the JavaScript backend.
       -> IO inp -- ^ An IO effect generating the custom inputs.
       -> SF (Input inp) Output
-      -> FWGL ()
+      -> BackendM ()
 runTo dest customInput sigf =
         do initCustom <- liftIO customInput
            outputRef <- liftIO . newIORef . eff $ return ()
@@ -209,7 +211,7 @@ runTo dest customInput sigf =
 -- | Run a non-reactive FWGL program.
 runIO :: BackendIO
       => (Double -> Input () -> IO Output) -- ^ Loop function
-      -> FWGL ()
+      -> BackendM ()
 runIO = runToIO "canvas" $ \_ _ -> return ()
 
 -- | Run a non-reactive FWGL program in a specified canvas.
@@ -218,8 +220,8 @@ runToIO :: BackendIO
                   -- meaning only in the JavaScript backend.
         -> (Int -> Int -> IO ()) -- ^ Initialization function
         -> (Double -> Input () -> IO Output) -- ^ Loop function
-        -> FWGL ()
-runToIO dest init fun = FWGL $ ask >>= \bs -> liftIO $
+        -> BackendM ()
+runToIO dest init fun = BackendM $ ask >>= \bs -> liftIO $
         do (canvas, w, h) <- createCanvas dest bs
            init w h
 
