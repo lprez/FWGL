@@ -41,4 +41,4 @@ mainSF = proc inp -> do
         returnA -< draw [layerS $ view idmtx [cubeObj, wallObj]]
 
 main :: IO ()
-main = fwgl $ run mainSF
+main = backend $ run mainSF

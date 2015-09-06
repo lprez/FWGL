@@ -33,7 +33,7 @@ surface = mkGeometry2D (quads (- 0.5) (- 0.5))
               precision = 20
 
 main :: IO ()
-main = fwgl . run $ pointer >>^ \(x, y) -> draw [
+main = backend . run $ pointer >>^ \(x, y) -> draw [
                         layer distProgram . view idmtx . (: []) $
                         Pointer -= Vec2 (fromIntegral x / 640 - 0.5)
                                          (- fromIntegral y / 480 + 0.5)

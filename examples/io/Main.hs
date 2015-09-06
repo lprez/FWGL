@@ -32,7 +32,7 @@ mainSF change = proc inp ->
 
 main :: IO ()
 main = do (out, inp, close) <- createConnection
-          fwgl . run' inp $ mainSF out
+          backend . run' inp $ mainSF out
           close
 
 createConnection :: IO (String -> IO (), IO String, IO ())

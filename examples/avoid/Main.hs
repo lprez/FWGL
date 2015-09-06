@@ -66,4 +66,4 @@ mainSig r = car &&& walls r >>>
         where redScreen = [cube $ colorTex red]
 
 main :: IO ()
-main = newStdGen >>= fwgl . run . mainSig
+main = newStdGen >>= backend . run . mainSig

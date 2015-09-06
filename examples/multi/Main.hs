@@ -35,7 +35,7 @@ mainSF col = pointer &&& size &&& time &&& repeatedly 100 () >>^
                 else max
 
 main :: IO ()
-main = newEmptyMVar >>= \end -> fwgl $
+main = newEmptyMVar >>= \end -> backend $
         do mapIO fork $ do runTo "#canvas2" (return ()) (mainSF blue)
                            liftIO $ putMVar end ()
            runTo "#canvas1" (return ()) $ mainSF red

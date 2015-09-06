@@ -103,7 +103,7 @@ main = do monkeyOBJ <- newIORef Nothing
 #ifdef __GHCJS__
                                         loadDiv $ toJSString ""
 #endif
-          fwgl $ run' (readIORef monkeyOBJ) mainSF
+          backend $ run' (readIORef monkeyOBJ) mainSF
 
 #ifdef __GHCJS__
 foreign import javascript unsafe "document.getElementById('load').innerHTML = $1;"

@@ -405,6 +405,7 @@ instance Hashable Expr where
                                 Dummy i -> hash2 s 11 i
                                 ContextVar i LoopIteration -> hash2 s 12 i
                                 ContextVar i LoopValue -> hash2 s 13 i
+                                ArrayIndex arr i -> hash2 s 14 (arr, i)
 
 instance Hashable Action where
         hashWithSalt s (Store t e) = hash2 s 0 (t, e)

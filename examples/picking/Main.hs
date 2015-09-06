@@ -83,8 +83,8 @@ mainSF putOid = (mouseMove >>> sscan limit NoEvent) &&& scene &&& pick putOid >>
 
 main :: IO ()
 main = newIORef NoEvent >>= \oidRef ->
-       fwgl $ run' (atomicModifyIORef oidRef $ (,) noEvent)
-                   (mainSF $ liftIO . writeIORef oidRef)
+       backend $ run' (atomicModifyIORef oidRef $ (,) noEvent)
+                      (mainSF $ liftIO . writeIORef oidRef)
 
 gridTexture :: Texture
 gridTexture = mkTexture 512 512
