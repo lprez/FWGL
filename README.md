@@ -1,6 +1,8 @@
 FWGL
 ====
 
+Note: all the code about rendering will soon be moved to [Ombra](https://github.com/ziocroc/Ombra).
+
 ![FWGL](http://i.imgur.com/kWUvBCE.png)
 
 Installing
