@@ -45,39 +45,3 @@ Render layers.
 
 **[TCP](https://github.com/ziocroc/FWGL/tree/master/examples/io) (GLFW only)**  
 Custom inputs, IO output.
-
-
-Documentation
--------------
-
-https://hackage.haskell.org/package/fwgl/docs/FWGL.html
-
-
-Project
--------
-
-
-**Features that will be implemented soon:**  
-  * Fullscreen windows
-  * Audio
-  * HTTP requests
-  * Network/WebSocket
-  * Local storage
-  * Blending, culling, etc.
-
-**Other ideas:**  
-  * Android backend
-  * Partial shaders
-
-Note that FWGL won't include anything that can be already done with the shader EDSL. For this reason, these features are unlikely to be implemented unless I find a decent way to implement partial shaders (I will provide examples anyway):  
-  * Lighting
-  * Shadow mapping
-  * Bump mapping
-  * Skyboxes
-  * 3D picking
-  * Skeletal animations (support for animated model formats may be added).
-
-Also, FWGL is not meant to be a complete game engine, but just a rendering engine with canvas/window management. The name "FWGL" is actually both a pun on GLFW, and the acronym for Functional WebGL. These features will never be added:  
-  * Collisions
-  * Physics
-  * Fonts
