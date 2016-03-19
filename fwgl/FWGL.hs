@@ -7,17 +7,6 @@
         * FWGL.Backend.JavaScript: GHCJS/WebGL backend (contained in fwgl-javascript)
         * FWGL.Backend.GLFW.GL20: GLFW/OpenGL 2.0 backend (contained in fwgl-glfw)
 
-
-    And a graphics system:
-
-        * "FWGL.Graphics.D2": 2D graphics
-        * "FWGL.Graphics.D3": 3D graphics
-        * "FWGL.Graphics.Generic"
-
-
-    "FWGL.Shader" contains the EDSL to make custom shaders.
-
-    Import "FWGL.Internal.GL" if you want to use the raw GL commands.
 -}
 module FWGL (
         -- module FWGL.Audio,
@@ -31,7 +20,6 @@ module FWGL (
         run,
         run',
         runTo,
-        draw,
         -- * File loading
         loadOBJ,
         loadOBJAsync,
@@ -39,33 +27,11 @@ module FWGL (
         -- * Effect monad
         Effect,
         eff,
-        drawEff,
-        drawMEff,
         fastStep,
-        -- ** Lifting functions
         liftIO,
-        liftDraw,
         -- ** Window/Canvas
         setSize,
         setTitle,
-        -- * Draw monad (for advanced use)
-        Draw,
-        drawM,
-        -- ** Drawing
-        drawLayer,
-        drawGroup,
-        drawObject,
-        setProgram,
-        renderLayer,
-        resizeViewport,
-        gl,
-        -- ** Texture functions
-        textureUniform,
-        textureSize,
-        -- ** Resources
-        removeGeometry,
-        removeTexture,
-        removeProgram,
         -- * IO interface
         runIO,
         runToIO
@@ -80,57 +46,25 @@ import Control.Monad.IO.Class
 import Control.Monad.Trans.Reader
 import Data.Vect.Float
 -- import FWGL.Audio
-import FWGL.Backend hiding (Texture, Program)
+import FWGL.Backend
 import FWGL.Input
-import FWGL.Internal.GL (evalGL)
-import FWGL.Geometry (Geometry3D)
-import FWGL.Geometry.OBJ
-import FWGL.Graphics.Draw
-import FWGL.Graphics.Types
-import FWGL.Shader.Program (Program)
 import FRP.Yampa
 
 -- | The general output.
-data Output = forall a. Output Bool (Either (Effect ())
-                                            (Draw a, a -> Effect ()))
+data Output = forall a. Output Bool (Effect ())
 
 newtype Effect a = Effect (ReaderT (Canvas, BackendState) Draw a)
         deriving (Functor, Applicative, Monad, MonadIO)
 
--- | Draw some layers. Short for:
--- 
--- > drawM . mapM_ drawLayer
-draw :: BackendIO => [Layer] -> Output
-draw = drawM . mapM_ drawLayer
-
--- | Run a 'Draw' action.
-drawM :: Draw () -> Output
-drawM d = Output False $ Right (d, \_ -> return ())
-
 -- | Perform an effect.
 eff :: Effect () -> Output
-eff = Output False . Left
-
--- | Draw some layers and perform an effect.
-drawEff :: BackendIO => [Layer] -> Effect () -> Output
-drawEff layers eff = drawMEff (mapM_ drawLayer layers) $ const eff
-
--- | Run a 'Draw' action and perform an effect.
-drawMEff :: Draw a -> (a -> Effect ()) -> Output
-drawMEff = curry $ Output False . Right
+eff = Output False
 
 -- | Use this instead of 'eff' when you want the next sample to be performed
 -- immediately (e.g. when you need to produce some computationally expensive
 -- effectful input at the request of the signal function).
 fastStep :: Effect () -> Output
-fastStep = Output True . Left
-
--- | Perform a 'Draw' effect. Note that ('eff' . liftDraw) is different from
--- 'drawM': you have to use drawM to actually draw something on the screen. 
--- liftDraw should be used to modify the state of the context, to get some
--- information from it, to render a 'Layer' on a 'Texture', ecc.
-liftDraw :: Draw a -> Effect a
-liftDraw c = Effect . ReaderT $ const c
+fastStep = Output True
 
 -- | Set canvas/window size.
 setSize :: BackendIO
@@ -160,7 +94,8 @@ mapIO f (BackendM a) = BackendM ask >>= liftIO . f . runReaderT a
 
 -- | Run a FWGL program on a new canvas/window.
 run :: BackendIO
-    => SF (Input ()) Output  -- ^ Main signal
+    => SF (Input ()) (Output a)  -- ^ Main signal
+    -> (a -> IO ())
     -> BackendM ()
 run = run' $ return ()
 
@@ -227,13 +162,10 @@ runToIO dest init fun = BackendM $ ask >>= \bs -> liftIO $
 
            lastTimeRef <- getTime bs >>= newIORef
            newSizeRef <- newIORef Nothing
-           drawStateVar <- drawCanvas (initState w h canvas) False canvas bs
-                           >>= newMVar
 
            setCanvasResizeCallback (resizeCb newSizeRef) canvas bs
 
-           setCanvasRefreshCallback (refreshCb lastTimeRef newSizeRef canvas
-                                               bs drawStateVar)
+           setCanvasRefreshCallback (refreshCb lastTimeRef newSizeRef canvas bs)
                                     canvas bs
 
            refreshLoop 60 canvas bs
@@ -248,30 +180,13 @@ runToIO dest init fun = BackendM $ ask >>= \bs -> liftIO $
                          inp <- popInput () canvas bs
                          out <- fun ((tm' - tm) * 1000) inp
                          writeIORef lastTimeRef tm'
-                         cycle lastTimeRef newSizeRef canvas
-                               bs drawStateVar out
+                         cycle lastTimeRef newSizeRef canvas bs out
 
-              cycle lastTimeRef newSizeRef canvas bs drawStateVar
-                      (Output re edrawEff) =
+              cycle lastTimeRef newSizeRef canvas bs
+                      (Output re eff) =
                       do mNewSize <- readIORef newSizeRef
-                         case edrawEff of
-                              Right (drawAct, effFun) ->
-                                      do r <- drawCanvas (drawTo $
-                                              do case mNewSize of
-                                                      Just (w, h) ->
-                                                        do resizeViewport w h
-                                                           liftIO $ writeIORef
-                                                                newSizeRef
-                                                                Nothing
-                                                      Nothing -> return ()
-                                                 drawBegin
-                                                 r <- drawAct
-                                                 drawEnd
-                                                 return r) True canvas bs
-                                         runEffect $ effFun r
-                              Left eff -> runEffect eff
-                         when re $ refreshCb lastTimeRef newSizeRef
-                                             canvas bs drawStateVar
+                         runEffect eff
+                         when re $ refreshCb lastTimeRef newSizeRef canvas bs
                       where drawTo drawAct ctx = modifyMVar drawStateVar $ \s ->
                                      flip evalGL ctx . fmap swap $
                                              runDraw drawAct s
