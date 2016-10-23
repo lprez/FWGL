@@ -1,7 +1,7 @@
 FWGL
 ====
 
-Note: all the code about rendering will soon be moved to [Ombra](https://github.com/ziocroc/Ombra).
+Note: This is abandoned. The graphics part of the project became [Ombra](https://github.com/ziocroc/Ombra).
 
 ![FWGL](http://i.imgur.com/kWUvBCE.png)
 
